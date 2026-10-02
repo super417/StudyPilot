@@ -270,8 +270,10 @@ class ApiKeyMaskPropertyTests(unittest.TestCase):
         masked = mask_api_key(api_key, mask_char)
         self.assertEqual(masked[-4:], api_key[-4:])
         self.assertEqual(masked[:-4], mask_char * (len(api_key) - 4))
-        if len(api_key) > 4:
-            self.assertNotIn(api_key[: max(1, len(api_key) - 4)], masked)
+        prefix = api_key[:-4]
+        if prefix and prefix != mask_char * len(prefix):
+            # Masked region is pure mask chars, so any non-mask-only prefix cannot appear there.
+            self.assertNotIn(prefix, masked[:-4])
 
 
 class CredentialLeakPropertyTests(unittest.TestCase):

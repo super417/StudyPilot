@@ -1,0 +1,554 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  line-height: 1.5;
+  /*
+   * 中文字体栈：Helvetica Now Display 是**纯拉丁字体，没有中文字形**，
+   * 不补中文就会 fallback 到系统默认（Windows 上字号/字重/字距全不匹配）。
+   * 拉丁部分仍走 Helvetica Now Display 保留原设计感，中文落到 Noto Sans SC。
+   * Arial 必须排在中文字体**之后** —— 它也没有中文字形，但会吃掉 fallback 链。
+   */
+  --font-heading: 'HelveticaNowDisplay-Medium', 'Helvetica Neue', 'Noto Sans SC',
+    'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  --font-body: 'HelveticaNowDisplayW01-Rg', 'Helvetica Neue', 'Noto Sans SC',
+    'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+@layer base {
+  html,
+  body {
+    /* 兜底色取渐变末端近白，滚动回弹/内容撑高时与 App 渐变底部一致，不露白 */
+    background-color: #fdfefe;
+    @apply min-h-screen;
+  }
+
+  body {
+    @apply min-h-screen font-sans text-brandDark;
+  }
+
+  /*
+   * 毛玻璃滚动条
+   *
+   * 目标：去掉系统默认滚动条（灰底 + 上下箭头按钮 + 不透明滑块），换成贴着背景照片的
+   * 半透明玻璃滑块。个人中心的左右栏滚动区正好压在雪山照片上，默认滚动条是整页最扎眼的
+   * 一块"实心灰"。
+   *
+   * 做法：
+   *   - ::-webkit-scrollbar-button { display: none } —— 干掉上下箭头按钮（默认样式的主要噪音）；
+   *   - track 透明 —— 让背后的照片/卡片直接透出来；
+   *   - thumb 半透明白玻璃 + 1px 淡墨绿内描边 + 顶部内高光。
+   *     内描边是必需的：中栏滚动区背后是白卡，纯白滑块在白卡上会完全看不见；
+   *     加了描边后无论在照片上还是白卡上都能读出滑块轮廓。
+   *
+   * 注意：Chrome 121+ 起，只要元素上设了 scrollbar-width（非 auto），就会忽略
+   * ::-webkit-scrollbar 规则。所以这里绝不能顺手写 scrollbar-width，Firefox 的等价写法
+   * 单独放在 @supports 里，靠 selector(::-webkit-scrollbar) 的能力检测互斥。
+   */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.55);
+    box-shadow:
+      inset 0 0 0 1px rgba(6, 78, 59, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.75);
+    box-shadow:
+      inset 0 0 0 1px rgba(6, 78, 59, 0.22),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow:
+      inset 0 0 0 1px rgba(6, 78, 59, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  /* Firefox 兜底：只支持纯色滑块，用半透明白尽量贴近玻璃观感 */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.55) transparent;
+    }
+  }
+}
+
+@layer components {
+  /* 纯白卡片 + 32px 大圆角 + 柔和悬浮阴影 (需求 12) */
+  .card {
+    @apply bg-card rounded-[32px] shadow-[0_10px_40px_rgba(6,78,59,0.08)];
+  }
+
+  /* 主色药丸按钮 + hover 光晕 (需求 12) */
+  .btn-pill {
+    @apply rounded-full bg-brandDark text-white transition-shadow;
+    @apply hover:shadow-[0_0_20px_rgba(16,185,129,0.4)];
+  }
+
+  /*
+   * 液态玻璃面板（liquid-glass）
+   *
+   * 用于个人中心右栏整块容器：透出背后的雪山背景，但保持内容可读。
+   * 五层叠加模拟真实玻璃：
+   *   1) 斜向半透明渐变底 —— 让面板自身有厚薄变化，不是均匀一片白；
+   *   2) backdrop-filter 强模糊 + 提饱和 —— 背后景色被"磨砂"并略微染色；
+   *   3) 1px 白色高光描边 + 顶部内高光 + 底部内暗边 —— 玻璃切边的折射厚度；
+   *   4) ::before 斜向镜面高光（specular）—— 给出光源方向，"液态"感的来源；
+   *   5) ::after 顶部环形边缘光 —— 模拟厚玻璃边缘的透镜聚光。
+   *
+   * ::before / ::after 必须 z-index:-1：面板已 isolation:isolate 自成层叠上下文，
+   * 负 z-index 伪元素绘制在"面板自身背景之上、内容之下"，正好夹在中间。
+   * 若不给负值，绝对定位伪元素会按步骤 8 绘制并盖住文字。
+   */
+  .liquid-glass {
+    position: relative;
+    isolation: isolate;
+    border-radius: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(255, 255, 255, 0.3) 45%,
+      rgba(255, 255, 255, 0.44) 100%
+    );
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+      0 16px 48px rgba(6, 78, 59, 0.14),
+      0 2px 8px rgba(6, 78, 59, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 0 32px rgba(255, 255, 255, 0.22);
+    overflow: hidden;
+  }
+
+  /* 斜向镜面高光：左上亮、右下无，制造光源方向与玻璃厚度 */
+  .liquid-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 42%);
+  }
+
+  /* 顶部环形边缘光：只在上缘可见，模拟厚玻璃边缘的透镜聚光 */
+  .liquid-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 32%);
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 32%);
+  }
+
+  /*
+   * 玻璃面板的浅绿着色变体。
+   *
+   * 个人中心左栏「快捷入口」用：它承担参考图里那张"强调色卡"的角色，纯白玻璃会把这个
+   * 身份抹掉，所以在同样的玻璃质感上保留一层极浅的品牌绿（brandFaint/brandLight），
+   * 底与高光的位置和 .liquid-glass 对齐，两块玻璃共享同一套光照方向。
+   * 放在 .liquid-glass 之后，靠源码顺序覆盖其 background。
+   */
+  .liquid-glass--tint {
+    background: linear-gradient(
+      150deg,
+      rgba(209, 250, 229, 0.68) 0%,
+      rgba(255, 255, 255, 0.34) 45%,
+      rgba(167, 243, 208, 0.46) 100%
+    );
+  }
+
+  /* 玻璃面板内的分区：用细分隔线代替独立卡片，保持一整块的通透感 */
+  .liquid-glass-section {
+    @apply border-t border-white/50 py-5 first:border-t-0 first:pt-0 last:pb-0;
+  }
+
+  /* 玻璃面板内的小色块（待办/操作按钮底），半透明以透出玻璃层次 */
+  .liquid-glass-tile {
+    @apply rounded-2xl bg-white/55 transition hover:bg-white/80;
+  }
+}
+
+@layer utilities {
+  /* Hero 渐变文字 (需求 12) */
+  .text-gradient {
+    font-family: 'Kanit', sans-serif;
+    background: linear-gradient(180deg, #064e3b, #10b981);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /*
+   * 直接落在照片上的深色文字。
+   *
+   * 个人中心左栏的问候语与「42%」不套卡片、直接压在雪山背景上（对齐参考图左栏），
+   * 而背景纵向从浅色天空过渡到深色草地，中间还横着一道深色岩体 —— 文字压上去时
+   * 深色字配深色底会糊掉，光靠加深字色没用（深配深仍是低对比）。
+   * 所以这里用**白色光晕**托底，两层兼顾不同字号：
+   *   - 0 0 3px 贴边光晕：给 12~14px 小字描一圈边，深色背景上也能读清；
+   *   - 0 1px 14px 大半径柔光：给 72px 巨型数字铺底，不产生生硬的描边感。
+   * 在浅色天空/雪山上几乎不可见，只在深色区域显形。
+   */
+  .text-on-photo {
+    text-shadow:
+      0 0 3px rgba(255, 255, 255, 0.92),
+      0 1px 14px rgba(255, 255, 255, 0.75);
+  }
+
+  /*
+   * 长列表视口内渲染优化 (需求 18.28)
+   *
+   * content-visibility:auto —— 让浏览器跳过屏外元素的布局与绘制，
+   * 直到其接近视口才渲染，显著降低长列表滚动时的主线程成本。
+   * 配合 contain-intrinsic-size 给一个占位尺寸估算，避免屏外内容被跳过
+   * 时滚动条高度突变导致的滚动跳动。
+   *
+   * 仅用于「设计上会变长」的列表容器（错题队列、周任务分组、阶段列表、
+   * 掌握度明细）；短列表不加，避免占位高度反而引入抖动。
+   * 占位高度可由各列表按每项估算高度通过内联 style 覆盖。
+   */
+  .cv-list {
+    content-visibility: auto;
+    /* 每项约 88px 的通用兜底估算；具体列表可用内联 style 覆盖更贴合的值 */
+    contain-intrinsic-size: auto 88px;
+  }
+}
+
+/*
+ * 「绿色宇宙」AI 助手输入框 (assistant-input-*)
+ *
+ * 忠实还原原版「宇宙搜索框」机制，改为绿色配色 + 圆角胶囊：
+ *   - 每个光环层（nebula/starfield/cosmic-ring/stardust）是固定不旋转的容器，
+ *     position:absolute + overflow:hidden + border-radius，把内部大转盘裁掉，只露边缘光带。
+ *   - 每层 ::before 是一个远大于容器的大转盘（600px，nebula 999px），
+ *     translate(-50%,-50%) 居中 + conic-gradient（大段透明 + 一两段亮绿扇形）。
+ *   - 默认静止在各自初始角度（60/82/70/83deg），光带静态停在胶囊左上/右下。
+ *   - hover：大转盘转到负角（-97~-120deg），transition: all 2s；松手用基础 all 2s 平滑转回。
+ *   - focus-within：转到 +420~443deg（两圈多），transition: all 4s，快速环绕后平缓停下。
+ *   - 右下角方块发送/停止按钮的边框光带用 animation 持续自转（唯一一直转的）。
+ *
+ * 关键：玻璃层 .assistant-input-field 用 inset 2px 收缩（不铺满），露出四周光带；
+ * 光带 blur 减小、对比拉高，确保旋转清晰可见。
+ */
+
+/* 方块按钮边框持续自转关键帧 */
+@keyframes assistant-input-rotate {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* 外层容器：自适应宽度，胶囊圆角，作为定位与 hover/focus 锚点 */
+.assistant-input-container {
+  position: relative;
+  width: 100%;
+  height: 52px;
+  border-radius: 9999px;
+  isolation: isolate;
+}
+
+/* 光环层通用底座：固定容器（不旋转），overflow 裁掉大转盘，只露边缘 */
+.assistant-input-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* 大转盘：默认停在初始角 --a，基础 transition 2s（供 hover 及松手回弹用） */
+.assistant-input-ring::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 600px;
+  height: 600px;
+  background-repeat: no-repeat;
+  transform: translate(-50%, -50%) rotate(var(--a, 0deg));
+  transition: all 2s;
+  will-change: transform;
+}
+
+/* nebula：外层大范围光晕（最大最模糊） */
+.assistant-input-nebula {
+  inset: -6px;
+  filter: blur(16px);
+  opacity: 0.5;
+}
+.assistant-input-nebula::before {
+  width: 999px;
+  height: 999px;
+  --a: 60deg;
+  filter: brightness(1.2);
+  background-image: conic-gradient(
+    #000,
+    #10b981 5%,
+    #000 38%,
+    #000 50%,
+    #34d399 60%,
+    #000 87%
+  );
+}
+
+/* starfield：中层暗光带（底衬） */
+.assistant-input-starfield {
+  filter: blur(2px);
+  opacity: 0.85;
+}
+.assistant-input-starfield::before {
+  --a: 82deg;
+  background-image: conic-gradient(
+    rgba(0, 0, 0, 0),
+    #065f46,
+    rgba(0, 0, 0, 0) 10%,
+    rgba(0, 0, 0, 0) 50%,
+    #047857,
+    rgba(0, 0, 0, 0) 60%
+  );
+}
+
+/* cosmic-ring：主描边光带（最亮，几乎不糊） */
+.assistant-input-cosmic-ring {
+  filter: blur(0.5px);
+  opacity: 1;
+}
+.assistant-input-cosmic-ring::before {
+  --a: 70deg;
+  filter: brightness(1.3);
+  background-image: conic-gradient(
+    #04150e,
+    #10b981 5%,
+    #04150e 14%,
+    #04150e 50%,
+    #6ee7b7 60%,
+    #04150e 64%
+  );
+}
+
+/* stardust：最内层细亮环 */
+.assistant-input-stardust {
+  inset: 1px;
+  filter: blur(2px);
+  opacity: 0.95;
+}
+.assistant-input-stardust::before {
+  --a: 83deg;
+  filter: brightness(1.4);
+  background-image: conic-gradient(
+    rgba(0, 0, 0, 0) 0%,
+    #34d399,
+    rgba(0, 0, 0, 0) 8%,
+    rgba(0, 0, 0, 0) 50%,
+    #6ee7b7,
+    rgba(0, 0, 0, 0) 58%
+  );
+}
+
+/* hover：大转盘缓缓转到负角（基础 all 2s 生效） */
+.assistant-input-container:hover .assistant-input-nebula::before {
+  transform: translate(-50%, -50%) rotate(-120deg);
+}
+.assistant-input-container:hover .assistant-input-starfield::before {
+  transform: translate(-50%, -50%) rotate(-98deg);
+}
+.assistant-input-container:hover .assistant-input-cosmic-ring::before {
+  transform: translate(-50%, -50%) rotate(-110deg);
+}
+.assistant-input-container:hover .assistant-input-stardust::before {
+  transform: translate(-50%, -50%) rotate(-97deg);
+}
+
+/* focus-within：快速环绕两圈多，transition 覆盖为 all 4s（优先于 hover） */
+.assistant-input-container:focus-within .assistant-input-nebula::before {
+  transform: translate(-50%, -50%) rotate(420deg);
+  transition: all 4s;
+}
+.assistant-input-container:focus-within .assistant-input-starfield::before {
+  transform: translate(-50%, -50%) rotate(442deg);
+  transition: all 4s;
+}
+.assistant-input-container:focus-within .assistant-input-cosmic-ring::before {
+  transform: translate(-50%, -50%) rotate(430deg);
+  transition: all 4s;
+}
+.assistant-input-container:focus-within .assistant-input-stardust::before {
+  transform: translate(-50%, -50%) rotate(443deg);
+  transition: all 4s;
+}
+
+/* 深墨绿底玻璃层：inset 2px 收缩，露出四周旋转光带 */
+.assistant-input-field {
+  position: absolute;
+  inset: 2px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 14px;
+  border-radius: 9999px;
+  background: #04150e;
+  box-shadow: inset 0 0 0 1px rgba(6, 78, 59, 0.6);
+}
+
+/* 左侧图标 */
+.assistant-input-icon {
+  flex-shrink: 0;
+  color: #34d399;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.6));
+}
+
+/* 输入框本体 */
+.assistant-input-el {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #d1fae5;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.assistant-input-el::placeholder {
+  color: #6ee7b7;
+  opacity: 0.7;
+}
+
+/* 右侧方块按钮：绿色旋转边框（虫洞） */
+.assistant-input-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: #05130d;
+  color: #d1fae5;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+.assistant-input-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  z-index: -1;
+  background-repeat: no-repeat;
+  filter: brightness(1.35);
+  background-image: conic-gradient(
+    rgba(0, 0, 0, 0),
+    #10b981,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0) 50%,
+    #6ee7b7,
+    rgba(0, 0, 0, 0) 100%
+  );
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: assistant-input-rotate 4s linear infinite;
+  will-change: transform;
+}
+.assistant-input-btn::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px;
+  z-index: -1;
+  border-radius: 10px;
+  background: #05130d;
+}
+.assistant-input-btn:hover:not(:disabled) {
+  color: #6ee7b7;
+  transform: translateY(-1px);
+}
+.assistant-input-btn:disabled {
+  cursor: not-allowed;
+  color: rgba(209, 250, 229, 0.38);
+}
+.assistant-input-btn-stop::before {
+  background-image: conic-gradient(
+    rgba(0, 0, 0, 0),
+    #ef4444,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0) 50%,
+    #fca5a5,
+    rgba(0, 0, 0, 0) 100%
+  );
+  animation-duration: 2.4s;
+}
+.assistant-input-btn-stop {
+  color: #fecaca;
+}
+
+/* Mainframe expand landing — scoped so StudyPilot chrome stays untouched */
+.mainframe-page {
+  font-family: var(--font-body);
+}
+
+.mainframe-page .mainframe-logo {
+  font-family: var(--font-heading);
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.mainframe-cursor {
+  animation: blink 1s step-end infinite;
+}
+
