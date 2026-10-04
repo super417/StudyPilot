@@ -947,35 +947,48 @@ def _owned_plan(
 
 
 def anchor_plan_to(session: Session, plan: Plan, start: date) -> None:
-    """Slide the whole schedule so its first day is ``start``.
+    """Move the whole schedule so its first day is ``start``.
 
-    ``start`` is the day the user just confirmed. Gaps between days stay.
-    Days that would pass the goal date stop on the goal date. The caller commits.
+    ``start`` is the day the user just confirmed. When the original schedule
+    still fits before the goal date it slides unchanged, so the gaps between
+    days are preserved. When it does not fit, the timeline is compressed in
+    proportion instead of every late phase being clamped onto the goal date —
+    clamping turns "four phases left" into four phases sharing one day, which
+    is worse than a short schedule. The caller commits.
     """
     phases = list_phases_for_plan(session, plan.id)
     plan.start_date = start
     if not phases:
         return
-    earliest = min(phase.start_date for phase in phases)
-    delta = start - earliest
+    tasks = list(
+        session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
+    )
+    earliest = min(
+        [phase.start_date for phase in phases] + [task.task_date for task in tasks]
+    )
+    latest = max(
+        [phase.end_date for phase in phases] + [task.task_date for task in tasks]
+    )
     goal = plan.goal_date
+    span = (latest - earliest).days
+    room = max((goal - start).days, 0)
+
+    if span <= room:
+        def move(day: date) -> date:
+            return day + (start - earliest)
+    else:
+        ratio = room / span
+
+        def move(day: date) -> date:
+            return start + timedelta(days=round((day - earliest).days * ratio))
+
     for phase in phases:
-        phase_start = phase.start_date + delta
-        phase_end = phase.end_date + delta
-        if phase_start > goal:
-            phase_start = goal
-        if phase_end > goal:
-            phase_end = goal
-        if phase_end < phase_start:
-            phase_end = phase_start
+        phase_start = min(move(phase.start_date), goal)
+        phase_end = min(max(move(phase.end_date), phase_start), goal)
         phase.start_date = phase_start
         phase.end_date = phase_end
-    for task in session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id)):
-        moved = task.task_date + delta
-        if moved < start:
-            moved = start
-        if moved > goal:
-            moved = goal
+    for task in tasks:
+        moved = min(max(move(task.task_date), start), goal)
         task.task_date = moved
         task.week_label = f"W{moved.isocalendar().week:02d}"
 
