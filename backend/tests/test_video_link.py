@@ -1,7 +1,11 @@
+import asyncio
 import os
+import socket
 import unittest
 from datetime import date, timedelta
 
+import httpx
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -20,6 +24,58 @@ from app.services.video_link import (
     url_is_glued,
     wants_to_adopt,
 )
+
+
+@pytest.mark.parametrize("bvid", ["BV1SiDYBeET5", "BV1b7411N798"])
+def test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable(monkeypatch, bvid):
+    def unavailable_dns(*_args, **_kwargs):
+        raise socket.gaierror(11001, "getaddrinfo failed")
+
+    requested = []
+
+    def respond(request):
+        requested.append(str(request.url))
+        return httpx.Response(
+            200,
+            json={
+                "code": 0,
+                "data": {
+                    "title": "数据结构",
+                    "owner": {"name": "课程作者"},
+                    "pages": [{"page": 1, "part": "线性表", "duration": 600}],
+                },
+            },
+        )
+
+    client_type = httpx.AsyncClient
+    monkeypatch.setattr(video_link.socket, "getaddrinfo", unavailable_dns)
+    monkeypatch.setattr(
+        video_link.httpx,
+        "AsyncClient",
+        lambda **kwargs: client_type(transport=httpx.MockTransport(respond), **kwargs),
+    )
+    found = asyncio.run(video_link.fetch_link(f"https://www.bilibili.com/video/{bvid}"))
+    assert found is not None
+    assert found["title"] == "数据结构"
+    assert found["sections"][0]["label"] == "P1 线性表"
+    assert requested == [f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1/video/BV1SiDYBeET5",
+        "https://evilbilibili.com/video/BV1SiDYBeET5",
+        "ftp://www.bilibili.com/video/BV1SiDYBeET5",
+    ],
+)
+def test_only_official_http_bilibili_hosts_get_the_fixed_api_route(monkeypatch, url):
+    monkeypatch.setattr(
+        video_link.socket, "getaddrinfo",
+        lambda *_args, **_kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 0))],
+    )
+    found = asyncio.run(video_link.fetch_link(url))
+    assert found is None
 
 
 class VideoLinkTests(unittest.TestCase):
@@ -197,6 +253,69 @@ class VideoLinkTests(unittest.TestCase):
         assert video is not None
         self.assertEqual(video["title"], "高数基础")
         self.assertEqual([item["label"] for item in video["sections"]], ["P1 极限", "P2 导数"])
+
+    def test_normalize_keeps_every_part_of_a_long_course(self) -> None:
+        """Regression: only the first 40 parts used to survive, so a 87-part
+        course was reported (and scheduled) as if it were 40 parts long."""
+        video = normalize_view(
+            {
+                "code": 0,
+                "data": {
+                    "title": "数据结构带学",
+                    "owner": {"name": "某老师"},
+                    "pages": [
+                        {"page": number, "part": f"第{number}讲", "duration": 600}
+                        for number in range(1, 88)
+                    ],
+                },
+            },
+            "BV1SiDYBeET5",
+        )
+        self.assertIsNotNone(video)
+        assert video is not None
+        self.assertEqual(len(video["sections"]), 87)
+        self.assertEqual(
+            sum(section["duration"] for section in video["sections"]), 87 * 600
+        )
+        self.assertEqual(video["sections"][-1]["label"], "P87 第87讲")
+
+    def test_comparison_shortens_a_long_outline_without_hiding_its_size(self) -> None:
+        long_course = {
+            "url": "https://www.bilibili.com/video/BV1SiDYBeET5",
+            "title": "数据结构带学",
+            "source": "某老师",
+            "summary": "",
+            "body": "",
+            "has_outline": True,
+            "sections": [
+                {"label": f"P{number} 第{number}讲", "url": "", "duration": 600}
+                for number in range(1, 88)
+            ],
+        }
+        reply = video_link.format_comparison(
+            [{"url": long_course["url"], "material": long_course}]
+        )
+        outline = next(
+            line for line in reply.split("\n") if line.startswith("章节结构")
+        )
+        self.assertLess(len(outline), 200)
+        self.assertIn("P1 第1讲", outline)
+        self.assertNotIn("P87 第87讲", outline)
+        self.assertIn("共 87 节", outline)
+        # 87 x 600s = 14.5h — the whole course, not just its first 40 parts.
+        self.assertIn("14.5 小时", reply)
+
+        for_model = video_link.format_comparison(
+            [{"url": long_course["url"], "material": long_course}], for_model=True
+        )
+        model_outline = next(
+            line for line in for_model.split("\n") if line.startswith("章节结构")
+        )
+        # The model gets more of the outline than the reader does, so it can
+        # judge what the course covers.
+        self.assertGreater(len(model_outline), len(outline))
+        self.assertIn("P60 第60讲", model_outline)
+        self.assertNotIn("P87 第87讲", model_outline)
 
     def test_html_keeps_title_and_headings(self) -> None:
         material = material_from_html(

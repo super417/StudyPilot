@@ -189,18 +189,20 @@ def build_chat_messages(
         parts.append(study_text)
     if comparison_text:
         parts.append(
-            "多链接实际读取结果：\n"
+            "多链接实际读取结果（只供判断，不要原样贴进回复）：\n"
             + comparison_text
-            + "\n逐项对比章节结构、时长、覆盖范围、来源，并分别列出优势和劣势。"
+            + "\n只回答用户这一句问的事，用几句普通中文给出结论和一句理由。"
+            "不要写思考过程，不要逐条罗列分P、目录、时长或优势清单。"
             "标记「这个没读到」的链接没有内容依据，不得编造或评价它。"
             "没有完整时长时不得推算总时长；未出现在目录里不代表没讲。"
-            "用户必须明确选定一个链接才能进入开始日期确认，当前没有改动规划。"
+            "用户还没选定一个链接，不要说规划已经改了，也不要开始排日期。"
         )
     elif video_text:
         parts.append(
-            "链接内容（已经打开用户发来的链接，按他这句话的需求来用，不要说没打开）：\n"
+            "链接内容（已经打开用户发来的链接，按他这句话的需求来用，不要说没打开，也不要原样贴出目录）：\n"
             + video_text
-            + "\n对照用户的目标、当前水平、每天时长和当前阶段给建议。"
+            + "\n只回答用户这一句问的事。不要写思考过程，不要逐条罗列分P。"
+            "对照用户的目标、当前水平、每天时长和当前阶段给结论。"
             "建议适合现在学，就说明原因，并问一句要不要按这个链接里的内容来学。"
             "用户还没同意时，不要说规划已经改了。"
             "不适合就说明差在哪里，不要问要不要排进规划。"
@@ -360,10 +362,26 @@ async def stream_assistant_reply(
                 candidates=candidates,
             )
         )
-        reply = format_comparison(candidates)
-        async for frame in stream_ai_sse(
-            lambda: _local_text_stream(reply),
-            is_disconnected,
+        if not has_verified_api_config(session, user_id):
+            # No model to advise with, but the facts are already in hand — show
+            # them rather than failing the turn.
+            reply = format_comparison(candidates)
+            async for frame in stream_ai_sse(
+                lambda: _local_text_stream(reply),
+                is_disconnected,
+            ):
+                yield frame
+            return
+        async for frame in _stream_chat_reply(
+            session,
+            user_id,
+            text,
+            context,
+            study_text=study_brief(session, user_id),
+            comparison_text=format_comparison(candidates, for_model=True),
+            reasoning_strength=reasoning_strength,
+            is_disconnected=is_disconnected,
+            stream_factory=stream_factory,
         ):
             yield frame
         return
@@ -403,9 +421,9 @@ async def stream_assistant_reply(
             or any(item["url"] == linked for item in draft.candidates)
             or re.search(r"哪个|哪门|比较|对比|还是", text)
         ) and (not linked or any(item["url"] == linked for item in draft.candidates)):
-            comparison = format_comparison(draft.candidates)
+            comparison = format_comparison(draft.candidates, for_model=True)
             if wants_to_adopt(text) or parse_start_date(text, current.date()) is not None:
-                reply = "还没有选定课程，先明确选择一个链接，再确认开始日期。\n" + comparison
+                reply = "还没有选定课程。先说选哪一个，例如「第一个」或贴出那个链接，再确认开始日期。"
                 async for frame in stream_ai_sse(
                     lambda: _local_text_stream(reply),
                     is_disconnected,

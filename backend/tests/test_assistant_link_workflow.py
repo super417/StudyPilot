@@ -117,6 +117,7 @@ def chat(monkeypatch):
     state = {
         "session": session, "user": user, "plan": plan, "reply": reply,
         "payloads": payloads, "fetched": fetched, "materials": materials,
+        "factory": factory,
         "count": lambda: session.scalar(select(func.count()).select_from(DailyTask)),
     }
     yield state
@@ -124,6 +125,15 @@ def chat(monkeypatch):
     session.close()
     engine.dispose()
     get_settings.cache_clear()
+
+
+def comparison_context(chat) -> str:
+    """The facts handed to the model on the last turn.
+
+    A multi-link turn is answered by the model, so the comparison lands in the
+    request rather than in the reply the reader sees.
+    """
+    return chat["payloads"][-1]["messages"][-1]["content"]
 
 
 def test_draft_question_keeps_study_and_read_material_context(chat):
@@ -183,16 +193,17 @@ def test_second_short_agreement_confirms_the_previewed_range(chat):
     ],
 )
 def test_comparison_reads_every_link_and_does_not_schedule(chat, message):
-    reply = chat["reply"](message)
+    chat["reply"](message)
     assert chat["fetched"] == [URL_A, URL_B]
     assert chat["count"]() == 0
+    content = comparison_context(chat)
     for fact in (
         "王道数据结构", "数据结构专题", "线性表", "树", "图",
         "240", "60", "王道", "专题老师",
         "章节", "时长", "覆盖", "来源", "优势", "劣势",
     ):
-        assert fact in reply
-    assert "选择" in reply or "选定" in reply
+        assert fact in content
+    assert "多链接实际读取结果" in content
 
 
 @pytest.mark.parametrize(
@@ -247,11 +258,12 @@ def test_selection_still_requires_preview_for_a_short_agreement(chat):
 
 def test_unreadable_candidate_is_reported_and_cannot_be_selected(chat):
     chat["materials"][URL_B] = None
-    reply = chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
+    chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
     assert chat["fetched"] == [URL_A, URL_B]
-    assert URL_B in reply
-    assert "这个没读到" in reply
-    assert "专题老师" not in reply and "树与图的专题复习" not in reply
+    content = comparison_context(chat)
+    assert URL_B in content
+    assert "这个没读到" in content
+    assert "专题老师" not in content and "树与图的专题复习" not in content
     assert chat["count"]() == 0
 
     selected = chat["reply"]("选第二个")
@@ -310,12 +322,13 @@ def test_comparison_does_not_invent_unknown_duration_or_coverage(chat):
     chat["materials"][URL_B]["sections"] = [
         {"label": "定义", "url": URL_B, "duration": 0}
     ]
-    reply = chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
+    chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
     assert chat["fetched"] == [URL_A, URL_B]
-    assert "时长" in reply and "没读到" in reply
-    assert "定义" in reply
-    assert "树与图的专题复习" not in reply
-    assert "专题老师" not in reply
+    content = comparison_context(chat)
+    assert "时长" in content and "没读到" in content
+    assert "定义" in content
+    assert "树与图的专题复习" not in content
+    assert "专题老师" not in content
     assert chat["count"]() == 0
 
 
@@ -335,8 +348,8 @@ def test_a_title_only_page_is_not_presented_as_a_chapter_outline(chat):
         URL_B, "<html><head><title>数据结构笔记</title></head>"
         "<body><p>关于线性表的笔记。</p></body></html>",
     )
-    reply = chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
-    note = reply.split("2. 《数据结构笔记》", 1)[1]
+    chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
+    note = comparison_context(chat).split("2. 《数据结构笔记》", 1)[1]
     assert "没读到章节目录" in note
     assert "只读到目录：数据结构笔记" not in note
     assert chat["count"]() == 0
@@ -357,9 +370,9 @@ def test_new_link_discards_an_old_pending_confirmation(chat):
 def test_three_links_are_all_read_and_can_select_the_third(chat):
     url_c = "https://example.com/notes"
     chat["materials"][url_c] = material(url_c, "数据结构笔记", 0)
-    reply = chat["reply"](f"{URL_A} 和 {URL_B} 还是 {url_c} 哪个好")
+    chat["reply"](f"{URL_A} 和 {URL_B} 还是 {url_c} 哪个好")
     assert chat["fetched"] == [URL_A, URL_B, url_c]
-    assert "数据结构笔记" in reply
+    assert "数据结构笔记" in comparison_context(chat)
     assert chat["count"]() == 0
     chat["reply"]("选第三个")
     assert chat["count"]() == 0
@@ -379,20 +392,49 @@ def test_a_fetch_error_does_not_skip_the_remaining_link(chat, monkeypatch):
     monkeypatch.setattr(assistant_service, "fetch_link", fetcher)
 
     async def run():
-        parts = []
-        async for frame in assistant_service.stream_assistant_reply(
+        async for _frame in assistant_service.stream_assistant_reply(
             chat["session"], chat["user"].id, f"{URL_A} 和 {URL_B} 哪个好",
-            None, now=NOW,
+            None, now=NOW, stream_factory=chat["factory"],
         ):
-            if "event: token" in frame:
-                parts.append(json.loads(frame.split("data: ", 1)[1])["delta"])
-        return "".join(parts)
+            pass
 
-    reply = asyncio.run(run())
+    asyncio.run(run())
     assert chat["fetched"] == [URL_A, URL_B]
-    assert "这个没读到" in reply
-    assert "数据结构专题" in reply
-    assert "王道数据结构" not in reply
+    content = comparison_context(chat)
+    assert "这个没读到" in content
+    assert "数据结构专题" in content
+    assert "王道数据结构" not in content
+    assert chat["count"]() == 0
+
+
+def test_comparison_still_answers_when_no_model_is_configured(chat, monkeypatch):
+    """Without a configured model the facts must still reach the reader."""
+    monkeypatch.setattr(
+        assistant_service, "has_verified_api_config", lambda *_: False
+    )
+    reply = chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
+    assert chat["fetched"] == [URL_A, URL_B]
+    assert "王道数据结构" in reply and "数据结构专题" in reply
+    assert "章节结构" in reply
+    assert chat["payloads"] == []
+    assert chat["count"]() == 0
+
+
+def test_reader_facing_comparison_stays_short_for_a_long_course(chat, monkeypatch):
+    monkeypatch.setattr(
+        assistant_service, "has_verified_api_config", lambda *_: False
+    )
+    chat["materials"][URL_A] = {
+        **material(URL_A, "超长课", 0),
+        "sections": [
+            {"label": f"P{number} 第{number}讲", "url": URL_A, "duration": 600}
+            for number in range(1, 88)
+        ],
+    }
+    reply = chat["reply"](f"{URL_A} 和 {URL_B} 哪个好")
+    outline = next(line for line in reply.split("\n") if line.startswith("章节结构"))
+    assert "共 87 节" in outline
+    assert "P87 第87讲" not in outline
     assert chat["count"]() == 0
 
 

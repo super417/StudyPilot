@@ -34,7 +34,18 @@ _ADOPT = re.compile(
 )
 _YES = re.compile(r"^\s*(是的?|好的?|可以|行|要|嗯|同意|确认(?:写入)?|确定)[，,。.!！\s]*$")
 _VIEW = "https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
+# Headings scraped from one generic HTML page.
 _MAX_SECTIONS = 40
+# Parts of a single Bilibili video. Long courses run well past 100 parts, and
+# anything dropped here disappears from both the reported duration and the
+# daily plan, so this cap only guards against absurd input.
+_MAX_VIDEO_SECTIONS = 300
+# How many labels one line may list before it is cut short. The reply a reader
+# sees stays short; the model is given more so it can judge what a course covers.
+_MAX_LABELS_SHOWN = 8
+_MAX_PROMPT_LABELS = 60
+# How many parts ``format_material`` spells out for the model.
+_MAX_MATERIAL_LINES = 60
 _MAX_BYTES = 400_000
 _logger = logging.getLogger(__name__)
 
@@ -231,8 +242,37 @@ def select_candidate(text: str, candidates: list[dict]) -> dict | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def format_comparison(candidates: list[dict]) -> str:
-    """Compare fetched facts without inferring unseen topics or quality."""
+def _format_duration(seconds: int) -> str:
+    """Long courses read better in hours; short clips stay in minutes."""
+    minutes = round(seconds / 60)
+    if seconds >= 3600:
+        return f"{seconds / 3600:.1f} 小时（{minutes} 分钟）"
+    return f"{minutes} 分钟"
+
+
+def _display_labels(
+    labels: list[str], separator: str = "、", limit: int = _MAX_LABELS_SHOWN
+) -> str:
+    """Join labels for display, cutting a long list short.
+
+    A full part list can run to a hundred entries; spelling every one out turns
+    a reply into a wall of text. The count is always stated so nothing is
+    hidden — only abbreviated.
+    """
+    if len(labels) <= limit:
+        return separator.join(labels)
+    head = separator.join(labels[:limit])
+    return f"{head}{separator}…（共 {len(labels)} 节）"
+
+
+def format_comparison(candidates: list[dict], *, for_model: bool = False) -> str:
+    """Compare fetched facts without inferring unseen topics or quality.
+
+    ``for_model`` keeps more of the outline. The model needs enough of it to
+    judge what each course actually covers; a reply shown to the reader stays
+    short instead.
+    """
+    label_limit = _MAX_PROMPT_LABELS if for_model else _MAX_LABELS_SHOWN
     complete_totals = []
     for item in candidates:
         sections = (item.get("material") or {}).get("sections") or []
@@ -255,7 +295,7 @@ def format_comparison(candidates: list[dict]) -> str:
         ] if material.get("has_outline", True) else []
         total = sum(int(section.get("duration") or 0) for section in sections)
         unknown = sum(not section.get("duration") for section in sections)
-        duration = f"{total / 60:g} 分钟"
+        duration = _format_duration(total)
         if not total:
             duration = "没读到，不能估算总时长"
         elif unknown:
@@ -263,7 +303,7 @@ def format_comparison(candidates: list[dict]) -> str:
         coverage = material.get("summary") or material.get("body")
         if not coverage:
             coverage = (
-                "只读到目录：" + "、".join(labels)
+                "只读到目录：" + _display_labels(labels, limit=label_limit)
                 if labels else f"只读到标题：{material['title']}"
             )
         source = material.get("source") or "没读到"
@@ -271,13 +311,14 @@ def format_comparison(candidates: list[dict]) -> str:
             (
                 f"{index}. 《{material['title']}》",
                 f"链接：{item['url']}",
-                f"章节结构：共读到 {len(sections)} 节；" + " → ".join(labels)
+                f"章节结构：共读到 {len(sections)} 节；"
+                + _display_labels(labels, " → ", limit=label_limit)
                 if labels else "章节结构：没读到章节目录，仅有标题。",
                 f"时长（已读章节）：{duration}",
                 f"覆盖范围（页面摘要、正文或目录）：{coverage}",
                 f"来源：{source}",
                 "优势：",
-                f"1）读到的目录可按章节安排学习：{'、'.join(labels)}。"
+                f"1）读到的目录可按章节安排学习：{_display_labels(labels, limit=label_limit)}。"
                 if labels else "1）读到了标题，但尚无章节依据。",
             )
         )
@@ -293,7 +334,8 @@ def format_comparison(candidates: list[dict]) -> str:
         ]
         if other_labels and distinct:
             lines.append(
-                f"{advantage_number}）目录区别：这份明确列出{'、'.join(distinct)}，"
+                f"{advantage_number}）目录区别：这份明确列出"
+                f"{_display_labels(distinct, limit=label_limit)}，"
                 "其他已读取目录未列出，便于按这些章节选课；不代表其他课程没讲。"
             )
             advantage_number += 1
@@ -361,7 +403,7 @@ def normalize_view(payload: dict, bvid: str) -> dict | None:
     data = payload["data"]
     page_url = f"https://www.bilibili.com/video/{bvid}"
     sections = []
-    for item in (data.get("pages") or [])[:_MAX_SECTIONS]:
+    for item in (data.get("pages") or [])[:_MAX_VIDEO_SECTIONS]:
         if not isinstance(item, dict):
             continue
         try:
@@ -526,10 +568,14 @@ def format_material(material: dict) -> str:
     if material.get("body"):
         lines.append("正文摘录：" + material["body"])
     lines.append("页面里能排进每天的内容：")
-    for section in material["sections"]:
+    sections = material["sections"]
+    for section in sections[:_MAX_MATERIAL_LINES]:
         minutes = section["duration"] // 60
         suffix = f"（约{minutes}分钟）" if minutes else ""
         lines.append(f"{section['label']}{suffix}")
+    hidden = len(sections) - _MAX_MATERIAL_LINES
+    if hidden > 0:
+        lines.append(f"（后面还有 {hidden} 节，没有全部列出）")
     return "\n".join(lines)
 
 
