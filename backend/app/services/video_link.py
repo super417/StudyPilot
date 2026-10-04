@@ -7,7 +7,7 @@ short excerpt. Private and local addresses are refused.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 import ipaddress
@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.entities import ChatMessage, Conversation, DailyTask, Phase, Plan
+from app.services import task_service
 
 _BVID = re.compile(r"BV[0-9A-Za-z]{10}")
 _URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
@@ -307,67 +308,148 @@ def latest_url(session: Session, user_id: uuid.UUID) -> str | None:
 
 
 def _pack(sections: list[dict], daily_minutes: int) -> list[list[dict]]:
+    """Split each part into day-sized slices, then fill consecutive days."""
     budget = max(int(daily_minutes or 0), 20) * 60
+    pieces: list[dict] = []
+    for section in sections:
+        remaining = int(section.get("duration") or 0) or budget
+        part_total = max(1, (remaining + budget - 1) // budget)
+        index = 1
+        while remaining > 0:
+            take = min(remaining, budget)
+            label = str(section.get("label") or "")
+            if part_total > 1:
+                label = f"{label}（{index}/{part_total}）"
+            pieces.append(
+                {
+                    "label": label,
+                    "url": section.get("url") or "",
+                    "seconds": take,
+                    "part_index": index,
+                    "part_total": part_total,
+                }
+            )
+            remaining -= take
+            index += 1
     groups: list[list[dict]] = []
     current: list[dict] = []
     used = 0
-    for section in sections:
-        seconds = section["duration"] or budget
-        if current and used + seconds > budget:
+    for piece in pieces:
+        if current and used + piece["seconds"] > budget:
             groups.append(current)
             current = []
             used = 0
-        current.append(section)
-        used += seconds
+        current.append(piece)
+        used += piece["seconds"]
     if current:
         groups.append(current)
     return groups
 
 
-def merge_into_daily_plan(session: Session, user_id: uuid.UUID, material: dict) -> str:
-    """Write this page's real sections onto pending tasks from today."""
+def _phase_for_day(session: Session, plan_id: uuid.UUID, day: date) -> Phase | None:
+    phase = session.scalar(
+        select(Phase)
+        .where(
+            Phase.plan_id == plan_id,
+            Phase.start_date <= day,
+            Phase.end_date >= day,
+        )
+        .order_by(Phase.phase_index)
+    )
+    if phase is not None:
+        return phase
+    phase = session.scalar(
+        select(Phase)
+        .where(Phase.plan_id == plan_id, Phase.is_current.is_(True))
+        .order_by(Phase.phase_index)
+    )
+    if phase is not None:
+        return phase
+    return session.scalar(
+        select(Phase).where(Phase.plan_id == plan_id).order_by(Phase.phase_index)
+    )
+
+
+def _strip_marker(session: Session, plan_id: uuid.UUID, marker: str) -> None:
+    tasks = list(session.scalars(select(DailyTask).where(DailyTask.plan_id == plan_id)))
+    for task in tasks:
+        if marker not in task.description:
+            continue
+        head = task.description.split(marker, 1)[0].rstrip()
+        if not head:
+            session.delete(task)
+            continue
+        task.description = head
+        task.resource_url = None
+    session.flush()
+
+
+def merge_into_daily_plan(
+    session: Session,
+    user_id: uuid.UUID,
+    material: dict,
+    start_date: date,
+) -> str:
+    """Lay this page's sections on consecutive days starting at ``start_date``."""
     plan = session.scalar(
         select(Plan).where(Plan.user_id == user_id).order_by(Plan.created_at.desc(), Plan.id.desc())
     )
     if plan is None:
         return "还没有每日规划。先生成规划，再说按这个来学，我才能把链接里的内容排进每一天。"
-    today = date.today()
-    tasks = list(
-        session.scalars(
+    marker = f"按《{material['title']}》学："
+    _strip_marker(session, plan.id, marker)
+    groups = _pack(material["sections"], plan.daily_minutes)
+    written: list[DailyTask] = []
+    touched: set[uuid.UUID] = set()
+    for index, group in enumerate(groups):
+        target = start_date + timedelta(days=index)
+        task = session.scalar(
             select(DailyTask)
             .where(
                 DailyTask.plan_id == plan.id,
-                DailyTask.task_date >= today,
+                DailyTask.task_date == target,
                 DailyTask.status == "pending",
             )
-            .order_by(DailyTask.task_date, DailyTask.id)
+            .order_by(DailyTask.id)
         )
-    )
-    if not tasks:
-        return "从今天起没有待完成的每日任务，所以还排不进去。先补上今天之后的任务。"
-    marker = f"按《{material['title']}》学："
-    if any(marker in task.description for task in tasks):
-        return _schedule_reply(material, tasks, marker, already=True)
-    groups = _pack(material["sections"], plan.daily_minutes)
-    for index, group in enumerate(groups):
-        task = tasks[min(index, len(tasks) - 1)]
-        label = "、".join(section["label"] for section in group)
-        if index < len(tasks):
+        label = "、".join(piece["label"] for piece in group)
+        link = public_http_url(group[0]["url"])
+        if task is None:
+            phase = _phase_for_day(session, plan.id, target)
+            if phase is None:
+                return "这份规划还没有阶段，排不进每日任务。"
+            task = DailyTask(
+                plan_id=plan.id,
+                phase_id=phase.id,
+                task_date=target,
+                week_label=f"W{target.isocalendar().week:02d}",
+                description=f"{marker}{label}",
+                status="pending",
+                resource_url=link,
+            )
+            session.add(task)
+            touched.add(phase.id)
+        else:
             task.description = f"{task.description} {marker}{label}"
-            link = public_http_url(group[0]["url"])
             if link:
                 task.resource_url = link
-        else:
-            task.description = f"{task.description}、{label}"
+            touched.add(task.phase_id)
+        written.append(task)
+    session.flush()
+    for phase_id in touched:
+        phase = session.get(Phase, phase_id)
+        if phase is not None:
+            task_service.recompute_phase_progress(session, phase)
     session.commit()
-    return _schedule_reply(material, tasks[: min(len(groups), len(tasks))], marker, already=False)
+    return _schedule_reply(material, written, marker, start_date)
 
 
-def _schedule_reply(material: dict, tasks: list[DailyTask], marker: str, *, already: bool) -> str:
+def _schedule_reply(
+    material: dict, tasks: list[DailyTask], marker: str, start_date: date
+) -> str:
     head = (
-        f"《{material['title']}》已经在每天的任务里。"
-        if already
-        else f"按你现在的规划，把《{material['title']}》里读到的内容排进从今天开始的每日任务了。"
+        f"按你现在的规划，把《{material['title']}》里读到的内容"
+        f"排进从{start_date.isoformat()}开始的每日任务了。"
     )
     lines = [head, "每天学到："]
     shown = tasks[:14]

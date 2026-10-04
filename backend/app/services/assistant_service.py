@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from datetime import date
 from typing import AsyncIterator, Awaitable, Callable
 import json
 import re
@@ -297,7 +298,7 @@ async def stream_assistant_reply(
         if url:
             material = await fetcher(url)
             reply = (
-                merge_into_daily_plan(session, user_id, material)
+                merge_into_daily_plan(session, user_id, material, date.today())
                 if material
                 else "这个链接没有打开，没读到里面的内容。换一个打得开的链接，或把标题和章节发我。"
             )

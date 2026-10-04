@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.models.base import Base
 from app.models.entities import DailyTask, Phase, Plan, User
 from app.services.video_link import (
+    _pack,
     extract_bvid,
     extract_url,
     material_from_html,
@@ -177,15 +178,122 @@ class VideoLinkTests(unittest.TestCase):
                 {"label": "P2 导数", "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb?p=2", "duration": 3600},
             ],
         }
-        reply = merge_into_daily_plan(self.session, user.id, video)
+        reply = merge_into_daily_plan(self.session, user.id, video, today)
         tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
-        self.assertIn("P1 极限", tasks[0].description)
-        self.assertIn("P2 导数", tasks[1].description)
+        self.assertEqual(
+            [task.task_date for task in tasks],
+            [today + timedelta(days=offset) for offset in range(4)],
+        )
+        self.assertIn("P1 极限（1/2）", tasks[0].description)
+        self.assertIn("P1 极限（2/2）", tasks[1].description)
+        self.assertIn("P2 导数（1/2）", tasks[2].description)
         self.assertIn("原任务", tasks[0].description)
         self.assertTrue(tasks[0].resource_url.endswith("BV1mr4y1K7Lb"))
-        self.assertIn("p=2", tasks[1].resource_url)
+        self.assertIn("p=2", tasks[2].resource_url)
         self.assertIn(today.isoformat(), reply)
-        again = merge_into_daily_plan(self.session, user.id, video)
-        self.assertIn("已经在每天的任务里", again)
+        again = merge_into_daily_plan(self.session, user.id, video, today)
         tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
         self.assertEqual(tasks[0].description.count("按《高数基础》"), 1)
+        self.assertIn(today.isoformat(), again)
+
+    def test_pack_uses_consecutive_days_not_sparse_rows(self) -> None:
+        budget = 120 * 60
+        short = _pack(
+            [
+                {"label": "A", "url": "https://example.com/a", "duration": 1200},
+                {"label": "B", "url": "https://example.com/b", "duration": 600},
+            ],
+            120,
+        )
+        self.assertEqual(len(short), 1)
+        self.assertLessEqual(sum(piece["seconds"] for piece in short[0]), budget)
+
+        user = User(username=f"u-{os.urandom(3).hex()}", password_hash="x" * 8)
+        self.session.add(user)
+        self.session.flush()
+        start = date(2026, 10, 4)
+        plan = Plan(
+            user_id=user.id,
+            goal_name="数学二",
+            start_date=start,
+            goal_date=date(2026, 12, 31),
+            current_level="基础",
+            daily_minutes=120,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="基础",
+            start_date=start,
+            end_date=date(2026, 12, 31),
+            is_current=True,
+        )
+        self.session.add(phase)
+        self.session.flush()
+        for sparse in (date(2026, 10, 20), date(2026, 11, 1)):
+            self.session.add(
+                DailyTask(
+                    plan_id=plan.id,
+                    phase_id=phase.id,
+                    task_date=sparse,
+                    week_label="W01",
+                    description="旧任务",
+                    status="pending",
+                )
+            )
+        self.session.commit()
+        video = {
+            "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+            "title": "高数基础",
+            "source": "",
+            "summary": "",
+            "body": "",
+            "sections": [
+                {
+                    "label": "P1 26高数基础01",
+                    "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+                    "duration": 1200,
+                },
+                {
+                    "label": "P2 26高数基础02",
+                    "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb?p=2",
+                    "duration": 600,
+                },
+            ],
+        }
+        merge_into_daily_plan(self.session, user.id, video, start)
+        tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
+        dated = {task.task_date: task for task in tasks}
+        self.assertIn(start, dated)
+        self.assertNotIn("P1", dated[date(2026, 10, 20)].description)
+        self.assertNotIn("P2", dated[date(2026, 11, 1)].description)
+        self.assertEqual(dated[date(2026, 10, 20)].description, "旧任务")
+        created = [task for task in tasks if task.task_date == start]
+        self.assertEqual(len(created), 1)
+        self.assertIn("P1 26高数基础01", created[0].description)
+        self.assertIn("P2 26高数基础02", created[0].description)
+
+        long = {
+            **video,
+            "title": "长视频",
+            "sections": [
+                {
+                    "label": "P1 长",
+                    "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+                    "duration": 20000,
+                }
+            ],
+        }
+        merge_into_daily_plan(self.session, user.id, long, start)
+        tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
+        video_days = [task.task_date for task in tasks if "按《长视频》" in task.description]
+        self.assertGreaterEqual(len(video_days), 3)
+        self.assertEqual(video_days, [start + timedelta(days=i) for i in range(len(video_days))])
+        self.assertNotIn(date(2026, 10, 20), video_days)
+        self.assertEqual(
+            next(task.description for task in tasks if task.task_date == date(2026, 10, 20)),
+            "旧任务",
+        )
