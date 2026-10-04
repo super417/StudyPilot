@@ -168,6 +168,37 @@ class CourseRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["code"], "NOT_FOUND")
 
+    def test_chapter_link_can_be_checked_off(self) -> None:
+        created = self.client.post("/api/courses", json={"name": "高数视频"})
+        self.assertEqual(created.status_code, 201, created.text)
+        course_id = created.json()["courses"][0]["id"]
+        rejected = self.client.post(
+            f"/api/courses/{course_id}/chapters",
+            json={"title": "极限", "url": "不是链接"},
+        )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertEqual(rejected.json()["code"], "VALIDATION")
+        added = self.client.post(
+            f"/api/courses/{course_id}/chapters",
+            json={
+                "title": "极限",
+                "url": "https://www.bilibili.com/video/BV1xx",
+            },
+        )
+        self.assertEqual(added.status_code, 201, added.text)
+        chapter = added.json()["chapters"][0]
+        self.assertEqual(chapter["title"], "极限")
+        self.assertFalse(chapter["done"])
+        checked = self.client.patch(
+            f"/api/courses/{course_id}/chapters/{chapter['id']}",
+            json={"done": True},
+        )
+        self.assertEqual(checked.status_code, 200, checked.text)
+        self.assertTrue(checked.json()["chapters"][0]["done"])
+        listed = self.client.get(f"/api/courses/{course_id}/chapters")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertTrue(listed.json()["chapters"][0]["done"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,7 +14,10 @@ import { selectActiveMessages, useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AssistantInput from '@/components/chat/AssistantInput';
+import AssistantMessage from '@/components/chat/AssistantMessage';
+import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
+import { isPauseRequest } from '@/lib/pauseRequest';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   mistake: '错题',
@@ -37,7 +40,8 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const clearContext = useAssistantStore((s) => s.clearContext);
   const startConversation = useAssistantStore((s) => s.startConversation);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
-  const { send, stop, streaming, interrupted } = useAssistantChat();
+  const awaitingConfirm = usePlanSessionStore((s) => s.awaitingConfirm);
+  const { send, resend, stop, pause, streaming, interrupted } = useAssistantChat();
 
   const [input, setInput] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
@@ -50,7 +54,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text || streaming) return;
+    if (!text || (streaming && !isPauseRequest(text))) return;
     setInput('');
     send(text);
   };
@@ -158,16 +162,19 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
               key={m.id}
               className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
             >
-              <div
-                className={
-                  m.role === 'user'
-                    ? 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brandDark px-3.5 py-2.5 text-[13.5px] leading-relaxed text-white'
-                    : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/80 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-brandDark'
-                }
-              >
-                {m.content}
-                {m.streaming ? <span className="ml-0.5 animate-pulse">▋</span> : null}
-              </div>
+              {m.role === 'user' ? (
+                <UserMessage
+                  message={m}
+                  bubbleClassName="whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brandDark px-3.5 py-2.5 text-[13.5px] leading-relaxed text-white"
+                  onResend={resend}
+                />
+              ) : (
+                <AssistantMessage
+                  message={m}
+                  bubbleClassName="whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/80 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-brandDark"
+                  onResend={resend}
+                />
+              )}
             </div>
           ))}
 
@@ -181,9 +188,15 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
             value={input}
             onChange={setInput}
             onSend={handleSend}
-            onStop={stop}
+            onStop={pause}
             streaming={streaming}
-            placeholder={lastPlanId ? '描述如何调整规划…' : '考研相关问题或调整规划说明…'}
+            placeholder={
+              awaitingConfirm
+                ? '回复「确定」写入规划，或直接说要改的地方'
+                : lastPlanId
+                  ? '描述如何调整规划…'
+                  : '考研相关问题或调整规划说明…'
+            }
           />
         </div>
       </div>

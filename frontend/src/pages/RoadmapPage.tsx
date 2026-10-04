@@ -7,6 +7,7 @@ import { currentWeekDates, todayISO } from '@/lib/dates';
 import {
   fetchDailyTasksForDates,
   fetchOverviewMetrics,
+  fetchPhaseTasks,
   addTodayTask,
   setDailyTaskStatus,
 } from '@/lib/studyApi';
@@ -31,6 +32,9 @@ function RoadmapPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [addingToday, setAddingToday] = useState(false);
+  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
+  const [phaseTasks, setPhaseTasks] = useState<DailyTask[]>([]);
+  const [phaseTasksLoading, setPhaseTasksLoading] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -113,12 +117,35 @@ function RoadmapPage() {
     }
   };
 
+  const handleTogglePhase = async (phaseId: string) => {
+    if (expandedPhaseId === phaseId) {
+      setExpandedPhaseId(null);
+      return;
+    }
+    setExpandedPhaseId(phaseId);
+    setPhaseTasks([]);
+    setPhaseTasksLoading(true);
+    setStatusMsg(null);
+    try {
+      const res = await fetchPhaseTasks(phaseId);
+      setPhaseTasks(res.tasks);
+    } catch (e) {
+      setExpandedPhaseId(null);
+      setStatusMsg(e instanceof ApiError ? e.message : '这个阶段的任务加载失败');
+    } finally {
+      setPhaseTasksLoading(false);
+    }
+  };
+
   const handleToggle = async (task: DailyTask) => {
     const next = task.status === 'done' ? 'pending' : 'done';
     setStatusMsg(null);
     try {
       const res = await setDailyTaskStatus(task.id, next);
       setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
+      );
+      setPhaseTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
       );
       setStatusMsg(
@@ -177,7 +204,15 @@ function RoadmapPage() {
           </button>
         </section>
       ) : (
-        <PhaseList phases={phases} onSavePhase={handleSavePhase} />
+        <PhaseList
+          phases={phases}
+          onSavePhase={handleSavePhase}
+          expandedPhaseId={expandedPhaseId}
+          phaseTasks={phaseTasks}
+          phaseTasksLoading={phaseTasksLoading}
+          onTogglePhase={(id) => void handleTogglePhase(id)}
+          onToggleTask={(task) => void handleToggle(task)}
+        />
       )}
 
       {!loading && hasPlan && !tasks.some((task) => task.taskDate === today) ? (

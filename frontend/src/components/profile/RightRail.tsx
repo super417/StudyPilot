@@ -6,6 +6,7 @@ import type { TabKey } from '@/components/TabNav';
 import { CardEmpty, CardError, CardLoading } from './states';
 import { useAsync } from './useAsync';
 import { fetchRecentActivities, fetchTodayTodos } from '@/lib/profileStudyApi';
+import { requestMistakeFilter } from '@/lib/mistakesApi';
 import type { TodoItem } from '@/lib/profileStudyApi';
 import { addTodayTask, fetchOverviewMetrics, setDailyTaskStatus } from '@/lib/studyApi';
 import { todayISO } from '@/lib/dates';
@@ -44,7 +45,7 @@ function GlassSection({
 }
 
 /** 今日待办：真实 daily-tasks，点击在完成 / 待完成之间切换。 */
-function TodayTodo() {
+function TodayTodo({ onNavigate }: { onNavigate?: (tab: TabKey) => void }) {
   const { data, loading, error } = useAsync(fetchTodayTodos);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const [items, setItems] = useState<TodoItem[] | null>(null);
@@ -96,7 +97,16 @@ function TodayTodo() {
     }
   };
 
+  const openDue = () => {
+    requestMistakeFilter('due');
+    onNavigate?.('mistakes');
+  };
+
   const toggle = async (todo: TodoItem) => {
+    if (todo.kind === 'review') {
+      openDue();
+      return;
+    }
     const next = todo.done ? 'pending' : 'done';
     setActionError(null);
     try {
@@ -250,7 +260,7 @@ function QuickActions({
 }
 
 /** 最近动态：由真实学习数据派生。 */
-function RecentActivity() {
+function RecentActivity({ onNavigate }: { onNavigate?: (tab: TabKey) => void }) {
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const { data, loading, error } = useAsync(fetchRecentActivities, lastPlanId);
   return (
@@ -263,18 +273,37 @@ function RecentActivity() {
         <CardEmpty>暂无动态。上传资料、生成规划或打卡后会出现在这里。</CardEmpty>
       ) : (
         <ul className="space-y-3">
-          {data.map((item) => (
-            <li key={item.id} className="flex gap-2.5 text-sm">
-              <span
-                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
-                aria-hidden="true"
-              />
-              <span className="min-w-0">
+          {data.map((item) => {
+            const openDue = item.id === 'mistakes-due';
+            const body = (
+              <>
                 <span className="block text-brandDark">{item.text}</span>
                 <span className="text-xs text-gray-400">{item.at}</span>
-              </span>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={item.id} className="flex gap-2.5 text-sm">
+                <span
+                  className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand"
+                  aria-hidden="true"
+                />
+                {openDue ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      requestMistakeFilter('due');
+                      onNavigate?.('mistakes');
+                    }}
+                    className="min-w-0 text-left hover:underline"
+                  >
+                    {body}
+                  </button>
+                ) : (
+                  <span className="min-w-0">{body}</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </GlassSection>
@@ -308,9 +337,9 @@ function AiShortcut() {
 function RightRail({ onAction, onNavigate }: RightRailProps) {
   return (
     <div className="liquid-glass min-h-full p-5">
-      <TodayTodo />
+      <TodayTodo onNavigate={onNavigate} />
       <QuickActions onAction={onAction} onNavigate={onNavigate} />
-      <RecentActivity />
+      <RecentActivity onNavigate={onNavigate} />
       <AiShortcut />
     </div>
   );

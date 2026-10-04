@@ -9,6 +9,7 @@
  * 断言用中文字面量，避免契约再次漂移。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { withDueReview } from '@/lib/profileStudyApi';
 
 const mocks = vi.hoisted(() => ({
   fetchOverviewMetrics: vi.fn(),
@@ -77,5 +78,14 @@ describe('fetchRecentActivities 今日三态', () => {
     mocks.fetchOverviewMetrics.mockResolvedValue(overviewWith('未反馈'));
 
     expect(await fetchRecentActivities()).toHaveLength(0);
+  });
+
+  it('到期错题插在今日任务前面，没有则不加', () => {
+    const task = { id: 't1', title: '做题', tag: '今日', done: false };
+    expect(withDueReview([task], 0)).toEqual([task]);
+    const [head, rest] = withDueReview([task], 2);
+    expect(head.kind).toBe('review');
+    expect(head.title).toContain('2');
+    expect(rest).toEqual(task);
   });
 });

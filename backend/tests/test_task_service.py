@@ -388,6 +388,42 @@ class TaskServiceTests(unittest.TestCase):
         )
         self.assertEqual(untouched.status, "pending")
 
+    def test_settle_moves_yesterday_once_and_skips_carried_in_progress(self) -> None:
+        user = self._make_user()
+        phase, tasks = self._make_phase_with_tasks(user, 1)
+        yesterday = date(2025, 1, 1)
+        today = date(2025, 1, 2)
+        moved = task_service.settle_overdue_tasks(self.session, user.id, today)
+        self.assertEqual(len(moved), 1)
+        self.assertEqual(moved[0].task_date, today)
+        self.assertTrue(moved[0].description.startswith("[顺延]"))
+        self.assertEqual(moved[0].carried_from_id, tasks[0].id)
+        self.session.refresh(tasks[0])
+        self.assertEqual(tasks[0].status, "carried")
+        again = task_service.settle_overdue_tasks(self.session, user.id, today)
+        self.assertEqual(again, [])
+        task_service.recompute_phase_progress(self.session, phase)
+        self.session.refresh(phase)
+        # carried 不进分母，只剩顺延出来的 1 条 pending。
+        self.assertEqual(phase.progress_percent, 0)
+        self.assertFalse(phase.is_completed)
+
+    def test_settle_leaves_tasks_dated_before_the_plan_started(self) -> None:
+        user = self._make_user()
+        phase, tasks = self._make_phase_with_tasks(user, 1)
+        plan = self.session.get(Plan, phase.plan_id)
+        assert plan is not None
+        plan.start_date = date(2025, 1, 2)
+        self.session.commit()
+        moved = task_service.settle_overdue_tasks(
+            self.session, user.id, date(2025, 1, 3)
+        )
+        self.assertEqual(moved, [])
+        self.session.refresh(tasks[0])
+        self.assertEqual(tasks[0].status, "pending")
+        self.assertEqual(tasks[0].task_date, date(2025, 1, 1))
+        self.assertFalse(tasks[0].description.startswith("[顺延]"))
+
 
 if __name__ == "__main__":
     unittest.main()

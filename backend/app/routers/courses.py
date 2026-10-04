@@ -42,6 +42,19 @@ class CoursePayload(BaseModel):
     status: str = "active"
 
 
+class ChapterPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    title: str = ""
+    url: str = ""
+
+
+class ChapterDonePayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    done: bool = False
+
+
 @router.get("")
 def list_courses_route(
     user: User = Depends(get_current_user),
@@ -107,3 +120,79 @@ def delete_course_route(
     except CourseNotFoundError as error:
         return _json_error(404, error.code, str(error))
     return JSONResponse(status_code=200, content={"status": "ok", **overview})
+
+
+@router.get("/{course_id}/chapters")
+def list_chapters_route(
+    course_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    parsed = _parse_id(course_id)
+    if parsed is None:
+        return _json_error(404, CourseNotFoundError.code, str(CourseNotFoundError()))
+    try:
+        payload = course_service.list_chapters(session, user.id, parsed)
+    except CourseNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    return JSONResponse(status_code=200, content={"status": "ok", **payload})
+
+
+@router.post("/{course_id}/chapters", status_code=201)
+def create_chapter_route(
+    course_id: str,
+    payload: ChapterPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    parsed = _parse_id(course_id)
+    if parsed is None:
+        return _json_error(404, CourseNotFoundError.code, str(CourseNotFoundError()))
+    try:
+        body = course_service.create_chapter(
+            session, user.id, parsed, title=payload.title, url=payload.url
+        )
+    except CourseValidationError as error:
+        return _json_error(400, error.code, str(error))
+    except CourseNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    return JSONResponse(status_code=201, content={"status": "ok", **body})
+
+
+@router.patch("/{course_id}/chapters/{chapter_id}")
+def set_chapter_done_route(
+    course_id: str,
+    chapter_id: str,
+    payload: ChapterDonePayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    parsed = _parse_id(course_id)
+    chapter = _parse_id(chapter_id)
+    if parsed is None or chapter is None:
+        return _json_error(404, CourseNotFoundError.code, "章节不存在")
+    try:
+        body = course_service.set_chapter_done(
+            session, user.id, parsed, chapter, done=payload.done
+        )
+    except CourseNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    return JSONResponse(status_code=200, content={"status": "ok", **body})
+
+
+@router.delete("/{course_id}/chapters/{chapter_id}")
+def delete_chapter_route(
+    course_id: str,
+    chapter_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    parsed = _parse_id(course_id)
+    chapter = _parse_id(chapter_id)
+    if parsed is None or chapter is None:
+        return _json_error(404, CourseNotFoundError.code, "章节不存在")
+    try:
+        body = course_service.delete_chapter(session, user.id, parsed, chapter)
+    except CourseNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    return JSONResponse(status_code=200, content={"status": "ok", **body})

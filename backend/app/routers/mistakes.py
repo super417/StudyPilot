@@ -60,6 +60,7 @@ class CreateMistakePayload(BaseModel):
     my_answer: str | None = None
     why_wrong: str | None = None
     correct_understanding: str | None = None
+    subject: str | None = None
 
 
 def _utc_iso(value: datetime | None) -> str | None:
@@ -75,6 +76,7 @@ def _list_item(mistake: Mistake, now: datetime) -> dict:
     return {
         "id": str(mistake.id),
         "question": mistake.question,
+        "subject": mistake.subject,
         "reviewStatus": mistake.review_status,
         "nextReviewAt": _utc_iso(mistake.next_review_at),
         "due": mistake_service.is_due(mistake, now),
@@ -89,6 +91,7 @@ def _detail(mistake: Mistake) -> dict:
         "myAnswer": mistake.my_answer,
         "whyWrong": mistake.why_wrong,
         "correctUnderstanding": mistake.correct_understanding,
+        "subject": mistake.subject,
         "reviewStatus": mistake.review_status,
         "nextReviewAt": _utc_iso(mistake.next_review_at),
         "createdAt": mistake.created_at.isoformat(),
@@ -128,6 +131,7 @@ def create_mistake_route(
             my_answer=payload.my_answer,
             why_wrong=payload.why_wrong,
             correct_understanding=payload.correct_understanding,
+            subject=payload.subject,
         )
     except MistakeCreateValidationError as error:
         return _json_error(400, error.code, str(error))
@@ -197,6 +201,7 @@ def update_mistake_route(
             my_answer=payload.my_answer,
             why_wrong=payload.why_wrong,
             correct_understanding=payload.correct_understanding,
+            subject=payload.subject,
         )
     except MistakeCreateValidationError as error:
         return _json_error(400, error.code, str(error))

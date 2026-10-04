@@ -76,7 +76,7 @@ function ReviewQueueCard({
         onClick={onOpenMistakes}
         className="mt-6 self-start text-sm font-medium text-gray-500 transition hover:text-brandDark"
       >
-        查看题目、我的答案和错因 →
+        {dueCount > 0 ? `去复习今天到期的 ${dueCount} 道 →` : '查看题目、我的答案和错因 →'}
       </button>
     </section>
   );

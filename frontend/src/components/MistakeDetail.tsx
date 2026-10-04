@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 import { Magnet } from '@/components/motion';
 import { useAssistantStore } from '@/store';
+import { EXPLAIN_PROMPT_PREFIX } from '@/lib/explainFill';
 import type { Mistake, ReviewStatus } from '@/mocks/types';
 
 /** 卡片依次淡入的过渡工厂：每张卡片给不同 delay 形成错落感 */
@@ -44,6 +45,8 @@ export interface MistakeDetailProps {
   deleting?: boolean;
   onSave?: (values: MistakeEditValues) => Promise<void>;
   saving?: boolean;
+  /** 助手刚讲完这道题时，把讲解写回这条错题 */
+  onApplyExplain?: () => void;
 }
 
 function MistakeDetail({
@@ -54,10 +57,12 @@ function MistakeDetail({
   deleting = false,
   onSave,
   saving = false,
+  onApplyExplain,
 }: MistakeDetailProps) {
   const openAssistantWithContext = useAssistantStore(
     (s) => s.openAssistantWithContext,
   );
+  const queuePrompt = useAssistantStore((s) => s.queuePrompt);
   const [editing, setEditing] = useState(false);
   const [question, setQuestion] = useState('');
   const [myAnswer, setMyAnswer] = useState('');
@@ -90,11 +95,20 @@ function MistakeDetail({
     new Date(mistake.nextReviewAt).getTime() <= Date.now();
 
   const handleBack = () => {
+    const lines = [
+      `${EXPLAIN_PROMPT_PREFIX}：先说考点，再给解题思路和完整步骤，最后点出最容易错的地方。`,
+      '',
+      mistake.question,
+    ];
+    if (mistake.myAnswer.trim()) {
+      lines.push('', `我的答案：${mistake.myAnswer}`, '请顺便指出我错在哪。');
+    }
     openAssistantWithContext({
       type: 'mistake',
       refId: mistake.id,
       hint: '重新做这道错题',
     });
+    queuePrompt(lines.join('\n'));
     onBackToAssistant?.(mistake);
   };
 
@@ -236,6 +250,16 @@ function MistakeDetail({
               回到学习助手重新做一道
             </button>
           </Magnet>
+          {onApplyExplain ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onApplyExplain}
+              className="rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark hover:bg-brandFaint disabled:opacity-60"
+            >
+              把讲解填进这条错题
+            </button>
+          ) : null}
           {onSave ? (
             <button
               type="button"

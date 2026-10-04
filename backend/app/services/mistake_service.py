@@ -117,11 +117,13 @@ def create_mistake(
     my_answer: str | None = None,
     why_wrong: str | None = None,
     correct_understanding: str | None = None,
+    subject: str | None = None,
 ) -> Mistake:
     """Persist a new mistake for the user; defaults review_status to pending."""
     cleaned = (question or "").strip()
     if not cleaned:
         raise MistakeCreateValidationError()
+    cleaned_subject = _subject(subject)
 
     def _opt(value: str | None) -> str | None:
         return _opt_text(value)
@@ -132,6 +134,7 @@ def create_mistake(
         my_answer=_opt(my_answer),
         why_wrong=_opt(why_wrong),
         correct_understanding=_opt(correct_understanding),
+        subject=cleaned_subject,
         review_status="pending",
     )
     session.add(mistake)
@@ -151,6 +154,16 @@ def _opt_text(value: str | None) -> str | None:
     return text or None
 
 
+SUBJECT_MAX = 64
+
+
+def _subject(value: str | None) -> str:
+    text = (value or "").strip()
+    if len(text) > SUBJECT_MAX:
+        raise MistakeCreateValidationError(f"科目最多 {SUBJECT_MAX} 字")
+    return text
+
+
 def update_mistake(
     session: Session,
     user_id: uuid.UUID,
@@ -160,11 +173,13 @@ def update_mistake(
     my_answer: str | None = None,
     why_wrong: str | None = None,
     correct_understanding: str | None = None,
+    subject: str | None = None,
 ) -> Mistake:
     """Overwrite content fields of a mistake the user owns."""
     cleaned = (question or "").strip()
     if not cleaned:
         raise MistakeCreateValidationError()
+    cleaned_subject = _subject(subject)
 
     mistake = session.scalar(
         select(Mistake).where(
@@ -178,6 +193,7 @@ def update_mistake(
     mistake.my_answer = _opt_text(my_answer)
     mistake.why_wrong = _opt_text(why_wrong)
     mistake.correct_understanding = _opt_text(correct_understanding)
+    mistake.subject = cleaned_subject
 
     try:
         session.commit()

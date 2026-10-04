@@ -168,7 +168,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   return (
     <form
       onSubmit={(e) => void handleSubmit(e)}
-      className="space-y-2 border-b border-brandFaint bg-brandFaint/40 px-3 py-3"
+      className="scheme-light space-y-2 border-b border-brandFaint bg-brandFaint/40 px-3 py-3 text-brandDark"
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-brandDark">
@@ -196,14 +196,14 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         value={goalName}
         onChange={(e) => setGoalName(e.target.value)}
         placeholder="目标名称，如：2027 考研 · 数学二"
-        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
       <div className="grid grid-cols-2 gap-2">
         <input
           type="date"
           value={goalDate}
           onChange={(e) => setGoalDate(e.target.value)}
-          className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+          className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none focus:border-brand"
           aria-label="考试目标日期"
         />
         <input
@@ -212,7 +212,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
           value={dailyMinutes}
           onChange={(e) => setDailyMinutes(e.target.value)}
           placeholder="每日分钟"
-          className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+          className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
           aria-label="每日学习分钟"
         />
       </div>
@@ -221,7 +221,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         value={currentLevel}
         onChange={(e) => setCurrentLevel(e.target.value)}
         placeholder="当前水平，如：高等数学薄弱、英语四级"
-        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
       <div>
         <p className="mb-1 text-[11px] text-gray-500">规划依据资料（可多选）</p>

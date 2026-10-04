@@ -10,10 +10,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Course, DailyTask, Phase, Plan
+from app.models.entities import Course, CourseChapter, DailyTask, Phase, Plan
 
 NAME_MAX = 64
 VALID_STATUSES = ("active", "paused")
@@ -165,6 +165,7 @@ def delete_course(session: Session, user_id: uuid.UUID, course_id: uuid.UUID) ->
     )
     if course is None:
         raise CourseNotFoundError()
+    session.execute(delete(CourseChapter).where(CourseChapter.course_id == course.id))
     session.delete(course)
     try:
         session.commit()
@@ -172,3 +173,142 @@ def delete_course(session: Session, user_id: uuid.UUID, course_id: uuid.UUID) ->
         session.rollback()
         raise
     return course_overview(session, user_id)
+
+
+TITLE_MAX = 80
+URL_MAX = 500
+
+
+def _title(value: object) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text:
+        raise CourseValidationError("请填写这一节想学的内容")
+    if len(text) > TITLE_MAX:
+        raise CourseValidationError(f"章节名称最多 {TITLE_MAX} 字")
+    return text
+
+
+def _url(value: object) -> str:
+    text = "" if value is None else str(value).strip()
+    if not text.startswith(("http://", "https://")) or any(
+        char.isspace() for char in text
+    ):
+        raise CourseValidationError("请填写以 http:// 或 https:// 开头的课程网页")
+    if len(text) > URL_MAX:
+        raise CourseValidationError(f"链接最多 {URL_MAX} 字")
+    return text
+
+
+def chapter_dict(chapter: CourseChapter) -> dict:
+    return {
+        "id": str(chapter.id),
+        "title": chapter.title,
+        "url": chapter.url,
+        "done": bool(chapter.done),
+    }
+
+
+def _owned_course(
+    session: Session, user_id: uuid.UUID, course_id: uuid.UUID
+) -> Course:
+    course = session.scalar(
+        select(Course).where(Course.id == course_id, Course.user_id == user_id)
+    )
+    if course is None:
+        raise CourseNotFoundError()
+    return course
+
+
+def _chapters(session: Session, course_id: uuid.UUID) -> list[dict]:
+    rows = session.scalars(
+        select(CourseChapter)
+        .where(CourseChapter.course_id == course_id)
+        .order_by(CourseChapter.position, CourseChapter.id)
+    )
+    return [chapter_dict(row) for row in rows]
+
+
+def list_chapters(
+    session: Session, user_id: uuid.UUID, course_id: uuid.UUID
+) -> dict:
+    _owned_course(session, user_id, course_id)
+    return {"chapters": _chapters(session, course_id)}
+
+
+def create_chapter(
+    session: Session,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    *,
+    title: object,
+    url: object,
+) -> dict:
+    _owned_course(session, user_id, course_id)
+    position = session.scalar(
+        select(func.coalesce(func.max(CourseChapter.position), -1)).where(
+            CourseChapter.course_id == course_id
+        )
+    )
+    session.add(
+        CourseChapter(
+            course_id=course_id,
+            title=_title(title),
+            url=_url(url),
+            done=False,
+            position=int(position) + 1,
+        )
+    )
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return {"chapters": _chapters(session, course_id)}
+
+
+def set_chapter_done(
+    session: Session,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    chapter_id: uuid.UUID,
+    *,
+    done: bool,
+) -> dict:
+    _owned_course(session, user_id, course_id)
+    chapter = session.scalar(
+        select(CourseChapter).where(
+            CourseChapter.id == chapter_id, CourseChapter.course_id == course_id
+        )
+    )
+    if chapter is None:
+        raise CourseNotFoundError("章节不存在")
+    chapter.done = bool(done)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return {"chapters": _chapters(session, course_id)}
+
+
+def delete_chapter(
+    session: Session,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID,
+    chapter_id: uuid.UUID,
+) -> dict:
+    _owned_course(session, user_id, course_id)
+    chapter = session.scalar(
+        select(CourseChapter).where(
+            CourseChapter.id == chapter_id, CourseChapter.course_id == course_id
+        )
+    )
+    if chapter is None:
+        raise CourseNotFoundError("章节不存在")
+    session.delete(chapter)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return {"chapters": _chapters(session, course_id)}

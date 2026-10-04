@@ -9,6 +9,7 @@ export interface PlanGoalFields {
   dailyMinutes?: number;
   documentIds?: string[];
   reasoningStrength?: string;
+  message?: string;
 }
 
 export interface PlanClarifyEvent {
@@ -21,6 +22,11 @@ export interface PlanClarifyEvent {
 export interface PlanNoticeEvent {
   message?: string;
   skippedDocs?: string[];
+}
+
+export interface PlanPreviewEvent {
+  draftId: string;
+  summary: string;
 }
 
 export interface PlanDoneEvent {
@@ -37,6 +43,7 @@ export interface PlanErrorEvent {
 export interface PlanStreamHandlers {
   onClarify?: (data: PlanClarifyEvent) => void;
   onNotice?: (data: PlanNoticeEvent) => void;
+  onPreview?: (data: PlanPreviewEvent) => void;
   onDone?: (data: PlanDoneEvent) => void;
   onError?: (data: PlanErrorEvent) => void;
   /** Agent 阶段文案，如「正在调用学习规划工具…」 */
@@ -81,6 +88,13 @@ function dispatch(event: string, data: SseData, handlers: PlanStreamHandlers) {
     case 'clarify':
       handlers.onStatus?.('Agent：信息不足，正在追问补充…');
       handlers.onClarify?.(asClarify(data));
+      break;
+    case 'preview':
+      handlers.onStatus?.('Agent：路线已整理，等你确认');
+      handlers.onPreview?.({
+        draftId: String(data.draftId ?? ''),
+        summary: String(data.summary ?? ''),
+      });
       break;
     case 'notice':
       handlers.onStatus?.('Agent：正在处理规划依据 / 就绪性检查…');

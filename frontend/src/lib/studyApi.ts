@@ -74,6 +74,10 @@ export function addTodayTask(taskDate: string): Promise<{ status: string; task: 
   });
 }
 
+export function fetchPhaseTasks(phaseId: string): Promise<DailyTasksResponse> {
+  return apiRequest<DailyTasksResponse>(`/api/phases/${encodeURIComponent(phaseId)}/tasks`);
+}
+
 export function setDailyTaskStatus(
   taskId: string,
   status: DailyTaskStatus,

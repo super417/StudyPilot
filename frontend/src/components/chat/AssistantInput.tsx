@@ -6,6 +6,7 @@
  * `assistant-input-*` 那套 CSS，改一处两边一起变。
  */
 import { Send, Sparkles, Square } from 'lucide-react';
+import { isPauseRequest } from '@/lib/pauseRequest';
 
 export interface AssistantInputProps {
   value: string;
@@ -50,7 +51,7 @@ function AssistantInput({
           placeholder={placeholder}
           className="assistant-input-el"
         />
-        {streaming ? (
+        {streaming && !isPauseRequest(value) ? (
           <button
             type="button"
             aria-label="停止生成"

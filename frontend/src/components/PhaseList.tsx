@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import type { Phase } from '@/mocks/types';
+import type { DailyTask, Phase } from '@/mocks/types';
 import { FADE_IN_EASE } from './motion/utils';
 
 export interface PhaseEdit {
@@ -35,6 +35,11 @@ export interface PhaseItemProps {
   onStartEdit?: () => void;
   onCancel?: () => void;
   onSave?: (edit: PhaseEdit) => void;
+  expanded?: boolean;
+  tasks?: DailyTask[];
+  tasksLoading?: boolean;
+  onToggleExpand?: () => void;
+  onToggleTask?: (task: DailyTask) => void;
 }
 
 /** 把 clamp(...) 的进度值约束到 0-100，避免异常数据溢出进度条。 */
@@ -51,6 +56,11 @@ function PhaseItem({
   onStartEdit,
   onCancel,
   onSave,
+  expanded = false,
+  tasks = [],
+  tasksLoading = false,
+  onToggleExpand,
+  onToggleTask,
 }: PhaseItemProps) {
   const percent = clampPercent(phase.progressPercent);
   const [name, setName] = useState(phase.name);
@@ -83,7 +93,8 @@ function PhaseItem({
   return (
     <MotionLi
       className={[
-        'relative flex items-center gap-5 px-5 py-6 will-change-transform sm:gap-8 sm:px-8',
+        'relative flex items-start gap-5 px-5 py-6 will-change-transform sm:gap-8 sm:px-8',
+        onToggleExpand && !editing ? 'cursor-pointer' : '',
         // 视口内渲染优化（需求 18.28）：阶段列表随规划阶段数增长，cv-list 跳过屏外
         // 阶段项的布局/绘制；contain-intrinsic-size 给每项约 148px 占位估算防跳动。
         // 与 whileInView 入场互补：cv 跳渲染、whileInView 控入场，均针对屏外元素。
@@ -95,6 +106,12 @@ function PhaseItem({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '50px', amount: 0 }}
       transition={{ delay: index * 0.1, duration: 0.6, ease: FADE_IN_EASE }}
+      onClick={(event) => {
+        if (editing || !onToggleExpand) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('button, input, textarea, label, a')) return;
+        onToggleExpand();
+      }}
       whileHover={
         editing
           ? undefined
@@ -126,6 +143,16 @@ function PhaseItem({
               className="shrink-0 rounded-full bg-white/80 px-3 py-0.5 text-xs font-medium text-brandDark ring-1 ring-brand/30 hover:bg-white"
             >
               调整
+            </button>
+          ) : null}
+          {onToggleExpand ? (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={onToggleExpand}
+              className="shrink-0 rounded-full bg-white/80 px-3 py-0.5 text-xs font-medium text-brandDark ring-1 ring-brand/30 hover:bg-white"
+            >
+              {expanded ? '收起' : '展开'}
             </button>
           ) : null}
           {phase.isCurrent ? (
@@ -212,6 +239,46 @@ function PhaseItem({
             {percent}%
           </span>
         </div>
+        {expanded ? (
+          <div className="mt-4 space-y-2">
+            {tasksLoading ? <p className="text-xs text-gray-400">加载这个阶段的每日任务…</p> : null}
+            {!tasksLoading && tasks.length === 0 ? (
+              <p className="text-xs text-gray-400">这个阶段还没有每日任务</p>
+            ) : null}
+            {Array.from(
+              tasks.reduce((groups, task) => {
+                const list = groups.get(task.taskDate) ?? [];
+                list.push(task);
+                groups.set(task.taskDate, list);
+                return groups;
+              }, new Map<string, DailyTask[]>()),
+            ).map(([day, dayTasks]) => (
+              <div key={day}>
+                <p className="text-xs font-medium text-brandDark/70">{day}</p>
+                <ul className="mt-1 space-y-1">
+                  {dayTasks.map((task) => (
+                    <li key={task.id} className="flex items-start gap-2 text-sm text-brandDark">
+                      {task.status === 'carried' ? (
+                        <span className="mt-0.5 shrink-0 text-xs text-gray-400">已顺延</span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={task.status === 'done'}
+                          aria-label={`${day} ${task.description}`}
+                          onChange={() => onToggleTask?.(task)}
+                        />
+                      )}
+                      <span className={task.status === 'done' ? 'text-gray-400 line-through' : ''}>
+                        {task.description}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </MotionLi>
   );
@@ -222,14 +289,27 @@ export interface PhaseListProps {
   phases: Phase[];
   /** 保存一张卡片；只应改这一阶段。 */
   onSavePhase?: (phaseId: string, edit: PhaseEdit) => Promise<void>;
+  expandedPhaseId?: string | null;
+  phaseTasks?: DailyTask[];
+  phaseTasksLoading?: boolean;
+  onTogglePhase?: (phaseId: string) => void;
+  onToggleTask?: (task: DailyTask) => void;
 }
 
-function PhaseList({ phases, onSavePhase }: PhaseListProps) {
+function PhaseList({
+  phases,
+  onSavePhase,
+  expandedPhaseId = null,
+  phaseTasks = [],
+  phaseTasksLoading = false,
+  onTogglePhase,
+  onToggleTask,
+}: PhaseListProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const save = async (phaseId: string, edit: PhaseEdit) => {
-    if (!onSavePhase || savingId) return;
+    if (!onSavePhase) return;
     setSavingId(phaseId);
     try {
       await onSavePhase(phaseId, edit);
@@ -254,6 +334,11 @@ function PhaseList({ phases, onSavePhase }: PhaseListProps) {
             onStartEdit={onSavePhase ? () => setEditingId(phase.id) : undefined}
             onCancel={() => setEditingId(null)}
             onSave={(edit) => void save(phase.id, edit)}
+            expanded={expandedPhaseId === phase.id}
+            tasks={expandedPhaseId === phase.id ? phaseTasks : []}
+            tasksLoading={expandedPhaseId === phase.id && phaseTasksLoading}
+            onToggleExpand={onTogglePhase ? () => onTogglePhase(phase.id) : undefined}
+            onToggleTask={onToggleTask}
           />
         ))}
       </ul>

@@ -32,6 +32,9 @@ class PlanDraft:
     fields: dict[str, object] = field(default_factory=dict)
     round: int = 1
     created_at: datetime = field(default_factory=_utc_now)
+    document_ids: list[str] | None = None
+    pending: dict | None = None
+    used_docs: list[str] = field(default_factory=list)
 
 
 class PlanDraftStore:

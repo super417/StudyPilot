@@ -7,7 +7,10 @@ import type { AssistantContext } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AssistantInput from '@/components/chat/AssistantInput';
+import AssistantMessage from '@/components/chat/AssistantMessage';
+import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
+import { isPauseRequest } from '@/lib/pauseRequest';
 import { openMainframePage } from '@/lib/mainframeRoute';
 
 const CONTEXT_LABEL: Record<AssistantContext['type'], string> = {
@@ -29,7 +32,8 @@ function ChatWindow() {
   const closeAssistant = useAssistantStore((s) => s.closeAssistant);
   const startConversation = useAssistantStore((s) => s.startConversation);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
-  const { send, stop, streaming, interrupted } = useAssistantChat(open);
+  const awaitingConfirm = usePlanSessionStore((s) => s.awaitingConfirm);
+  const { send, resend, stop, pause, streaming, interrupted } = useAssistantChat(open);
 
   const [input, setInput] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
@@ -47,7 +51,7 @@ function ChatWindow() {
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text || streaming) return;
+    if (!text || (streaming && !isPauseRequest(text))) return;
     setInput('');
     send(text);
   };
@@ -164,16 +168,19 @@ function ChatWindow() {
                   transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                   className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
                 >
-                  <div
-                    className={
-                      m.role === 'user'
-                        ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brand px-3 py-2 text-sm text-white'
-                        : 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-brandFaint px-3 py-2 text-sm text-brandDark'
-                    }
-                  >
-                    {m.content}
-                    {m.streaming ? <span className="ml-0.5 animate-pulse">▋</span> : null}
-                  </div>
+                  {m.role === 'user' ? (
+                    <UserMessage
+                      message={m}
+                      bubbleClassName="whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brand px-3 py-2 text-sm text-white"
+                      onResend={resend}
+                    />
+                  ) : (
+                    <AssistantMessage
+                      message={m}
+                      bubbleClassName="whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-brandFaint px-3 py-2 text-sm text-brandDark"
+                      onResend={resend}
+                    />
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -187,9 +194,15 @@ function ChatWindow() {
               value={input}
               onChange={setInput}
               onSend={handleSend}
-              onStop={stop}
+              onStop={pause}
               streaming={streaming}
-              placeholder={lastPlanId ? '描述如何调整规划…' : '考研相关问题或调整规划说明…'}
+              placeholder={
+                awaitingConfirm
+                  ? '回复「确定」写入规划，或直接说要改的地方'
+                  : lastPlanId
+                    ? '描述如何调整规划…'
+                    : '考研相关问题或调整规划说明…'
+              }
             />
           </div>
         </motion.div>

@@ -124,8 +124,29 @@ class MistakeRouteTests(unittest.TestCase):
         item = body["mistakes"][0]
         self.assertEqual(
             set(item.keys()),
-            {"id", "question", "reviewStatus", "nextReviewAt", "due", "createdAt"},
+            {"id", "question", "subject", "reviewStatus", "nextReviewAt", "due", "createdAt"},
         )
+
+    def test_subject_saved_on_create_and_update(self) -> None:
+        created = self.client.post(
+            "/api/mistakes", json={"question": "求极限", "subject": " 高等数学 "}
+        ).json()["mistake"]
+        self.assertEqual(created["subject"], "高等数学")
+
+        updated = self.client.put(
+            f"/api/mistakes/{created['id']}",
+            json={"question": "求极限", "subject": "线性代数"},
+        ).json()["mistake"]
+        self.assertEqual(updated["subject"], "线性代数")
+
+        listed = self.client.get("/api/mistakes").json()["mistakes"]
+        self.assertEqual(listed[0]["subject"], "线性代数")
+
+        too_long = self.client.post(
+            "/api/mistakes", json={"question": "题", "subject": "科" * 65}
+        )
+        self.assertEqual(too_long.status_code, 400)
+        self.assertEqual(too_long.json()["code"], "VALIDATION")
 
     def test_list_marks_scheduled_reviews_that_are_due(self) -> None:
         from datetime import datetime, timedelta, timezone
@@ -197,6 +218,7 @@ class MistakeRouteTests(unittest.TestCase):
                 "myAnswer",
                 "whyWrong",
                 "correctUnderstanding",
+                "subject",
                 "reviewStatus",
                 "nextReviewAt",
                 "createdAt",

@@ -23,7 +23,13 @@ import {
 } from '@/lib/studyApi';
 import { fetchLatestPlan } from '@/lib/plansApi';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
-import { dueFirst, getMistake, listMistakes, listItemToMistake } from '@/lib/mistakesApi';
+import {
+  dueFirst,
+  getMistake,
+  listMistakes,
+  listItemToMistake,
+  requestMistakeFilter,
+} from '@/lib/mistakesApi';
 import {
   buildLearningInsights,
   buildSelfNote,
@@ -338,7 +344,10 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
             pendingCount={pendingMistakeCount}
             dueCount={dueMistakeCount}
             featured={featuredMistake}
-            onOpenMistakes={() => go('mistakes')}
+            onOpenMistakes={() => {
+              if (dueMistakeCount > 0) requestMistakeFilter('due');
+              go('mistakes');
+            }}
           />
         </FadeIn>
         <FadeIn delay={0.12} y={24}>
