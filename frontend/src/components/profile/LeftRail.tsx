@@ -2,6 +2,7 @@ import { LayoutDashboard, Map, BookX, CalendarRange, Sparkles } from 'lucide-rea
 import type { TabKey } from '@/components/TabNav';
 import { useAsync } from './useAsync';
 import { fetchStudyProgress } from '@/lib/profileStudyApi';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 export interface LeftRailProps {
   /** 展示昵称（来自 profilePrefs） */
@@ -36,7 +37,8 @@ const QUICK_LINKS: { tab: TabKey; label: string; icon: typeof Map }[] = [
  *     auto），贴边的头像阴影会被裁掉，留 4px 余量。
  */
 function LeftRail({ displayName, userId, onEditProfile, onNavigate }: LeftRailProps) {
-  const { data } = useAsync(fetchStudyProgress);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const { data } = useAsync(fetchStudyProgress, lastPlanId);
   const overall = data?.overallPercent ?? null;
 
   return (

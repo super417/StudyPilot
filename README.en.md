@@ -30,7 +30,7 @@ Exam prep usually breaks in three places: the plan never gets settled, it never 
 | AI assistant | SSE streaming chat; domain guard for off-topic questions; excerpts from uploaded documents; adjustable reasoning effort |
 | Demo landing | `#/mainframe` presentation page: four-step Agent workflow animation, citation cards, notice card |
 
-> Photo-based question search / OCR is not implemented — the frontend does not fake it.
+> The mistake book can read a question from a photo or uploaded image, using the model configured in Settings. Pick a vision-capable model (e.g. GPT-4o, Gemini).
 
 ## Tech stack
 

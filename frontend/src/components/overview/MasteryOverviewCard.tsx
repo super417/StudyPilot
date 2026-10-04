@@ -21,7 +21,7 @@ function MasteryOverviewCard({ avg, items }: MasteryOverviewCardProps) {
 
       {items.length === 0 ? (
         <p className="mt-8 flex-1 text-sm text-gray-400">
-          完成一周打卡后会生成周报，各科目掌握度会显示在这里。
+          在个人中心添加课程后，这里按该科目本周任务的完成比例显示。
         </p>
       ) : (
         <ul className="mt-6 flex flex-1 flex-col gap-4">

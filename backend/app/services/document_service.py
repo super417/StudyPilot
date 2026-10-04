@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import UserDocument
@@ -37,6 +37,15 @@ class DocumentParseError(ValueError):
     code = "PARSE_FAILED"
 
     def __init__(self, message: str = "document parsing failed") -> None:
+        super().__init__(message)
+
+
+class DocumentNotFoundError(ValueError):
+    """Raised when a doc_id does not resolve to a document the user owns."""
+
+    code = "NOT_FOUND"
+
+    def __init__(self, message: str = "文档不存在") -> None:
         super().__init__(message)
 
 
@@ -191,6 +200,32 @@ def store_document(
         session.rollback()
         raise
     return doc_id, len(chunks)
+
+
+def delete_document(session: Session, user_id: uuid.UUID, doc_id: str) -> int:
+    """Delete every chunk of ``doc_id`` owned by ``user_id``.
+
+    Returns the number of removed rows. Another user's document is reported as
+    missing so ownership never leaks.
+    """
+    cleaned = (doc_id or "").strip()
+    if not cleaned:
+        raise DocumentNotFoundError()
+    result = session.execute(
+        delete(UserDocument).where(
+            UserDocument.user_id == user_id,
+            UserDocument.doc_id == cleaned,
+        )
+    )
+    removed = int(result.rowcount or 0)
+    if removed == 0:
+        raise DocumentNotFoundError()
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return removed
 
 
 def filter_ready_documents(

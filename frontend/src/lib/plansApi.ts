@@ -176,3 +176,17 @@ export interface LatestPlanResponse {
 export function fetchLatestPlan(): Promise<LatestPlanResponse> {
   return apiRequest<LatestPlanResponse>('/api/plans/latest');
 }
+
+export interface PhasePatch {
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+/** PATCH /api/phases/{id} — 只改这一阶段的名称和日期。 */
+export function patchPhase(phaseId: string, patch: PhasePatch) {
+  return apiRequest<{ status: string; phase: LatestPlanResponse['phases'][number] }>(
+    `/api/phases/${phaseId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+  );
+}

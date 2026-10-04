@@ -552,3 +552,84 @@ body {
   animation: blink 1s step-end infinite;
 }
 
+/* 聊天记录：胶囊按钮。原样 100px 放不下四字，宽度按文案加宽，悬停动画比例不变。
+   配色：原紫粉渐变（uiverse 默认色）与全站 brand #10B981 冲突；
+   底改为**磨砂玻璃**，参数与同排导航胶囊（border-white/35 + bg-white/15 + backdrop-blur-xl
+   + inset 高光）完全一致 —— 右上角两个元素同材质才不打架。 */
+.mainframe-page .bookmarkBtn {
+  width: 124px;
+  height: 40px;
+  border-radius: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background-color: rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition-duration: 0.3s;
+  overflow: hidden;
+  padding: 0;
+}
+
+.mainframe-page .bookmarkBtn .IconContainer {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(to bottom, rgb(167, 243, 208), rgb(16, 185, 129));
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 2;
+  transition-duration: 0.3s;
+  flex-shrink: 0;
+}
+
+.mainframe-page .bookmarkBtn .icon {
+  border-radius: 1px;
+  fill: currentColor;
+  color: #04231a;
+}
+
+.mainframe-page .bookmarkBtn .text {
+  height: 100%;
+  width: 84px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 1;
+  transition-duration: 0.3s;
+  font-size: 1.04em;
+  white-space: nowrap;
+}
+
+.mainframe-page .bookmarkBtn:hover .IconContainer {
+  width: 112px;
+  transition-duration: 0.3s;
+}
+
+.mainframe-page .bookmarkBtn:hover .text {
+  transform: translate(10px);
+  width: 0;
+  font-size: 0;
+  transition-duration: 0.3s;
+}
+
+.mainframe-page .bookmarkBtn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 8px 22px -8px rgba(16, 185, 129, 0.65);
+}
+
+.mainframe-page .bookmarkBtn:active {
+  transform: scale(0.95);
+  transition-duration: 0.3s;
+}
+

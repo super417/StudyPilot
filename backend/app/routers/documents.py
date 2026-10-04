@@ -9,6 +9,7 @@ from app.models.entities import User
 from app.routers.dependencies import get_current_user
 from app.services import document_service
 from app.services.document_service import (
+    DocumentNotFoundError,
     DocumentParseError,
     UnsupportedFileTypeError,
 )
@@ -49,3 +50,16 @@ def list_documents(
     """List the authenticated user's uploaded documents (aggregated by docId)."""
     documents = document_service.list_user_documents(session, user.id)
     return {"status": "ok", "documents": documents}
+
+
+@router.delete("/{doc_id}")
+def delete_document(
+    doc_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    try:
+        removed = document_service.delete_document(session, user.id, doc_id)
+    except DocumentNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    return {"status": "ok", "docId": doc_id, "removedChunks": removed}

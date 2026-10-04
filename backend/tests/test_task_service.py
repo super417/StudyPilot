@@ -83,6 +83,7 @@ class TaskServiceTests(unittest.TestCase):
             name="阶段 1",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 2, 1),
+            is_current=True,
         )
         self.session.add(phase)
         self.session.flush()
@@ -273,6 +274,77 @@ class TaskServiceTests(unittest.TestCase):
 
         task_service.recompute_phase_progress(self.session, empty_phase)
         self.assertEqual(empty_phase.progress_percent, 0)
+        self.assertFalse(empty_phase.is_completed)
+        self.assertTrue(empty_phase.is_current)
+
+    def test_phase_completes_and_advances_current(self) -> None:
+        user = self._make_user()
+        plan = Plan(
+            user_id=user.id,
+            goal_name="考研",
+            start_date=date(2025, 1, 1),
+            goal_date=date(2025, 12, 31),
+            current_level="零基础",
+            daily_minutes=120,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase_one = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="阶段 1",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 2, 1),
+            is_current=True,
+        )
+        phase_two = Phase(
+            plan_id=plan.id,
+            phase_index=2,
+            name="阶段 2",
+            start_date=date(2025, 2, 2),
+            end_date=date(2025, 3, 1),
+            is_current=False,
+        )
+        self.session.add_all([phase_one, phase_two])
+        self.session.flush()
+        tasks = [
+            DailyTask(
+                plan_id=plan.id,
+                phase_id=phase_one.id,
+                task_date=date(2025, 1, 1 + i),
+                week_label="W01",
+                description=f"任务 {i}",
+                status="pending",
+            )
+            for i in range(2)
+        ]
+        self.session.add_all(tasks)
+        self.session.commit()
+
+        task_service.set_task_status(self.session, user.id, tasks[0].id, "done")
+        self.session.expire_all()
+        self.assertFalse(self.session.get(Phase, phase_one.id).is_completed)
+        self.assertTrue(self.session.get(Phase, phase_one.id).is_current)
+
+        _, finished = task_service.set_task_status(
+            self.session, user.id, tasks[1].id, "done"
+        )
+        self.assertEqual(finished.progress_percent, 100)
+        self.assertTrue(finished.is_completed)
+        self.session.expire_all()
+        self.assertFalse(self.session.get(Phase, phase_one.id).is_current)
+        self.assertTrue(self.session.get(Phase, phase_two.id).is_current)
+
+        # Reopen one task: stage 1 incomplete again and becomes current.
+        _, reopened = task_service.set_task_status(
+            self.session, user.id, tasks[0].id, "pending"
+        )
+        self.assertEqual(reopened.progress_percent, 50)
+        self.assertFalse(reopened.is_completed)
+        self.assertTrue(reopened.is_current)
+        self.session.expire_all()
+        self.assertFalse(self.session.get(Phase, phase_two.id).is_current)
 
     def test_foreign_task_raises_not_found_and_does_not_modify(self) -> None:
         owner = self._make_user("owner")

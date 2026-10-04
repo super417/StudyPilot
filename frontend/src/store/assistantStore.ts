@@ -102,6 +102,8 @@ export interface AssistantState {
   messagesByConversation: Record<string, ChatMessage[]>;
   /** 是否已从 repository 载入过 */
   hydrated: boolean;
+  /** 打开助手后由聊天窗取走并发送的一句；用完即清 */
+  queuedPrompt: string | null;
 
   /** 从 repository 载入会话列表与最近一条会话的消息 */
   hydrate: () => Promise<void>;
@@ -122,6 +124,8 @@ export interface AssistantState {
   toggleAssistant: () => void;
   /** 打开窗口 + 覆盖上下文 + 保留历史（需求 8.10 / 8.11 / 6.6） */
   openAssistantWithContext: (ctx: AssistantContext) => void;
+  /** 排队一句，等会话就绪后由聊天窗发送 */
+  queuePrompt: (text: string) => void;
   /** 设置上下文 */
   setContext: (ctx: AssistantContext) => void;
   /** 清除上下文 */
@@ -161,6 +165,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
   activeId: null,
   messagesByConversation: {},
   hydrated: false,
+  queuedPrompt: null,
 
   hydrate: () => {
     hydrating ??= (async () => {
@@ -279,6 +284,11 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
     void get()
       .ensureConversation()
       .catch(() => undefined);
+  },
+
+  queuePrompt: (text) => {
+    const cleaned = text.trim();
+    if (cleaned) set({ queuedPrompt: cleaned });
   },
 
   setContext: (ctx) => set({ context: ctx }),

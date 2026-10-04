@@ -17,11 +17,13 @@ import {
   createCheckIn,
   fetchDailyTasks,
   fetchOverviewMetrics,
+  addTodayTask,
+  setDailyTaskStatus,
   toMetrics,
 } from '@/lib/studyApi';
 import { fetchLatestPlan } from '@/lib/plansApi';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
-import { getMistake, listMistakes, listItemToMistake } from '@/lib/mistakesApi';
+import { dueFirst, getMistake, listMistakes, listItemToMistake } from '@/lib/mistakesApi';
 import {
   buildLearningInsights,
   buildSelfNote,
@@ -29,6 +31,7 @@ import {
 } from '@/lib/overviewInsights';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 export interface OverviewPageProps {
   onNavigate?: (tab: TabKey) => void;
@@ -54,6 +57,7 @@ function planFromMetrics(metrics: Metrics, today: string): Plan | null {
 function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const go = (tab: TabKey) => onNavigate?.(tab);
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -62,9 +66,11 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
   const [review, setReview] = useState<WeeklyReview | null>(null);
   const [featuredMistake, setFeaturedMistake] = useState<Mistake | null>(null);
   const [pendingMistakeCount, setPendingMistakeCount] = useState(0);
+  const [dueMistakeCount, setDueMistakeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkInMsg, setCheckInMsg] = useState<string | null>(null);
+  const [addingToday, setAddingToday] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -81,10 +87,13 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
         listMistakes().catch(() => ({
           status: 'ok',
           pendingCount: 0,
+          dueCount: 0,
           mistakes: [] as Array<{
             id: string;
             question: string;
             reviewStatus: Mistake['reviewStatus'];
+            nextReviewAt?: string | null;
+            due?: boolean;
             createdAt: string;
           }>,
         })),
@@ -120,14 +129,15 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
         setPlan(planFromMetrics(nextMetrics, today));
       }
 
-      const queue = (mistakesRes.mistakes ?? []).filter(
+      setDueMistakeCount(mistakesRes.dueCount ?? 0);
+      const queue = dueFirst(mistakesRes.mistakes ?? []).filter(
         (m) => m.reviewStatus === 'pending' || m.reviewStatus === 'scheduled',
       );
       const head = queue[0] ?? mistakesRes.mistakes?.[0] ?? null;
       if (head) {
         try {
           const detail = await getMistake(head.id);
-          setFeaturedMistake(detail.mistake);
+          setFeaturedMistake({ ...detail.mistake, due: head.due ?? false });
         } catch {
           setFeaturedMistake(listItemToMistake(head));
         }
@@ -145,7 +155,36 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
 
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, lastPlanId]);
+
+  const handleToggleTask = async (task: DailyTask) => {
+    const next = task.status === 'done' ? 'pending' : 'done';
+    setCheckInMsg(null);
+    try {
+      await setDailyTaskStatus(task.id, next);
+      setCheckInMsg(
+        next === 'done' ? '已标记完成；阶段进度与当前阶段会跟着更新' : '已改回待完成',
+      );
+      await reload();
+    } catch (e) {
+      setCheckInMsg(e instanceof ApiError ? e.message : '更新任务状态失败');
+    }
+  };
+
+  const handleAddToday = async () => {
+    if (addingToday) return;
+    setAddingToday(true);
+    setCheckInMsg(null);
+    try {
+      await addTodayTask(today);
+      setCheckInMsg('已补上今天的任务');
+      await reload();
+    } catch (e) {
+      setCheckInMsg(e instanceof ApiError ? e.message : '补任务失败，请稍后重试');
+    } finally {
+      setAddingToday(false);
+    }
+  };
 
   const handleCheckIn = async (values: CheckInFormValues) => {
     setCheckInMsg(null);
@@ -242,13 +281,21 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
           <TodayTaskCard
             todayStatus={metrics?.todayStatus ?? '未反馈'}
             date={today}
+            tasks={todayTasks}
+            tasksReady={!loading}
+            hasPlan={Boolean(plan)}
+            addingToday={addingToday}
+            onAddToday={() => void handleAddToday()}
+            onToggleTask={(task) => void handleToggleTask(task)}
             onCheckIn={(v) => void handleCheckIn(v)}
-            onStart={(mins) =>
-              openAssistantWithContext({
-                type: 'free',
-                hint: `开始今天 ${mins} 分钟考研学习`,
-              })
-            }
+            onStart={(mins) => {
+              const nextTask = todayTasks.find((task) => task.status === 'pending');
+              const prompt = nextTask
+                ? `开始今天 ${mins} 分钟。先做：${nextTask.description}`
+                : `开始今天 ${mins} 分钟考研学习`;
+              openAssistantWithContext({ type: 'free', hint: prompt });
+              useAssistantStore.getState().queuePrompt(prompt);
+            }}
           />
         </div>
       </div>
@@ -289,6 +336,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
         <FadeIn delay={0.08} y={24}>
           <ReviewQueueCard
             pendingCount={pendingMistakeCount}
+            dueCount={dueMistakeCount}
             featured={featuredMistake}
             onOpenMistakes={() => go('mistakes')}
           />

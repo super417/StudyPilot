@@ -187,6 +187,66 @@ class DocumentRouteTests(unittest.TestCase):
         self.assertEqual(response.json()["code"], "UNAUTHENTICATED")
         self.assertEqual(self._rows(), [])
 
+    def test_delete_document_removes_all_chunks(self) -> None:
+        upload = self.client.post(
+            "/api/documents",
+            files={"file": ("keep-or-drop.txt", b"alpha beta gamma " * 80, "text/plain")},
+        )
+        self.assertEqual(upload.status_code, 201, upload.text)
+        doc_id = upload.json()["docId"]
+        self.assertGreater(upload.json()["chunks"], 0)
+
+        deleted = self.client.delete(f"/api/documents/{doc_id}")
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        body = deleted.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["docId"], doc_id)
+        self.assertEqual(body["removedChunks"], upload.json()["chunks"])
+
+        self.session.expire_all()
+        remaining = list(
+            self.session.scalars(
+                select(UserDocument).where(UserDocument.doc_id == doc_id)
+            )
+        )
+        self.assertEqual(remaining, [])
+
+        listed = self.client.get("/api/documents")
+        self.assertEqual(listed.json()["documents"], [])
+
+        again = self.client.delete(f"/api/documents/{doc_id}")
+        self.assertEqual(again.status_code, 404, again.text)
+        self.assertEqual(again.json()["code"], "NOT_FOUND")
+
+    def test_delete_foreign_document_is_not_found(self) -> None:
+        other_name = f"other-doc-{os.urandom(4).hex()}"
+        other = TestClient(app)
+        other.post(
+            "/api/auth/register",
+            json={"username": other_name, "password": "placeholder-password"},
+        )
+        other.post(
+            "/api/auth/login",
+            json={"username": other_name, "password": "placeholder-password"},
+        )
+        upload = other.post(
+            "/api/documents",
+            files={"file": ("secret.txt", b"owned by other", "text/plain")},
+        )
+        self.assertEqual(upload.status_code, 201, upload.text)
+        doc_id = upload.json()["docId"]
+
+        response = self.client.delete(f"/api/documents/{doc_id}")
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertEqual(response.json()["code"], "NOT_FOUND")
+        self.session.expire_all()
+        still_there = list(
+            self.session.scalars(
+                select(UserDocument).where(UserDocument.doc_id == doc_id)
+            )
+        )
+        self.assertGreater(len(still_there), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

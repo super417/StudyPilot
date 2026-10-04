@@ -13,7 +13,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.entities import CheckIn, DailyTask, Phase, Plan, User, WeeklyReview
+from app.models.entities import CheckIn, Course, DailyTask, Phase, Plan, User, WeeklyReview
 from app.services.metrics_service import compute_streak
 
 
@@ -41,6 +41,52 @@ def completion_rate(done: int, total: int) -> int:
 
 def _now(now: datetime | None) -> datetime:
     return now if now is not None else datetime.now(timezone.utc)
+
+
+def subject_mastery(
+    session: Session,
+    user_id: uuid.UUID,
+    week_start: date,
+    week_end: date,
+) -> tuple[int, list[dict]]:
+    """Per-course mastery for one week: matching task completion, not phase progress.
+
+    A task matches a course when the course name appears in the phase name or
+    the task description. ponytail: substring match, same ceiling as the course
+    card; a short name inside a longer one can share tasks.
+    """
+    courses = list(
+        session.scalars(
+            select(Course)
+            .where(Course.user_id == user_id)
+            .order_by(Course.name)
+        )
+    )
+    if not courses:
+        return 0, []
+    rows = session.execute(
+        select(DailyTask, Phase)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .join(Phase, Phase.id == DailyTask.phase_id)
+        .where(
+            Plan.user_id == user_id,
+            DailyTask.task_date >= week_start,
+            DailyTask.task_date <= week_end,
+        )
+    ).all()
+    detail: list[dict] = []
+    for course in courses:
+        matched = [
+            task
+            for task, phase in rows
+            if course.name in phase.name or course.name in task.description
+        ]
+        done = sum(1 for task in matched if task.status == "done")
+        detail.append(
+            {"subject": course.name, "percent": completion_rate(done, len(matched))}
+        )
+    avg = int(round(sum(item["percent"] for item in detail) / len(detail)))
+    return avg, detail
 
 
 def generate_weekly_review(
@@ -122,32 +168,9 @@ def generate_weekly_review(
         or 0
     )
     rate = completion_rate(int(done_tasks), int(total_tasks))
-
-    # Interim mastery: use phase progress from the latest plan as subject rows
-    # until a dedicated assessment / AI mastery source exists.
-    mastery_avg = 0
-    mastery_detail: list[dict] = []
-    latest_plan = session.scalar(
-        select(Plan)
-        .where(Plan.user_id == user_id)
-        .order_by(Plan.updated_at.desc())
-        .limit(1)
+    mastery_avg, mastery_detail = subject_mastery(
+        session, user_id, week_start, week_end
     )
-    if latest_plan is not None:
-        phases = list(
-            session.scalars(
-                select(Phase)
-                .where(Phase.plan_id == latest_plan.id)
-                .order_by(Phase.phase_index.asc())
-            )
-        )
-        if phases:
-            mastery_detail = [
-                {"subject": p.name, "percent": int(p.progress_percent)} for p in phases
-            ]
-            mastery_avg = int(
-                round(sum(p.progress_percent for p in phases) / len(phases))
-            )
 
     review = WeeklyReview(
         user_id=user_id,

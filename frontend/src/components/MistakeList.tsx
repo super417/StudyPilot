@@ -77,10 +77,10 @@ function MistakeListItem({ mistake, isSelected, onSelect }: MistakeListItemProps
           <span
             className={[
               'mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium',
-              REVIEW_STATUS_STYLE[mistake.reviewStatus],
+              mistake.due ? 'bg-dangerText text-white' : REVIEW_STATUS_STYLE[mistake.reviewStatus],
             ].join(' ')}
           >
-            {REVIEW_STATUS_LABEL[mistake.reviewStatus]}
+            {mistake.due ? '今天该复习' : REVIEW_STATUS_LABEL[mistake.reviewStatus]}
           </span>
         </span>
       </motion.button>
@@ -102,6 +102,7 @@ export interface MistakeListProps {
 function MistakeList({ mistakes, selectedId, onSelect, pendingCount }: MistakeListProps) {
   const badge =
     pendingCount ?? mistakes.filter((m) => m.reviewStatus === 'pending').length;
+  const dueCount = mistakes.filter((m) => m.due).length;
 
   return (
     <section className="card flex flex-col overflow-hidden p-5 sm:p-6">
@@ -113,9 +114,16 @@ function MistakeList({ mistakes, selectedId, onSelect, pendingCount }: MistakeLi
           </h2>
           <p className="text-sm text-gray-500">复习队列</p>
         </div>
-        <span className="shrink-0 rounded-full bg-brand px-3 py-1 text-sm font-semibold text-white">
-          {badge} 待复习
-        </span>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          {dueCount > 0 ? (
+            <span className="rounded-full bg-dangerText px-3 py-1 text-sm font-semibold text-white">
+              {dueCount} 到期
+            </span>
+          ) : null}
+          <span className="rounded-full bg-brand px-3 py-1 text-sm font-semibold text-white">
+            {badge} 待复习
+          </span>
+        </div>
       </header>
 
       {/* 错题列表 */}

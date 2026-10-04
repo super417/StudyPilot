@@ -3,6 +3,7 @@ import CardShell from './CardShell';
 import { CardError, CardLoading } from './states';
 import { useAsync } from './useAsync';
 import { fetchStudyProgress } from '@/lib/profileStudyApi';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 export interface StudyProgressCardProps {
   onEnter: () => void;
@@ -21,7 +22,8 @@ function formatMinutes(minutes: number): string {
 
 /** 学习进度：真实 metrics 阶段进度 + 今日三态 + 本周任务完成比。 */
 function StudyProgressCard({ onEnter }: StudyProgressCardProps) {
-  const { data, loading, error } = useAsync(fetchStudyProgress);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const { data, loading, error } = useAsync(fetchStudyProgress, lastPlanId);
 
   const weeklyPercent =
     data && data.weeklyGoalMinutes > 0

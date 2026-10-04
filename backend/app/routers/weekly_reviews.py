@@ -12,55 +12,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.entities import User, WeeklyReview
 from app.routers.dependencies import get_current_user
-from app.services import planner_service, weekly_review_service
+from app.services import weekly_review_service
 
 router = APIRouter(prefix="/api/weekly-reviews", tags=["weekly-reviews"])
 
 
-def _phase_mastery_fallback(session: Session, user_id) -> tuple[int, list[dict]]:
-    """Derive interim mastery rows from latest plan phase progress.
-
-    Real mastery assessment is not wired yet; phase progress is an honest
-    stand-in so the UI can show goal-linked subjects instead of an empty list.
-    """
-    plan = planner_service.get_latest_plan(session, user_id)
-    if plan is None:
-        return 0, []
-    phases = planner_service.list_phases_for_plan(session, plan.id)
-    if not phases:
-        return 0, []
-    detail = [
-        {"subject": phase.name, "percent": int(phase.progress_percent)}
-        for phase in phases
-    ]
-    avg = int(round(sum(item["percent"] for item in detail) / len(detail)))
-    return avg, detail
-
-
-def _normalize_mastery_detail(raw) -> list[dict]:
-    if isinstance(raw, list):
-        out: list[dict] = []
-        for row in raw:
-            if isinstance(row, dict) and row.get("subject") is not None:
-                out.append(
-                    {
-                        "subject": str(row["subject"]),
-                        "percent": int(row.get("percent") or 0),
-                    }
-                )
-        return out
-    if isinstance(raw, dict) and raw:
-        return [
-            {"subject": str(k), "percent": int(v or 0)} for k, v in raw.items()
-        ]
-    return []
-
-
 def _review(session: Session, user_id, review: WeeklyReview) -> dict:
-    detail = _normalize_mastery_detail(review.mastery_detail)
-    avg = int(review.mastery_avg or 0)
-    if not detail:
-        avg, detail = _phase_mastery_fallback(session, user_id)
+    # Live subjects, so a review saved from phase progress still shows courses.
+    avg, detail = weekly_review_service.subject_mastery(
+        session, user_id, review.week_start, review.week_end
+    )
     return {
         "weekStart": review.week_start.isoformat(),
         "weekEnd": review.week_end.isoformat(),

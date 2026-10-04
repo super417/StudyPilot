@@ -27,6 +27,15 @@ class TaskStatusValidationError(ValueError):
         super().__init__(message)
 
 
+class NoPlanError(ValueError):
+    """Raised when the user has no plan to attach a task to."""
+
+    code = "NO_PLAN"
+
+    def __init__(self, message: str = "还没有规划，无法补任务") -> None:
+        super().__init__(message)
+
+
 class TaskNotFoundError(ValueError):
     """Raised when a task id does not resolve to a task the user owns.
 
@@ -41,24 +50,44 @@ class TaskNotFoundError(ValueError):
 
 
 def recompute_phase_progress(session: Session, phase: Phase) -> None:
-    """Set ``phase.progress_percent`` from the done/total task ratio.
+    """Set ``phase.progress_percent`` / completion, then advance ``is_current``.
 
     ``progress = round(done / total * 100)`` over the phase's daily tasks; an
-    empty phase (total 0) is defined as 0. Pure recompute — the caller owns the
-    commit.
+    empty phase (total 0) is defined as 0 and not completed. When every task is
+    done the phase becomes completed; the first incomplete phase on the same
+    plan becomes current. Pure recompute — the caller owns the commit.
     """
     total = session.scalar(
         select(func.count()).select_from(DailyTask).where(DailyTask.phase_id == phase.id)
     ) or 0
     if total == 0:
         phase.progress_percent = 0
+        phase.is_completed = False
+    else:
+        done = session.scalar(
+            select(func.count())
+            .select_from(DailyTask)
+            .where(DailyTask.phase_id == phase.id, DailyTask.status == "done")
+        ) or 0
+        phase.progress_percent = round(done / total * 100)
+        phase.is_completed = phase.progress_percent == 100
+    session.flush()
+    sync_plan_current_phase(session, phase.plan_id)
+
+
+def sync_plan_current_phase(session: Session, plan_id: uuid.UUID) -> None:
+    """Mark the first incomplete phase as current; if all done, keep the last."""
+    phases = list(
+        session.scalars(
+            select(Phase).where(Phase.plan_id == plan_id).order_by(Phase.phase_index)
+        )
+    )
+    if not phases:
         return
-    done = session.scalar(
-        select(func.count())
-        .select_from(DailyTask)
-        .where(DailyTask.phase_id == phase.id, DailyTask.status == "done")
-    ) or 0
-    phase.progress_percent = round(done / total * 100)
+    current = next((p for p in phases if not p.is_completed), phases[-1])
+    for phase in phases:
+        phase.is_current = phase.id == current.id
+    session.flush()
 
 
 def set_task_status(
@@ -103,6 +132,66 @@ def set_task_status(
     session.refresh(task)
     session.refresh(phase)
     return task, phase
+
+
+def add_today_task(
+    session: Session,
+    user_id: uuid.UUID,
+    task_date: date,
+    description: str | None = None,
+) -> tuple[DailyTask, bool]:
+    """Add one pending task on the latest plan for ``task_date``.
+
+    Returns ``(task, created)``. A task already on that date is returned as-is
+    so a double click does not insert a second row. Progress is recomputed
+    because the new pending task changes the phase ratio.
+    """
+    plan = session.scalar(
+        select(Plan)
+        .where(Plan.user_id == user_id)
+        .order_by(Plan.created_at.desc(), Plan.updated_at.desc())
+        .limit(1)
+    )
+    if plan is None:
+        raise NoPlanError()
+
+    existing = session.scalar(
+        select(DailyTask)
+        .where(DailyTask.plan_id == plan.id, DailyTask.task_date == task_date)
+        .order_by(DailyTask.id)
+        .limit(1)
+    )
+    if existing is not None:
+        return existing, False
+
+    phase = session.scalar(
+        select(Phase)
+        .where(Phase.plan_id == plan.id)
+        .order_by(Phase.is_current.desc(), Phase.phase_index)
+        .limit(1)
+    )
+    if phase is None:
+        raise NoPlanError()
+
+    text = (description or "").strip() or f"推进当前阶段：{phase.name}"
+    task = DailyTask(
+        plan_id=plan.id,
+        phase_id=phase.id,
+        task_date=task_date,
+        week_label=f"W{task_date.isocalendar().week:02d}",
+        description=text,
+        status="pending",
+    )
+    session.add(task)
+    session.flush()
+    recompute_phase_progress(session, phase)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(task)
+    return task, True
 
 
 def get_daily_tasks(

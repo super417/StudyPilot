@@ -6,6 +6,7 @@ read and write is scoped to ``user_id``; a mistake the user does not own is
 reported as ``NOT_FOUND`` with no leakage and no write.
 """
 
+from datetime import datetime, timedelta, timezone
 import uuid
 
 from sqlalchemy import func, select
@@ -14,6 +15,15 @@ from sqlalchemy.orm import Session
 from app.models.entities import Mistake
 
 VALID_REVIEW_STATUSES = ("pending", "scheduled", "done")
+# Day-level Ebbinghaus rungs. After 30 days the gap doubles; no cap.
+_LADDER_DAYS = (1, 2, 4, 7, 15, 30)
+
+
+def interval_days(step: int) -> int:
+    """Days until the next review. ``step`` is how many times it was scheduled."""
+    if step < len(_LADDER_DAYS):
+        return _LADDER_DAYS[step]
+    return _LADDER_DAYS[-1] * (2 ** (step - (len(_LADDER_DAYS) - 1)))
 
 
 class MistakeReviewStatusValidationError(ValueError):
@@ -65,6 +75,17 @@ def list_mistakes(
     return mistakes, int(pending_count)
 
 
+def is_due(mistake: Mistake, now: datetime | None = None) -> bool:
+    """A scheduled mistake whose next review time has arrived."""
+    if mistake.review_status != "scheduled" or mistake.next_review_at is None:
+        return False
+    at = mistake.next_review_at
+    if at.tzinfo is None:
+        # SQLite drops tzinfo; values are always written in UTC.
+        at = at.replace(tzinfo=timezone.utc)
+    return at <= (now or datetime.now(timezone.utc))
+
+
 def get_mistake(
     session: Session, user_id: uuid.UUID, mistake_id: uuid.UUID
 ) -> Mistake:
@@ -103,10 +124,7 @@ def create_mistake(
         raise MistakeCreateValidationError()
 
     def _opt(value: str | None) -> str | None:
-        if value is None:
-            return None
-        text = value.strip()
-        return text or None
+        return _opt_text(value)
 
     mistake = Mistake(
         user_id=user_id,
@@ -117,6 +135,50 @@ def create_mistake(
         review_status="pending",
     )
     session.add(mistake)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(mistake)
+    return mistake
+
+
+def _opt_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = value.strip()
+    return text or None
+
+
+def update_mistake(
+    session: Session,
+    user_id: uuid.UUID,
+    mistake_id: uuid.UUID,
+    *,
+    question: str,
+    my_answer: str | None = None,
+    why_wrong: str | None = None,
+    correct_understanding: str | None = None,
+) -> Mistake:
+    """Overwrite content fields of a mistake the user owns."""
+    cleaned = (question or "").strip()
+    if not cleaned:
+        raise MistakeCreateValidationError()
+
+    mistake = session.scalar(
+        select(Mistake).where(
+            Mistake.id == mistake_id, Mistake.user_id == user_id
+        )
+    )
+    if mistake is None:
+        raise MistakeNotFoundError()
+
+    mistake.question = cleaned
+    mistake.my_answer = _opt_text(my_answer)
+    mistake.why_wrong = _opt_text(why_wrong)
+    mistake.correct_understanding = _opt_text(correct_understanding)
+
     try:
         session.commit()
     except Exception:
@@ -149,6 +211,16 @@ def set_review_status(
         raise MistakeNotFoundError()
 
     mistake.review_status = status
+    if status == "pending":
+        mistake.review_step = 0
+        mistake.next_review_at = None
+    elif status == "scheduled":
+        mistake.next_review_at = datetime.now(timezone.utc) + timedelta(
+            days=interval_days(mistake.review_step)
+        )
+        mistake.review_step += 1
+    else:
+        mistake.next_review_at = None
 
     try:
         session.commit()
@@ -158,3 +230,22 @@ def set_review_status(
 
     session.refresh(mistake)
     return mistake
+
+
+def delete_mistake(
+    session: Session, user_id: uuid.UUID, mistake_id: uuid.UUID
+) -> None:
+    """Hard-delete a mistake the user owns; foreign ids raise ``NOT_FOUND``."""
+    mistake = session.scalar(
+        select(Mistake).where(
+            Mistake.id == mistake_id, Mistake.user_id == user_id
+        )
+    )
+    if mistake is None:
+        raise MistakeNotFoundError()
+    session.delete(mistake)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise

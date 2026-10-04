@@ -133,9 +133,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         setLastPlanId(data.planId);
         const used =
           data.usedDocs.length > 0
-            ? `依据文档 ${data.usedDocs.length} 份`
-            : '未使用文档依据';
-        summary = `规划已生成。planId=${data.planId}，共 ${data.phases} 个阶段。${used}。可前往 Roadmap / 总览查看；输入框可说明如何调整规划。`;
+            ? `已参考 ${data.usedDocs.length} 份资料`
+            : '这次没有使用资料依据';
+        summary = `规划已生成，共 ${data.phases} 个阶段。${used}。总览和路线图会马上更新，也可以在输入框里说明怎么调整。`;
+        onDismiss?.();
       },
       onError: (data: { code: string; message: string }) => {
         pushAssistant(`规划失败（${data.code}）：${data.message}`);

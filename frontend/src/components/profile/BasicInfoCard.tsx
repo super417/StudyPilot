@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UserCircle2 } from 'lucide-react';
 import CardShell from './CardShell';
 import Modal from './Modal';
-import { getBasicProfile, saveBasicProfile, type BasicProfile } from '@/lib/profilePrefs';
+import { CardError, CardLoading } from './states';
+import {
+  fetchBasicProfile,
+  getBasicProfile,
+  saveBasicProfile,
+  type BasicProfile,
+} from '@/lib/profilePrefs';
+import { ApiError } from '@/lib/httpClient';
 
 export interface BasicInfoCardProps {
   /** 弹窗是否打开（受控，与顶部「编辑资料」共享） */
@@ -21,10 +28,38 @@ const FIELDS: { key: keyof BasicProfile; label: string; placeholder: string; tex
   { key: 'bio', label: '简介', placeholder: '一句话介绍自己的备考目标', textarea: true },
 ];
 
-/** 基本信息卡片：展示头像、昵称、学习方向、简介；编辑走弹窗表单，本地保存。 */
+/** 基本信息：GET/PUT /api/profile，编辑走弹窗。 */
 function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicInfoCardProps) {
   const [profile, setProfile] = useState<BasicProfile>(() => getBasicProfile());
   const [draft, setDraft] = useState<BasicProfile>(profile);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    void fetchBasicProfile()
+      .then((data) => {
+        if (!active) return;
+        setProfile(data);
+        setDraft(data);
+        onSaved?.(data);
+        setError(null);
+      })
+      .catch((e) => {
+        if (!active) return;
+        setError(e instanceof ApiError ? e.message : '资料加载失败');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // 仅挂载时拉取；onSaved 由父组件稳定使用。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const displayName = profile.nickname || '学习者';
 
@@ -33,12 +68,21 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
     onEditOpenChange(true);
   };
 
-  const handleSave = () => {
-    const saved = saveBasicProfile(draft);
-    setProfile(saved);
-    onEditOpenChange(false);
-    onSaved?.(saved);
-    onToast('基本信息已保存');
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const saved = await saveBasicProfile(draft);
+      setProfile(saved);
+      onEditOpenChange(false);
+      onSaved?.(saved);
+      onToast('基本信息已保存到账号');
+      setError(null);
+    } catch (e) {
+      onToast(e instanceof ApiError ? e.message : '保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const rows: { label: string; value: string }[] = [
@@ -56,36 +100,47 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
           <button
             type="button"
             onClick={openEdit}
-            className="rounded-full px-2.5 py-1 text-sm text-brand transition hover:bg-brandFaint"
+            disabled={loading}
+            className="rounded-full px-2.5 py-1 text-sm text-brand transition hover:bg-brandFaint disabled:opacity-60"
           >
             编辑
           </button>
         }
       >
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-lg font-bold text-white">
-            {displayName.slice(0, 1)}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-base font-bold text-brandDark">{displayName}</p>
-            <p className="truncate text-sm text-gray-400">{profile.direction || '尚未设置学习方向'}</p>
-          </div>
-        </div>
-        <dl className="mt-4 space-y-2.5">
-          {rows.map((row) => (
-            <div key={row.label} className="flex gap-3 text-sm">
-              <dt className="w-16 shrink-0 text-gray-400">{row.label}</dt>
-              <dd className="min-w-0 flex-1 break-words text-brandDark">{row.value}</dd>
+        {loading ? (
+          <CardLoading rows={4} />
+        ) : error ? (
+          <CardError message={error} />
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-lg font-bold text-white">
+                {displayName.slice(0, 1)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-brandDark">{displayName}</p>
+                <p className="truncate text-sm text-gray-400">
+                  {profile.direction || '尚未设置学习方向'}
+                </p>
+              </div>
             </div>
-          ))}
-        </dl>
+            <dl className="mt-4 space-y-2.5">
+              {rows.map((row) => (
+                <div key={row.label} className="flex gap-3 text-sm">
+                  <dt className="w-16 shrink-0 text-gray-400">{row.label}</dt>
+                  <dd className="min-w-0 flex-1 break-words text-brandDark">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
       </CardShell>
 
       <Modal open={editOpen} title="编辑资料" onClose={() => onEditOpenChange(false)}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSave();
+            void handleSave();
           }}
           className="space-y-4"
         >
@@ -123,9 +178,10 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
             </button>
             <button
               type="submit"
-              className="btn-pill px-4 py-2 text-sm font-medium"
+              disabled={saving}
+              className="btn-pill px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
-              保存
+              {saving ? '保存中…' : '保存'}
             </button>
           </div>
         </form>

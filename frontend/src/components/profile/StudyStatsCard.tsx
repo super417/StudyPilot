@@ -3,6 +3,7 @@ import CardShell from './CardShell';
 import { CardError, CardLoading } from './states';
 import { useAsync } from './useAsync';
 import { fetchStudyStats } from '@/lib/profileStudyApi';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 /** 迷你趋势柱状图（纯 SVG，不引入图表库）。 */
 function MiniTrend({ values }: { values: number[] }) {
@@ -39,7 +40,8 @@ interface StatItem {
 
 /** 学习统计卡片：连续天数、本周时长、完成任务、知识点掌握 + 迷你趋势。 */
 function StudyStatsCard() {
-  const { data, loading, error } = useAsync(fetchStudyStats);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const { data, loading, error } = useAsync(fetchStudyStats, lastPlanId);
 
   const items: StatItem[] = data
     ? [

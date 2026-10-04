@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TodayStatus } from '@/mocks/types';
+import type { DailyTask, TodayStatus } from '@/mocks/types';
 import CheckInForm from '@/components/CheckInForm';
 import type { CheckInFormValues } from '@/components/CheckInForm';
 import { Magnet } from '@/components/motion';
@@ -12,13 +12,19 @@ export interface TodayTaskCardProps {
   todayStatus: TodayStatus;
   /** 今日日期展示文案，默认占位「今天」 */
   date?: string;
-  /**
-   * 「开始今天的学习」点击回调（可选）。
-   * 本步为前端交互占位，未传入时 console.log。
-   */
+  /** 「开始今天的学习」：打开助手并带上所选时长 */
   onStart?: (durationMinutes: number) => void;
   /** 完成打卡回调（可选），透传给内部 CheckInForm */
   onCheckIn?: (values: CheckInFormValues) => void;
+  /** 当日任务；点条目在 pending / done 之间切换 */
+  tasks?: DailyTask[];
+  onToggleTask?: (task: DailyTask) => void;
+  /** 首屏加载完成后再提示「今天还没有安排任务」 */
+  tasksReady?: boolean;
+  /** 已有规划但今天没有任务时，空态不要再催用户去生成。 */
+  hasPlan?: boolean;
+  onAddToday?: () => void;
+  addingToday?: boolean;
 }
 
 /** 状态徽标配色（绿卡上用半透明白底，保持纯白文字风格） */
@@ -29,7 +35,7 @@ const STATUS_BADGE = 'bg-white/20 text-white';
  *
  * 绿色渐变背景 + 纯白文字的大圆角卡片：展示今日日期、今日任务状态徽标、
  * 60/75/90 分钟时长快捷选项（本地 state 记录选中，选中态白底绿字），
- * 「开始今天的学习」主按钮（白底 brandDark 文字胶囊，前端占位），
+ * 「开始今天的学习」主按钮（白底 brandDark 文字胶囊），
  * 下半部内嵌 CheckInForm 打卡表单（需求 4.6）。
  *
  * 动效（任务 26 · 需求 18.4）：「开始今天的学习」按钮用 Magnet 包裹
@@ -40,17 +46,17 @@ function TodayTaskCard({
   date = '今天',
   onStart,
   onCheckIn,
+  tasks = [],
+  onToggleTask,
+  tasksReady = false,
+  hasPlan = false,
+  onAddToday,
+  addingToday = false,
 }: TodayTaskCardProps) {
   const [selectedDuration, setSelectedDuration] = useState<number>(DURATION_OPTIONS[0]);
 
   const handleStart = () => {
-    if (onStart) {
-      onStart(selectedDuration);
-    } else {
-      // 前端占位：开始学习的真实逻辑非本步范围。
-      // eslint-disable-next-line no-console
-      console.log('[TodayTaskCard] 开始今天的学习（前端占位）', { selectedDuration });
-    }
+    onStart?.(selectedDuration);
   };
 
   return (
@@ -96,7 +102,7 @@ function TodayTaskCard({
         </div>
       </div>
 
-      {/* 开始今天的学习（需求 4.4，前端占位），Magnet 磁吸包裹（需求 18.4） */}
+      {/* 开始今天的学习（需求 4.4），Magnet 磁吸包裹（需求 18.4） */}
       <Magnet strength={3} padding={150} className="mt-5">
         <button
           type="button"
@@ -106,6 +112,47 @@ function TodayTaskCard({
           开始今天的学习
         </button>
       </Magnet>
+
+      {tasks.length > 0 ? (
+        <ul className="mt-5 space-y-2">
+          {tasks.map((task) => {
+            const done = task.status === 'done';
+            return (
+              <li key={task.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggleTask?.(task)}
+                  aria-pressed={done}
+                  className="flex w-full items-start gap-2 rounded-2xl bg-white/15 px-3 py-2 text-left text-sm leading-snug hover:bg-white/25"
+                >
+                  <span className="mt-0.5 shrink-0" aria-hidden="true">
+                    {done ? '✓' : '○'}
+                  </span>
+                  <span className={done ? 'line-through opacity-70' : ''}>{task.description}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : tasksReady ? (
+        <div className="mt-4">
+          <p className="text-xs text-white/70">
+            {hasPlan
+              ? '这份规划今天没有排任务。可以补一条到当前阶段，或到路线图看本周安排。'
+              : '今天还没有安排任务。生成规划后会出现在这里。'}
+          </p>
+          {hasPlan && onAddToday ? (
+            <button
+              type="button"
+              disabled={addingToday}
+              onClick={onAddToday}
+              className="mt-3 rounded-full bg-white/20 px-4 py-1.5 text-xs font-medium text-white hover:bg-white/30 disabled:opacity-60"
+            >
+              {addingToday ? '正在补上…' : '补上今天的任务'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* 打卡表单（需求 4.6），初始时长跟随所选快捷时长 */}
       <div className="mt-6">

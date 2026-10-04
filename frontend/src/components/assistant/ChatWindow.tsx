@@ -29,7 +29,7 @@ function ChatWindow() {
   const closeAssistant = useAssistantStore((s) => s.closeAssistant);
   const startConversation = useAssistantStore((s) => s.startConversation);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
-  const { send, stop, streaming, interrupted } = useAssistantChat();
+  const { send, stop, streaming, interrupted } = useAssistantChat(open);
 
   const [input, setInput] = useState('');
   const listRef = useRef<HTMLDivElement>(null);

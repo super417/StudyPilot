@@ -37,6 +37,10 @@ class User(Base):
     )
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    nickname: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    direction: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    target_school: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    bio: Mapped[str] = mapped_column(String(280), default="", nullable=False)
     failed_login_count: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False
     )
@@ -182,6 +186,9 @@ class Mistake(Base):
             "review_status IN ('pending', 'scheduled', 'done')",
             name="ck_mistakes_review_status_values",
         ),
+        CheckConstraint(
+            "review_step >= 0", name="ck_mistakes_review_step_nonnegative"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -198,6 +205,7 @@ class Mistake(Base):
         String(16), default="pending", nullable=False
     )
     next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_step: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
@@ -303,6 +311,59 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
+class Note(Base):
+    __tablename__ = "notes"
+    __table_args__ = (
+        CheckConstraint(
+            "length(title) BETWEEN 1 AND 120", name="ck_notes_title_length"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    subject: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
+class Course(Base):
+    __tablename__ = "courses"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'paused')", name="ck_courses_status_values"
+        ),
+        CheckConstraint(
+            "length(name) BETWEEN 1 AND 64", name="ck_courses_name_length"
+        ),
+        UniqueConstraint("user_id", "name", name="uq_courses_user_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="active", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
 

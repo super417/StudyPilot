@@ -20,6 +20,7 @@ interface DocumentsState {
 
   hydrateFromServer: () => Promise<void>;
   addUploaded: (doc: SessionDocument) => void;
+  removeDocument: (docId: string) => void;
   markSkipped: (docIds: string[]) => void;
   toggleSelect: (docId: string) => void;
   setSelectedIds: (ids: string[]) => void;
@@ -80,6 +81,13 @@ export const useDocumentsStore = create<DocumentsState>((set, get) => ({
       };
     }),
 
+  removeDocument: (docId) =>
+    set((state) => ({
+      documents: state.documents.filter((d) => d.docId !== docId),
+      selectedIds: state.selectedIds.filter((id) => id !== docId),
+      lastError: null,
+    })),
+
   markSkipped: (docIds) =>
     set((state) => ({
       documents: state.documents.map((d) =>
@@ -122,7 +130,7 @@ export function makeSessionDoc(
     docId,
     filename,
     fileType,
-    ready: true,
+    ready: chunks > 0,
     chunks,
     uploadedAt: new Date().toISOString(),
   };

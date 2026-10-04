@@ -23,7 +23,10 @@ function MasteryDetail({ items }: MasteryDetailProps) {
     <FadeIn y={20}>
       <InteractiveCard className="card p-6 sm:p-8">
         <h2 className="font-display text-lg font-bold text-brandDark">知识掌握明细</h2>
-        <p className="mt-1 text-sm text-gray-400">各科目掌握度，会随每周复盘更新</p>
+        <p className="mt-1 text-sm text-gray-400">各科目本周任务的完成比例</p>
+        {items.length === 0 ? (
+          <p className="mt-6 text-sm text-gray-400">还没有课程。先在个人中心添加科目。</p>
+        ) : null}
 
         <ul className="mt-6 flex flex-col gap-5">
           {items.map((item) => {

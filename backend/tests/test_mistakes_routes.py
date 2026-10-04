@@ -123,8 +123,27 @@ class MistakeRouteTests(unittest.TestCase):
         self.assertEqual(len(body["mistakes"]), 3)
         item = body["mistakes"][0]
         self.assertEqual(
-            set(item.keys()), {"id", "question", "reviewStatus", "createdAt"}
+            set(item.keys()),
+            {"id", "question", "reviewStatus", "nextReviewAt", "due", "createdAt"},
         )
+
+    def test_list_marks_scheduled_reviews_that_are_due(self) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+        due = self._make_mistake(self.user.id, "到期", "scheduled")
+        due.next_review_at = now - timedelta(hours=1)
+        later = self._make_mistake(self.user.id, "未到期", "scheduled")
+        later.next_review_at = now + timedelta(days=3)
+        done = self._make_mistake(self.user.id, "已完成", "done")
+        done.next_review_at = now - timedelta(days=1)
+        self.session.commit()
+
+        body = self.client.get("/api/mistakes").json()
+        flags = {item["question"]: item["due"] for item in body["mistakes"]}
+        self.assertEqual(flags, {"到期": True, "未到期": False, "已完成": False})
+        self.assertEqual(body["dueCount"], 1)
+        self.assertEqual(body["pendingCount"], 0)
 
     def test_list_unauthenticated_returns_401(self) -> None:
         self.client.cookies.clear()
@@ -216,6 +235,7 @@ class MistakeRouteTests(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["mistake"]["reviewStatus"], "scheduled")
+        self.assertIsNotNone(body["mistake"]["nextReviewAt"])
 
         self.session.expire_all()
         reloaded = self.session.scalar(
@@ -248,6 +268,128 @@ class MistakeRouteTests(unittest.TestCase):
             json={"status": "done"},
         )
         self.assertEqual(response.status_code, 401)
+
+    def test_delete_mistake_removes_row(self) -> None:
+        mistake = self._make_mistake(self.user.id, "待删除", "pending")
+        response = self.client.delete(f"/api/mistakes/{mistake.id}")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["deletedId"], str(mistake.id))
+
+        listed = self.client.get("/api/mistakes")
+        self.assertEqual(listed.json()["pendingCount"], 0)
+        self.assertEqual(listed.json()["mistakes"], [])
+
+        again = self.client.delete(f"/api/mistakes/{mistake.id}")
+        self.assertEqual(again.status_code, 404)
+        self.assertEqual(again.json()["code"], "NOT_FOUND")
+
+    def test_delete_foreign_mistake_returns_404(self) -> None:
+        other = User(username=f"other-{os.urandom(4).hex()}", password_hash="x")
+        self.session.add(other)
+        self.session.commit()
+        foreign = self._make_mistake(other.id, "别人的题")
+        response = self.client.delete(f"/api/mistakes/{foreign.id}")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["code"], "NOT_FOUND")
+        self.session.expire_all()
+        self.assertIsNotNone(self.session.get(Mistake, foreign.id))
+
+    def test_update_mistake_content(self) -> None:
+        mistake = self._make_mistake(self.user.id, "旧题干", "pending")
+        response = self.client.put(
+            f"/api/mistakes/{mistake.id}",
+            json={
+                "question": "新题干",
+                "myAnswer": "新答案",
+                "whyWrong": "概念混淆",
+                "correctUnderstanding": "应先画图",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()["mistake"]
+        self.assertEqual(body["question"], "新题干")
+        self.assertEqual(body["myAnswer"], "新答案")
+        self.assertEqual(body["whyWrong"], "概念混淆")
+        self.assertEqual(body["correctUnderstanding"], "应先画图")
+        self.assertEqual(body["reviewStatus"], "pending")
+
+        self.session.expire_all()
+        row = self.session.get(Mistake, mistake.id)
+        self.assertEqual(row.question, "新题干")
+        self.assertEqual(row.my_answer, "新答案")
+
+    def test_update_empty_question_returns_400(self) -> None:
+        mistake = self._make_mistake(self.user.id, "题")
+        response = self.client.put(
+            f"/api/mistakes/{mistake.id}",
+            json={"question": "   "},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "VALIDATION")
+
+    # --- POST /api/mistakes/ocr ---------------------------------------------
+
+    def test_ocr_rejects_non_image(self) -> None:
+        response = self.client.post(
+            "/api/mistakes/ocr",
+            files={"image": ("a.txt", b"hello", "text/plain")},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "VALIDATION")
+
+    def test_ocr_without_api_config_returns_no_api_key(self) -> None:
+        response = self.client.post(
+            "/api/mistakes/ocr",
+            files={"image": ("q.png", b"\x89PNG fake", "image/png")},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "NO_API_KEY")
+
+    def test_ocr_sends_image_and_returns_text(self) -> None:
+        from unittest import mock
+
+        from app.services import ocr_service
+        from app.services.ai_proxy import ResolvedCredential
+
+        sent: dict = {}
+
+        class FakeResponse:
+            status_code = 200
+
+            def json(self):
+                return {"choices": [{"message": {"content": "  1. 求极限 lim x→0 sinx/x  "}}]}
+
+        class FakeClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def post(self, url, headers, json):
+                sent["url"] = url
+                sent["json"] = json
+                return FakeResponse()
+
+        credential = ResolvedCredential(
+            api_key="sk-test", model_type="gpt-4o", base_url="https://x/v1/chat/completions"
+        )
+        with mock.patch.object(ocr_service, "resolve_credential", return_value=credential), \
+                mock.patch.object(ocr_service.httpx, "AsyncClient", FakeClient):
+            response = self.client.post(
+                "/api/mistakes/ocr",
+                files={"image": ("q.png", b"\x89PNG fake", "image/png")},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["text"], "1. 求极限 lim x→0 sinx/x")
+        parts = sent["json"]["messages"][0]["content"]
+        self.assertEqual(sent["json"]["model"], "gpt-4o")
+        self.assertTrue(parts[1]["image_url"]["url"].startswith("data:image/png;base64,"))
+        self.assertNotIn("sk-test", response.text)
 
 
 if __name__ == "__main__":

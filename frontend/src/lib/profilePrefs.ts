@@ -1,25 +1,19 @@
 /**
- * 用户基本信息（昵称 / 学习方向 / 目标院校专业 / 简介）。
+ * 用户基本信息（昵称 / 学习方向 / 目标院校 / 简介）。
  *
- * 后端暂无用户资料接口，这里用 localStorage 持久化，供「基本信息」卡片本地可编辑保存。
- *
- * TODO(backend): 待后端实现用户资料接口（如 GET/PUT /api/profile），
- * 将本模块改为读写后端；对外 get/save 函数签名保持不变，卡片无需改动。
- * 注意：此处只存非敏感的展示资料，绝不存储任何凭据。
+ * 读写走 GET/PUT /api/profile。旧版 localStorage 仅在服务端仍为空时迁移一次。
  */
+import { apiRequest } from './httpClient';
 
 export interface BasicProfile {
-  /** 昵称 */
   nickname: string;
-  /** 学习方向 / 目标专业 */
   direction: string;
-  /** 目标院校 */
   targetSchool: string;
-  /** 简介 */
   bio: string;
 }
 
 const STORAGE_KEY = 'studypilot.basicProfile.v1';
+const MIGRATED_KEY = 'studypilot.basicProfile.migrated.v1';
 
 const DEFAULT_PROFILE: BasicProfile = {
   nickname: '',
@@ -32,29 +26,86 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** 读取基本信息；缺失或损坏时返回空默认值（类型安全，不抛异常）。 */
-export function getBasicProfile(): BasicProfile {
+function normalize(raw: Partial<BasicProfile> | null | undefined): BasicProfile {
+  return {
+    nickname: asString(raw?.nickname),
+    direction: asString(raw?.direction),
+    targetSchool: asString(raw?.targetSchool),
+    bio: asString(raw?.bio),
+  };
+}
+
+function readLocal(): BasicProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_PROFILE };
-    const parsed = JSON.parse(raw) as Partial<BasicProfile>;
-    return {
-      nickname: asString(parsed.nickname),
-      direction: asString(parsed.direction),
-      targetSchool: asString(parsed.targetSchool),
-      bio: asString(parsed.bio),
-    };
+    return normalize(JSON.parse(raw) as Partial<BasicProfile>);
   } catch {
     return { ...DEFAULT_PROFILE };
   }
 }
 
-/** 保存基本信息并返回已保存的值。 */
-export function saveBasicProfile(profile: BasicProfile): BasicProfile {
+function writeLocal(profile: BasicProfile): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
   } catch {
-    // localStorage 不可用时静默降级，本次会话内仍生效。
+    // ignore quota / private mode
   }
+}
+
+function isEmpty(profile: BasicProfile): boolean {
+  return !(
+    profile.nickname ||
+    profile.direction ||
+    profile.targetSchool ||
+    profile.bio
+  );
+}
+
+/** 同步读本地缓存（首屏占位）；完整数据以 fetchBasicProfile 为准。 */
+export function getBasicProfile(): BasicProfile {
+  return readLocal();
+}
+
+/** GET /api/profile；服务端为空时把旧 localStorage 迁上去。 */
+export async function fetchBasicProfile(): Promise<BasicProfile> {
+  const res = await apiRequest<{ status: string; profile: BasicProfile }>('/api/profile');
+  let profile = normalize(res.profile);
+  const migrated = (() => {
+    try {
+      return localStorage.getItem(MIGRATED_KEY) === '1';
+    } catch {
+      return true;
+    }
+  })();
+  if (isEmpty(profile) && !migrated) {
+    const local = readLocal();
+    if (!isEmpty(local)) {
+      profile = await saveBasicProfile(local);
+    }
+    try {
+      localStorage.setItem(MIGRATED_KEY, '1');
+    } catch {
+      // ignore
+    }
+  }
+  writeLocal(profile);
   return profile;
+}
+
+/** PUT /api/profile */
+export async function saveBasicProfile(profile: BasicProfile): Promise<BasicProfile> {
+  const cleaned = normalize(profile);
+  const res = await apiRequest<{ status: string; profile: BasicProfile }>('/api/profile', {
+    method: 'PUT',
+    body: JSON.stringify(cleaned),
+  });
+  const saved = normalize(res.profile);
+  writeLocal(saved);
+  try {
+    localStorage.setItem(MIGRATED_KEY, '1');
+  } catch {
+    // ignore
+  }
+  return saved;
 }

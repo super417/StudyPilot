@@ -21,6 +21,8 @@ import { fetchLatestWeeklyReview } from '@/lib/weeklyReviewsApi';
 import { listMistakes } from '@/lib/mistakesApi';
 import { listDocuments } from '@/lib/documentsApi';
 import { fetchLatestPlan } from '@/lib/plansApi';
+import { listNotes } from '@/lib/notesApi';
+import { fetchCourseOverview } from '@/lib/coursesApi';
 
 export type {
   StudyProgressOverview,
@@ -86,21 +88,29 @@ export async function fetchStudyStats(): Promise<StudyStatsOverview> {
   };
 }
 
-/** 后端无课程接口：显式空态，禁止 mock 数字。 */
-export function fetchCourses(): Promise<CoursesOverview> {
-  return Promise.resolve({
-    activeCount: 0,
-    recentCourse: '',
-    nextTask: '',
-  });
+/** 课程：在学门数、最近编辑的一门、规划里匹配到的下一条未完成任务。 */
+export async function fetchCourses(): Promise<CoursesOverview> {
+  const res = await fetchCourseOverview();
+  return {
+    activeCount: res.activeCount,
+    recentCourse: res.recentCourse,
+    nextTask: res.nextTask,
+  };
 }
 
-/** 后端无笔记接口：显式空态。 */
-export function fetchNotes(): Promise<NotesOverview> {
-  return Promise.resolve({
-    total: 0,
-    recent: [],
-  });
+/** 笔记：GET /api/notes，卡片只展示最近 3 条。 */
+export async function fetchNotes(): Promise<NotesOverview> {
+  const res = await listNotes();
+  const notes = res.notes ?? [];
+  return {
+    total: notes.length,
+    recent: notes.slice(0, 3).map((note) => ({
+      id: note.id,
+      title: note.title,
+      course: note.subject || '未分科目',
+      updatedAt: relativeAt(note.updatedAt, '刚刚'),
+    })),
+  };
 }
 
 /** 今日待办：GET /api/daily-tasks?date=today */
@@ -177,6 +187,10 @@ export async function fetchRecentActivities(): Promise<ActivityItem[]> {
     });
   }
 
+  const dueCount = 'dueCount' in mistakesRes ? (mistakesRes.dueCount ?? 0) : 0;
+  if (dueCount > 0) {
+    items.push({ id: 'mistakes-due', text: `今天有 ${dueCount} 道错题到期该复习`, at: '今天' });
+  }
   if (mistakesRes.pendingCount > 0) {
     items.push({
       id: 'mistakes-pending',

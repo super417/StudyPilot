@@ -105,6 +105,8 @@ export interface Mistake {
   reviewStatus: ReviewStatus;
   /** 下次复习时间，ISO，可空 */
   nextReviewAt?: string;
+  /** 已安排且下次复习时间已到 */
+  due?: boolean;
 }
 
 /** 某科目掌握度明细项 */

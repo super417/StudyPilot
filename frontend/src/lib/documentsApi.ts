@@ -53,3 +53,14 @@ export interface ListDocumentsResponse {
 export function listDocuments(signal?: AbortSignal): Promise<ListDocumentsResponse> {
   return apiRequest<ListDocumentsResponse>('/api/documents', { signal });
 }
+
+/** DELETE /api/documents/{docId} — 删除该文档全部切块 */
+export function deleteDocument(
+  docId: string,
+  signal?: AbortSignal,
+): Promise<{ status: string; docId: string; removedChunks: number }> {
+  return apiRequest(`/api/documents/${encodeURIComponent(docId)}`, {
+    method: 'DELETE',
+    signal,
+  });
+}

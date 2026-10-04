@@ -10,7 +10,15 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.models.base import Base
-from app.models.entities import CheckIn, DailyTask, Phase, Plan, User, WeeklyReview
+from app.models.entities import (
+    CheckIn,
+    Course,
+    DailyTask,
+    Phase,
+    Plan,
+    User,
+    WeeklyReview,
+)
 from app.services import weekly_review_service
 
 
@@ -196,14 +204,33 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         # 2 done of 4 in-week -> 50.
         self.assertEqual(review.completion_rate, 50)
 
-    def test_mastery_is_neutral_placeholder(self) -> None:
+    def test_mastery_uses_course_task_completion(self) -> None:
         user = self._make_user()
         self._add_check_in(user, date(2025, 2, 10), 60)
+        plan, phase = self._make_plan_with_phase(user)
+        phase.name = "高等数学强化"
+        self.session.add_all(
+            [
+                Course(user_id=user.id, name="高等数学", status="active"),
+                Course(user_id=user.id, name="英语", status="active"),
+            ]
+        )
+        self.session.commit()
+        self._add_task(plan, phase, date(2025, 2, 10), "done")
+        self._add_task(plan, phase, date(2025, 2, 11), "pending")
+        self._add_task(plan, phase, date(2025, 2, 20), "done")
+
         review = weekly_review_service.generate_weekly_review(
             self.session, user.id, self.week_start, self.week_end
         )
-        self.assertEqual(review.mastery_avg, 0)
-        self.assertEqual(review.mastery_detail, [])
+        self.assertEqual(
+            review.mastery_detail,
+            [
+                {"subject": "英语", "percent": 0},
+                {"subject": "高等数学", "percent": 50},
+            ],
+        )
+        self.assertEqual(review.mastery_avg, 25)
 
     def test_repeat_call_is_idempotent(self) -> None:
         user = self._make_user()

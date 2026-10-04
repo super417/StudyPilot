@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 /** 打卡表单提交负载（对应 Check_Ins 表可写字段的前端子集） */
 export interface CheckInFormValues {
@@ -31,6 +31,10 @@ function CheckInForm({ initialDurationMinutes = 60, onSubmit }: CheckInFormProps
   const [difficulty, setDifficulty] = useState<number>(3);
   const [energy, setEnergy] = useState<number>(3);
   const [note, setNote] = useState<string>('');
+
+  useEffect(() => {
+    setDurationMinutes(initialDurationMinutes);
+  }, [initialDurationMinutes]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

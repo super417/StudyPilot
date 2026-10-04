@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import RoadmapHeader from '@/components/RoadmapHeader';
-import PhaseList from '@/components/PhaseList';
+import PhaseList, { type PhaseEdit } from '@/components/PhaseList';
 import WeekTaskGroups from '@/components/WeekTaskGroups';
 import type { DailyTask, Phase } from '@/mocks/types';
 import { currentWeekDates, todayISO } from '@/lib/dates';
 import {
   fetchDailyTasksForDates,
   fetchOverviewMetrics,
+  addTodayTask,
   setDailyTaskStatus,
 } from '@/lib/studyApi';
-import { fetchLatestPlan } from '@/lib/plansApi';
+import { fetchLatestPlan, patchPhase } from '@/lib/plansApi';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 /**
  * Roadmap：阶段来自 GET /api/plans/latest；本周任务来自每日 daily-tasks。
@@ -19,6 +21,7 @@ import { useAssistantStore } from '@/store';
 function RoadmapPage() {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -27,6 +30,7 @@ function RoadmapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [addingToday, setAddingToday] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -69,7 +73,45 @@ function RoadmapPage() {
 
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, lastPlanId]);
+
+  const handleAddToday = async () => {
+    if (addingToday) return;
+    setAddingToday(true);
+    setStatusMsg(null);
+    try {
+      await addTodayTask(today);
+      setStatusMsg('已补上今天的任务');
+      await reload();
+    } catch (e) {
+      setStatusMsg(e instanceof ApiError ? e.message : '补任务失败，请稍后重试');
+    } finally {
+      setAddingToday(false);
+    }
+  };
+
+  const handleSavePhase = async (phaseId: string, edit: PhaseEdit) => {
+    setStatusMsg(null);
+    try {
+      const res = await patchPhase(phaseId, edit);
+      setPhases((prev) =>
+        prev.map((phase) =>
+          phase.id === phaseId
+            ? {
+                ...phase,
+                name: res.phase.name,
+                startDate: res.phase.startDate,
+                endDate: res.phase.endDate,
+              }
+            : phase,
+        ),
+      );
+      setStatusMsg('已更新这一阶段，其他阶段没有改动');
+    } catch (e) {
+      setStatusMsg(e instanceof ApiError ? e.message : '阶段调整失败');
+      throw e;
+    }
+  };
 
   const handleToggle = async (task: DailyTask) => {
     const next = task.status === 'done' ? 'pending' : 'done';
@@ -80,7 +122,7 @@ function RoadmapPage() {
         prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
       );
       setStatusMsg(
-        next === 'done' ? '已标记完成，阶段进度已更新' : '已改回待完成',
+        next === 'done' ? '已标记完成；阶段进度与当前阶段会跟着更新' : '已改回待完成',
       );
       // 任务状态可能推动阶段进度，轻量刷新阶段列表
       const latest = await fetchLatestPlan().catch(() => null);
@@ -135,8 +177,19 @@ function RoadmapPage() {
           </button>
         </section>
       ) : (
-        <PhaseList phases={phases} />
+        <PhaseList phases={phases} onSavePhase={handleSavePhase} />
       )}
+
+      {!loading && hasPlan && !tasks.some((task) => task.taskDate === today) ? (
+        <button
+          type="button"
+          disabled={addingToday}
+          onClick={() => void handleAddToday()}
+          className="btn-pill self-start px-5 py-2 text-sm disabled:opacity-60"
+        >
+          {addingToday ? '正在补上…' : '补上今天的任务'}
+        </button>
+      ) : null}
 
       <WeekTaskGroups tasks={tasks} onToggleStatus={(t) => void handleToggle(t)} />
     </div>

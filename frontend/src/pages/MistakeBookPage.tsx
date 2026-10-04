@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, X } from 'lucide-react';
+import { Camera, ImageUp, Plus, Sparkles, X } from 'lucide-react';
+import { useAssistantStore } from '@/store';
 
 import MistakeList from '@/components/MistakeList';
 import MistakeDetail from '@/components/MistakeDetail';
+import CameraCapture from '@/components/CameraCapture';
 import type { Mistake, ReviewStatus } from '@/mocks/types';
 import {
   createMistake,
+  deleteMistake,
+  dueFirst,
   getMistake,
   listItemToMistake,
   listMistakes,
+  recognizeQuestionImage,
   setMistakeReviewStatus,
+  updateMistake,
 } from '@/lib/mistakesApi';
 import { ApiError } from '@/lib/httpClient';
+import type { MistakeEditValues } from '@/components/MistakeDetail';
 
 function MistakeBookPage() {
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
@@ -25,17 +32,65 @@ function MistakeBookPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editingSave, setEditingSave] = useState(false);
   const [question, setQuestion] = useState('');
   const [myAnswer, setMyAnswer] = useState('');
   const [whyWrong, setWhyWrong] = useState('');
   const [correctUnderstanding, setCorrectUnderstanding] = useState('');
+  const [recognizing, setRecognizing] = useState(false);
+
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const captureInputRef = useRef<HTMLInputElement>(null);
+
+  const openCamera = () => {
+    if (window.isSecureContext && 'mediaDevices' in navigator) {
+      setCameraOpen(true);
+    } else {
+      // 非安全来源（如手机用局域网 http 打开）拿不到摄像头接口，退回系统相机
+      captureInputRef.current?.click();
+    }
+  };
+
+  const askAssistant = () => {
+    const q = question.trim();
+    if (!q) return;
+    const lines = [`帮我讲这道题：先说考点，再给解题思路和完整步骤，最后点出最容易错的地方。`, '', q];
+    if (myAnswer.trim()) lines.push('', `我的答案：${myAnswer.trim()}`, '请顺便指出我错在哪。');
+    const prompt = lines.join('\n');
+    const { openAssistantWithContext, queuePrompt } = useAssistantStore.getState();
+    openAssistantWithContext({ type: 'free', hint: '讲解这道题' });
+    queuePrompt(prompt);
+  };
+
+  const handleImage = (ev: ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (file) void recognizeFile(file);
+  };
+
+  const recognizeFile = async (file: File) => {
+    if (recognizing) return;
+    setRecognizing(true);
+    setActionMsg(null);
+    try {
+      const res = await recognizeQuestionImage(file);
+      setShowForm(true);
+      setQuestion((prev) => (prev.trim() ? `${prev.trim()}\n${res.text}` : res.text));
+      setActionMsg('已识别题目，核对一下；可以直接「让助手讲这道题」，或保存进复习队列');
+    } catch (err) {
+      setActionMsg(err instanceof ApiError ? err.message : '识别失败，请稍后重试');
+    } finally {
+      setRecognizing(false);
+    }
+  };
 
   const reloadList = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await listMistakes();
-      const items = res.mistakes.map(listItemToMistake);
+      const items = dueFirst(res.mistakes.map(listItemToMistake));
       setMistakes(items);
       setPendingCount(res.pendingCount);
       setSelectedId((prev) => {
@@ -96,12 +151,23 @@ function MistakeBookPage() {
       const res = await setMistakeReviewStatus(selectedId, status);
       setMistakes((prev) =>
         prev.map((m) =>
-          m.id === selectedId ? { ...m, reviewStatus: res.mistake.reviewStatus } : m,
+          m.id === selectedId
+            ? {
+                ...m,
+                reviewStatus: res.mistake.reviewStatus,
+                nextReviewAt: res.mistake.nextReviewAt ?? undefined,
+                due: false,
+              }
+            : m,
         ),
       );
       setDetail((prev) =>
         prev && prev.id === selectedId
-          ? { ...prev, reviewStatus: res.mistake.reviewStatus }
+          ? {
+              ...prev,
+              reviewStatus: res.mistake.reviewStatus,
+              nextReviewAt: res.mistake.nextReviewAt ?? undefined,
+            }
           : prev,
       );
       setPendingCount((prev) => {
@@ -114,6 +180,46 @@ function MistakeBookPage() {
       setActionMsg('复习状态已更新');
     } catch (e) {
       setActionMsg(e instanceof ApiError ? e.message : '更新复习状态失败');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId || deleting) return;
+    setDeleting(true);
+    setActionMsg(null);
+    try {
+      await deleteMistake(selectedId);
+      setActionMsg('已删除这条错题');
+      setDetail(null);
+      await reloadList();
+    } catch (e) {
+      setActionMsg(e instanceof ApiError ? e.message : '删除失败，请稍后重试');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleSaveEdit = async (values: MistakeEditValues) => {
+    if (!selectedId || editingSave) return;
+    setEditingSave(true);
+    setActionMsg(null);
+    try {
+      const res = await updateMistake(selectedId, values);
+      const updated = res.mistake;
+      setDetail(updated);
+      setMistakes((prev) =>
+        prev.map((m) =>
+          m.id === selectedId
+            ? { ...m, question: updated.question, reviewStatus: updated.reviewStatus }
+            : m,
+        ),
+      );
+      setActionMsg('错题已更新');
+    } catch (e) {
+      setActionMsg(e instanceof ApiError ? e.message : '保存失败，请稍后重试');
+      throw e;
+    } finally {
+      setEditingSave(false);
     }
   };
 
@@ -172,14 +278,48 @@ function MistakeBookPage() {
             每一条都保留原题、我的答案、错因、正确理解和复习安排。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-        >
-          {showForm ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-          {showForm ? '收起表单' : '记录一道错题'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={recognizing}
+            onClick={openCamera}
+            className="inline-flex items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint disabled:opacity-60"
+          >
+            <Camera size={16} aria-hidden="true" />
+            拍照识题
+          </button>
+          <input
+            ref={captureInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={handleImage}
+          />
+          <label
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint ${recognizing ? 'pointer-events-none opacity-60' : ''}`}
+          >
+            <ImageUp size={16} aria-hidden="true" />
+            {recognizing ? '识别中…' : '上传图片'}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              disabled={recognizing}
+              onChange={handleImage}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowForm((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+          >
+            {showForm ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+            {showForm ? '收起表单' : '记录一道错题'}
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -194,6 +334,15 @@ function MistakeBookPage() {
         </div>
       ) : null}
       {actionMsg ? <p className="text-sm text-brandDark">{actionMsg}</p> : null}
+
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => {
+          setCameraOpen(false);
+          void recognizeFile(file);
+        }}
+      />
 
       {showForm ? (
         <form
@@ -241,13 +390,27 @@ function MistakeBookPage() {
               className="mt-1 w-full rounded-xl border border-brandFaint bg-white px-3 py-2 text-sm outline-none focus:border-brand"
             />
           </label>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-          >
-            {saving ? '保存中…' : '加入复习队列'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {saving ? '保存中…' : '加入复习队列'}
+            </button>
+            <button
+              type="button"
+              disabled={!question.trim()}
+              onClick={askAssistant}
+              className="inline-flex items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark hover:bg-brandFaint disabled:opacity-50"
+            >
+              <Sparkles size={15} aria-hidden="true" />
+              让助手讲这道题
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">
+            讲题不会保存错题；弄懂后可以把错因和正确理解填回来，再加入复习队列。
+          </p>
         </form>
       ) : null}
 
@@ -280,7 +443,14 @@ function MistakeBookPage() {
               {detailLoading ? (
                 <section className="card p-8 text-sm text-gray-400">加载错题详情…</section>
               ) : (
-                <MistakeDetail mistake={detail} onReviewStatusChange={handleReviewStatus} />
+                <MistakeDetail
+                  mistake={detail}
+                  onReviewStatusChange={handleReviewStatus}
+                  onDelete={() => void handleDelete()}
+                  deleting={deleting}
+                  onSave={handleSaveEdit}
+                  saving={editingSave}
+                />
               )}
             </motion.div>
           </AnimatePresence>

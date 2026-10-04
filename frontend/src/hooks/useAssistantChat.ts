@@ -13,9 +13,12 @@ import { streamPlanRegenerate } from '@/lib/plansApi';
 import { streamAssistantChat } from '@/lib/assistantApi';
 import { ApiError } from '@/lib/httpClient';
 
-export function useAssistantChat() {
+/** `acceptQueued` 为 false 时先别发（悬浮窗关着）。全屏面板挂载即接收。 */
+export function useAssistantChat(acceptQueued = true) {
   const context = useAssistantStore((s) => s.context);
   const streaming = useAssistantStore((s) => s.streaming);
+  const activeId = useAssistantStore((s) => s.activeId);
+  const queuedPrompt = useAssistantStore((s) => s.queuedPrompt);
   const addMessage = useAssistantStore((s) => s.addMessage);
   const appendStreamChunk = useAssistantStore((s) => s.appendStreamChunk);
   const setStreaming = useAssistantStore((s) => s.setStreaming);
@@ -176,6 +179,14 @@ export function useAssistantChat() {
       typewrite,
     ],
   );
+
+  useEffect(() => {
+    if (!acceptQueued || !activeId || streaming || !queuedPrompt) return;
+    const text = useAssistantStore.getState().queuedPrompt;
+    if (!text) return;
+    useAssistantStore.setState({ queuedPrompt: null });
+    send(text);
+  }, [acceptQueued, activeId, streaming, queuedPrompt, send]);
 
   return { send, stop, streaming, interrupted, abortRef };
 }

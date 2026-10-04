@@ -156,12 +156,44 @@ class MistakeServiceTests(unittest.TestCase):
             self.session, user.id, mistake.id, "scheduled"
         )
         self.assertEqual(updated.review_status, "scheduled")
+        self.assertIsNotNone(updated.next_review_at)
 
         self.session.expire_all()
         reloaded = self.session.scalar(
             select(Mistake).where(Mistake.id == mistake.id)
         )
         self.assertEqual(reloaded.review_status, "scheduled")
+        self.assertIsNotNone(reloaded.next_review_at)
+
+        cleared = mistake_service.set_review_status(
+            self.session, user.id, mistake.id, "done"
+        )
+        self.assertIsNone(cleared.next_review_at)
+
+    def test_schedule_follows_ebbinghaus_and_pending_resets(self) -> None:
+        self.assertEqual(
+            [mistake_service.interval_days(step) for step in range(8)],
+            [1, 2, 4, 7, 15, 30, 60, 120],
+        )
+        user = self._make_user()
+        mistake = self._make_mistake(user, "题", "pending")
+        first = mistake_service.set_review_status(
+            self.session, user.id, mistake.id, "scheduled"
+        )
+        first_at = first.next_review_at
+        second = mistake_service.set_review_status(
+            self.session, user.id, mistake.id, "scheduled"
+        )
+        self.assertEqual((second.next_review_at - first_at).days, 1)
+        self.assertEqual(second.review_step, 2)
+        reset = mistake_service.set_review_status(
+            self.session, user.id, mistake.id, "pending"
+        )
+        self.assertEqual(reset.review_step, 0)
+        again = mistake_service.set_review_status(
+            self.session, user.id, mistake.id, "scheduled"
+        )
+        self.assertEqual(again.review_step, 1)
 
     def test_set_invalid_status_raises_validation(self) -> None:
         user = self._make_user()

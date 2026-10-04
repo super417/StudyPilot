@@ -1,9 +1,15 @@
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Circle, ListTodo, Zap, Activity, Bot } from 'lucide-react';
 import { useAssistantStore } from '@/store/assistantStore';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 import type { TabKey } from '@/components/TabNav';
 import { CardEmpty, CardError, CardLoading } from './states';
 import { useAsync } from './useAsync';
 import { fetchRecentActivities, fetchTodayTodos } from '@/lib/profileStudyApi';
+import type { TodoItem } from '@/lib/profileStudyApi';
+import { addTodayTask, fetchOverviewMetrics, setDailyTaskStatus } from '@/lib/studyApi';
+import { todayISO } from '@/lib/dates';
+import { ApiError } from '@/lib/httpClient';
 
 export interface RightRailProps {
   /** 占位 / 操作反馈 */
@@ -37,34 +43,132 @@ function GlassSection({
   );
 }
 
-/** 今日待办：真实 daily-tasks。 */
+/** 今日待办：真实 daily-tasks，点击在完成 / 待完成之间切换。 */
 function TodayTodo() {
   const { data, loading, error } = useAsync(fetchTodayTodos);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const [items, setItems] = useState<TodoItem[] | null>(null);
+  const [hasPlan, setHasPlan] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (data) setItems(data);
+  }, [data]);
+
+  useEffect(() => {
+    if (!lastPlanId) return;
+    void fetchTodayTodos()
+      .then(setItems)
+      .catch(() => undefined);
+  }, [lastPlanId]);
+
+  const list = items ?? data;
+
+  useEffect(() => {
+    if (lastPlanId) {
+      setHasPlan(true);
+      return;
+    }
+    if (loading || (list && list.length > 0)) return;
+    let active = true;
+    void fetchOverviewMetrics(todayISO())
+      .then((metrics) => {
+        if (active) setHasPlan(metrics.phaseProgress.total > 0);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [lastPlanId, loading, list]);
+
+  const addToday = async () => {
+    if (adding) return;
+    setAdding(true);
+    setActionError(null);
+    try {
+      await addTodayTask(todayISO());
+      setItems(await fetchTodayTodos());
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : '补任务失败，请稍后重试');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const toggle = async (todo: TodoItem) => {
+    const next = todo.done ? 'pending' : 'done';
+    setActionError(null);
+    try {
+      await setDailyTaskStatus(todo.id, next);
+      setItems((prev) =>
+        (prev ?? []).map((item) =>
+          item.id === todo.id ? { ...item, done: next === 'done' } : item,
+        ),
+      );
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : '更新任务状态失败');
+    }
+  };
+
   return (
     <GlassSection title="今日待办" icon={<ListTodo size={14} aria-hidden="true" />}>
-      {loading ? (
+      {loading && !list ? (
         <CardLoading rows={3} />
       ) : error ? (
         <CardError message={error} />
-      ) : !(data && data.length) ? (
-        <CardEmpty>今日暂无任务。生成规划后会出现在这里。</CardEmpty>
+      ) : !(list && list.length) ? (
+        <>
+          <CardEmpty>
+            {hasPlan
+              ? '这份规划今天没有排任务。'
+              : '今日暂无任务。生成规划后会出现在这里。'}
+          </CardEmpty>
+          {hasPlan ? (
+            <button
+              type="button"
+              disabled={adding}
+              onClick={() => void addToday()}
+              className="mt-3 w-full rounded-full bg-brand px-4 py-2 text-xs font-medium text-white disabled:opacity-60"
+            >
+              {adding ? '正在补上…' : '补上今天的任务'}
+            </button>
+          ) : null}
+          {actionError ? (
+            <p className="mt-2 text-xs text-dangerText" role="alert">
+              {actionError}
+            </p>
+          ) : null}
+        </>
       ) : (
         <ul className="space-y-2.5">
-          {data.map((todo) => (
-            <li key={todo.id} className="flex items-start gap-2 text-sm">
-              {todo.done ? (
-                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
-              ) : (
-                <Circle size={16} className="mt-0.5 shrink-0 text-gray-300" aria-hidden="true" />
-              )}
-              <span className="min-w-0">
-                <span
-                  className={`block ${todo.done ? 'text-gray-400 line-through' : 'text-brandDark'}`}
-                >
-                  {todo.title}
+          {actionError ? (
+            <li className="text-xs text-dangerText" role="alert">
+              {actionError}
+            </li>
+          ) : null}
+          {list.map((todo) => (
+            <li key={todo.id}>
+              <button
+                type="button"
+                onClick={() => void toggle(todo)}
+                aria-pressed={todo.done}
+                className="flex w-full items-start gap-2 text-left text-sm"
+              >
+                {todo.done ? (
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+                ) : (
+                  <Circle size={16} className="mt-0.5 shrink-0 text-gray-300" aria-hidden="true" />
+                )}
+                <span className="min-w-0">
+                  <span
+                    className={`block ${todo.done ? 'text-gray-400 line-through' : 'text-brandDark'}`}
+                  >
+                    {todo.title}
+                  </span>
+                  <span className="text-xs text-gray-400">{todo.tag}</span>
                 </span>
-                <span className="text-xs text-gray-400">{todo.tag}</span>
-              </span>
+              </button>
             </li>
           ))}
         </ul>
@@ -147,7 +251,8 @@ function QuickActions({
 
 /** 最近动态：由真实学习数据派生。 */
 function RecentActivity() {
-  const { data, loading, error } = useAsync(fetchRecentActivities);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const { data, loading, error } = useAsync(fetchRecentActivities, lastPlanId);
   return (
     <GlassSection title="最近动态" icon={<Activity size={14} aria-hidden="true" />}>
       {loading ? (

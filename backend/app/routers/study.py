@@ -19,7 +19,7 @@ from app.models.entities import DailyTask, User
 from app.routers.dependencies import get_current_user
 from app.services import checkin_service, metrics_service, task_service
 from app.services.checkin_service import CheckInValidationError
-from app.services.task_service import TaskNotFoundError, TaskStatusValidationError
+from app.services.task_service import NoPlanError, TaskNotFoundError, TaskStatusValidationError
 
 router = APIRouter(prefix="/api", tags=["study"])
 
@@ -58,6 +58,15 @@ class CheckInPayload(BaseModel):
     difficulty: int | None = None
     energy: int | None = None
     note: str | None = None
+
+
+class AddTaskPayload(BaseModel):
+    """Add one task on a date of the latest plan."""
+
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    task_date: str = ""
+    description: str | None = None
 
 
 class TaskStatusPayload(BaseModel):
@@ -107,6 +116,27 @@ def create_check_in_route(
     return JSONResponse(
         status_code=201,
         content={"status": "ok", "checkInId": str(check_in.id)},
+    )
+
+
+@router.post("/daily-tasks")
+def add_today_task_route(
+    payload: AddTaskPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    task_date = _parse_date(payload.task_date)
+    if task_date is None:
+        return _json_error(400, _VALIDATION_CODE, "日期参数不合法")
+    try:
+        task, created = task_service.add_today_task(
+            session, user.id, task_date, payload.description
+        )
+    except NoPlanError as error:
+        return _json_error(404, error.code, str(error))
+    return JSONResponse(
+        status_code=201 if created else 200,
+        content={"status": "ok", "task": _task_result(task)},
     )
 
 

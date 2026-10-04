@@ -29,8 +29,7 @@ import { useToast } from '@/components/profile/useToast';
  * 背景：整屏雪山背景由 App 外壳在 profile tab 下承载（见 App.tsx 的 PROFILE_BACKDROP），
  * 本页不再自绘背景层 —— 页面内部的 fixed + 负 z-index 背景会被外壳不透明渐变按
  * CSS 绘制顺序盖住，只在页面过渡动画期间闪现。
- * 仅前端：无后端的卡片用占位数据 + loading / 空 / 错误态；API 配置卡片经真实
- * /api/api-config 可操作，AES 加密由后端负责，前端仅在 localStorage 存模型 / 强度偏好。
+ * 基本信息、API 配置、笔记和课程走真实接口。
  */
 interface ProfilePageProps {
   /** 切换到指定 Tab（快捷入口用） */

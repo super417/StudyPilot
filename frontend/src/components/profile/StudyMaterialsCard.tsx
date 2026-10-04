@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FolderOpen, Upload } from 'lucide-react';
 import CardShell from './CardShell';
 import { CardEmpty, CardError } from './states';
 import {
   DocumentsApiError,
+  deleteDocument,
   fileTypeFromName,
   uploadDocument,
 } from '@/lib/documentsApi';
@@ -13,7 +14,7 @@ export interface StudyMaterialsCardProps {
   onAction: (message: string) => void;
 }
 
-/** 学习资料：GET 水合 + POST /api/documents 上传。 */
+/** 学习资料：GET 水合 + POST 上传 + DELETE 删除。 */
 function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const documents = useDocumentsStore((s) => s.documents);
@@ -23,8 +24,10 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
   const lastError = useDocumentsStore((s) => s.lastError);
   const hydrateFromServer = useDocumentsStore((s) => s.hydrateFromServer);
   const addUploaded = useDocumentsStore((s) => s.addUploaded);
+  const removeDocument = useDocumentsStore((s) => s.removeDocument);
   const setUploading = useDocumentsStore((s) => s.setUploading);
   const setLastError = useDocumentsStore((s) => s.setLastError);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hydrated && !hydrating) {
@@ -50,7 +53,11 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
     try {
       const result = await uploadDocument(file);
       addUploaded(makeSessionDoc(result.docId, file.name, fileType, result.chunks));
-      onAction(`已上传「${file.name}」（${result.chunks} 块），可在助手中选为规划依据`);
+      onAction(
+        result.chunks > 0
+          ? `已上传「${file.name}」（${result.chunks} 块），可在助手中选为规划依据`
+          : `已上传「${file.name}」，但没有切出可用文字，规划时不会使用`,
+      );
     } catch (error) {
       const message =
         error instanceof DocumentsApiError
@@ -61,6 +68,24 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const handleDelete = async (docId: string, filename: string) => {
+    if (deletingId) return;
+    setDeletingId(docId);
+    setLastError(null);
+    try {
+      await deleteDocument(docId);
+      removeDocument(docId);
+      onAction(`已删除「${filename}」`);
+    } catch (error) {
+      const message =
+        error instanceof DocumentsApiError ? error.message : '删除失败，请稍后重试';
+      setLastError(message);
+      onAction(`删除失败：${message}`);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -102,28 +127,25 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
               </span>
             ))}
           </div>
-          <ul className="mt-3 max-h-24 space-y-1 overflow-y-auto text-xs text-gray-600">
-            {documents.slice(0, 5).map((d) => (
-              <li key={d.docId} className="truncate">
-                {d.filename}
-                {!d.ready ? '（尚未就绪）' : ''}
+          <ul className="mt-3 max-h-28 space-y-1 overflow-y-auto text-xs text-gray-600">
+            {documents.map((d) => (
+              <li key={d.docId} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">
+                  {d.filename}
+                  {!d.ready ? '（尚未就绪）' : ''}
+                </span>
+                <button
+                  type="button"
+                  disabled={deletingId === d.docId}
+                  onClick={() => void handleDelete(d.docId, d.filename)}
+                  className="shrink-0 text-[11px] text-dangerText hover:underline disabled:opacity-60"
+                >
+                  {deletingId === d.docId ? '删除中…' : '删除'}
+                </button>
               </li>
             ))}
           </ul>
-          <div className="mt-5 flex gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                onAction(
-                    documents.length
-                    ? `共 ${documents.length} 份资料，可在助手「考研规划」中勾选`
-                    : '暂无资料',
-                )
-              }
-              className="rounded-full bg-bg px-3.5 py-1.5 text-sm font-medium text-brandDark transition hover:bg-brandFaint"
-            >
-              查看全部
-            </button>
+          <div className="mt-5">
             <button
               type="button"
               disabled={uploading}

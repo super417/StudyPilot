@@ -195,6 +195,36 @@ class StudyRouteTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 401)
 
+    def test_add_today_task_creates_once_on_current_phase(self) -> None:
+        _, phase, existing = self._seed_plan_with_task(date(2025, 2, 10), status="done")
+        created = self.client.post(
+            "/api/daily-tasks", json={"taskDate": "2025-02-11"}
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        body = created.json()["task"]
+        self.assertEqual(body["taskDate"], "2025-02-11")
+        self.assertEqual(body["phaseId"], str(phase.id))
+        self.assertEqual(body["status"], "pending")
+        self.assertIn("阶段 1", body["description"])
+
+        again = self.client.post(
+            "/api/daily-tasks", json={"taskDate": "2025-02-11"}
+        )
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertEqual(again.json()["task"]["id"], body["id"])
+
+        self.session.expire_all()
+        phase_row = self.session.get(Phase, phase.id)
+        self.assertEqual(phase_row.progress_percent, 50)
+        self.assertNotEqual(body["id"], str(existing.id))
+
+    def test_add_today_task_without_plan_is_404(self) -> None:
+        response = self.client.post(
+            "/api/daily-tasks", json={"taskDate": "2025-02-11"}
+        )
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertEqual(response.json()["code"], "NO_PLAN")
+
     # --- GET /api/daily-tasks ----------------------------------------------
 
     def test_daily_tasks_returns_own_tasks(self) -> None:

@@ -67,6 +67,13 @@ export function createCheckIn(input: {
   });
 }
 
+export function addTodayTask(taskDate: string): Promise<{ status: string; task: DailyTask }> {
+  return apiRequest<{ status: string; task: DailyTask }>('/api/daily-tasks', {
+    method: 'POST',
+    body: JSON.stringify({ taskDate }),
+  });
+}
+
 export function setDailyTaskStatus(
   taskId: string,
   status: DailyTaskStatus,

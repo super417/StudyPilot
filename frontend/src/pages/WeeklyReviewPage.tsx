@@ -8,6 +8,7 @@ import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi'
 import { fetchOverviewMetrics, toMetrics } from '@/lib/studyApi';
 import { todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
+import { usePlanSessionStore } from '@/store/planSessionStore';
 
 /** 按是否有规划 / 周报，拼出与用户目标相关的说明文案。 */
 function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: boolean) {
@@ -42,6 +43,7 @@ function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: 
 }
 
 function WeeklyReviewPage() {
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const [review, setReview] = useState<WeeklyReview | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -78,7 +80,9 @@ function WeeklyReviewPage() {
 
   useEffect(() => {
     void reload();
-  }, []);
+    // 规划生成后阶段数会变，空态文案依赖这份指标。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastPlanId]);
 
   const copy = useMemo(
     () => buildCopy(metrics, review, empty || !review),

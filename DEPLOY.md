@@ -37,14 +37,14 @@
 
 | 能力 | 状态 |
 |------|------|
-| `POST /api/assistant/chat` | ✅ SSE token/error/done；领域拦截；文档 RAG 摘录；推理强度透传；兼容 DeepSeek `reasoning_content` |
+| `POST /api/assistant/chat` | ✅ SSE token/error/done；领域拦截；文档 RAG 摘录；推理强度透传；思考链不进回复 |
 | `POST /api/api-config/models` | ✅ 代理供应商 `/models`；DeepSeek platform 主机自动纠正 |
 | `GET /api/plans/latest` | ✅ 最新规划 + 阶段列表 |
-| `GET /api/weekly-reviews/latest` | ✅；无记录时惰性生成上周/本周；掌握度暂由阶段进度占位 |
+| `GET /api/weekly-reviews/latest` | ✅；无记录时惰性生成上周/本周；掌握度按课程科目的本周任务完成比例现算 |
 | `GET /api/documents` | ✅ 按 docId 聚合用户文档清单；前端水合 |
 | 个人中心右栏 | ✅ 今日待办←daily-tasks；动态←文档/规划/错题/周报派生；无假流水 |
-| `POST /api/mistakes` | ✅ 手动录入错题；默认 pending 进复习队列 |
-| OCR / 拍照搜题 | 无路由 → 未伪造 |
+| `POST /api/mistakes` | ✅ 手动录入错题；默认 pending 进复习队列；标「已安排」按 1/2/4/7/15/30 天、之后翻倍排下次复习 |
+| `POST /api/mistakes/ocr` | ✅；错题本「拍照 / 上传图片」识别题目，走设置里的模型，需支持识图（GPT-4o、Gemini 等） |
 
 ## API 配置与真实调用
 
