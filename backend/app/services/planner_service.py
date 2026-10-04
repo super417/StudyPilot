@@ -22,7 +22,7 @@ network.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, timedelta
 import json
 import re
 import uuid
@@ -32,6 +32,7 @@ import httpx
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.clock import local_today
 from app.models.entities import DailyTask, Phase, Plan, PlanRevision
 from app.services import document_service, resource_links
 from app.services.ai_proxy import (
@@ -298,8 +299,8 @@ def advance_state(
     )
 
 
-def _today_utc() -> date:
-    return datetime.now(timezone.utc).date()
+def _today_local() -> date:
+    return local_today()
 
 
 def _coerce_date(value: object, fallback: date) -> date:
@@ -357,7 +358,7 @@ def _build_plan_user_prompt(
         f"- 目标日期：{fields.get('goalDate')}",
         f"- 当前水平：{fields.get('currentLevel')}",
         f"- 每日可用分钟：{fields.get('dailyMinutes')}",
-        f"- 今天是 {_today_utc().isoformat()}。阶段和每日任务都从今天排到目标日期，不要写今天之前的日期。",
+        f"- 今天是 {_today_local().isoformat()}。阶段和每日任务都从今天排到目标日期，不要写今天之前的日期。",
         f"- 就绪文档 id：{', '.join(used_docs) if used_docs else '无'}",
         "- 必须为每个阶段输出逐日任务，日期连续。",
     ]
@@ -426,7 +427,7 @@ def _parse_plan_structure_from_text(text: str) -> dict:
 
 def _heuristic_plan_structure(fields: dict[str, object]) -> dict:
     """Deterministic 考研骨架：仅在模型输出无法解析时兜底，保证演示可闭环。"""
-    today = _today_utc()
+    today = _today_local()
     goal = _coerce_date(fields.get("goalDate"), today + timedelta(days=180))
     span_days = max(30, (goal - today).days)
     mid = today + timedelta(days=span_days // 2)
@@ -861,7 +862,7 @@ def _persist_plan(
     used_docs: list[str],
     skipped_docs: list[str],
 ) -> GeneratedPlan:
-    today = _today_utc()
+    today = _today_local()
     goal_date = _coerce_date(fields.get("goalDate"), today)
     daily_minutes = int(fields["dailyMinutes"])  # validated present by caller
 
@@ -1014,7 +1015,7 @@ async def regenerate_plan(
     )
     phases_data = _validate_structure(structure)
 
-    today = _today_utc()
+    today = _today_local()
     plan.goal_name = str(fields.get("goalName", plan.goal_name))
     plan.goal_date = _coerce_date(fields.get("goalDate"), plan.goal_date)
     plan.current_level = str(fields.get("currentLevel", plan.current_level))

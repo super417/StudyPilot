@@ -13,6 +13,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.clock import local_today
 from app.models.entities import DailyTask, Phase, Plan
 
 VALID_STATUSES = ("pending", "done")
@@ -208,7 +209,7 @@ def settle_overdue_tasks(
     stay on their original date. The original row is marked ``carried`` and
     moved once. ``user_id=None`` scans every user. No scheduler here.
     """
-    today = today or date.today()
+    today = today or local_today()
     statement = (
         select(DailyTask)
         .join(Plan, Plan.id == DailyTask.plan_id)
@@ -262,7 +263,7 @@ def get_phase_tasks(
     session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
 ) -> list[DailyTask]:
     """Every daily task of one phase, oldest date first. Missing phase is 404."""
-    settle_overdue_tasks(session, user_id, date.today())
+    settle_overdue_tasks(session, user_id, local_today())
     phase = session.scalar(
         select(Phase)
         .join(Plan, Plan.id == Phase.plan_id)
@@ -289,7 +290,7 @@ def get_daily_tasks(
     stable: by owning phase index, then task date, then id.
     Overdue pending tasks are carried onto today before the read.
     """
-    settle_overdue_tasks(session, user_id, date.today())
+    settle_overdue_tasks(session, user_id, local_today())
     statement = (
         select(DailyTask)
         .join(Plan, Plan.id == DailyTask.plan_id)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import AsyncIterator, Awaitable, Callable
 import json
 import re
@@ -13,6 +13,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.clock import local_now
 from app.models.entities import Mistake, Plan, UserDocument
 from app.services import document_service
 from app.services.video_draft_store import VideoDraft, video_draft_store
@@ -298,7 +299,7 @@ async def stream_assistant_reply(
         return
 
     fetcher = video_fetcher or fetch_link
-    current = now or datetime.now(timezone(timedelta(hours=8)))
+    current = now or local_now()
     linked = extract_url(text)
     draft = video_draft_store.get(user_id, current)
     if draft is not None and not linked:
