@@ -160,9 +160,34 @@ export function streamPlanRegenerate(
   });
 }
 
+export function planStartQuestion(today = new Date()): string {
+  const iso = (day: Date) => {
+    const month = String(day.getMonth() + 1).padStart(2, '0');
+    const date = String(day.getDate()).padStart(2, '0');
+    return `${day.getFullYear()}-${month}-${date}`;
+  };
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  return [
+    '规划好了。你希望从哪天开始？阶段和每天的任务都会从这一天排起。',
+    `· 回「今天」→ ${iso(today)}`,
+    `· 回「明天」→ ${iso(tomorrow)}`,
+    '· 也可以直接说日期，比如「10月8日」',
+  ].join('\n');
+}
+
+/** 把最新规划的第一天改成用户刚说的那天。 */
+export function setPlanStart(message: string) {
+  return apiRequest<{ status: string; startDate: string }>('/api/plans/start', {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  });
+}
+
 export interface LatestPlanResponse {
   status: string;
   empty?: boolean;
+  needsStartDate?: boolean;
   plan: {
     id: string;
     goalName: string;

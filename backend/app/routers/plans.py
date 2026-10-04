@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from app.core.clock import local_today
 from app.core.database import get_db
 from app.models.entities import PlanRevision, User
 from app.routers.dependencies import get_current_user
@@ -25,6 +26,7 @@ from app.services.api_config_service import (
     has_verified_api_config,
 )
 from app.services.plan_draft_store import plan_draft_store
+from app.services.video_link import parse_start_date
 from app.services.planner_service import (
     FOCUS_AGAIN,
     FOCUS_QUESTION,
@@ -58,6 +60,12 @@ _EMPTY_INSTRUCTION_MESSAGE = "请描述你希望如何调整这份规划"
 def _to_camel(field_name: str) -> str:
     head, *tail = field_name.split("_")
     return head + "".join(part.title() for part in tail)
+
+
+class StartPayload(BaseModel):
+    """The user's answer to「希望从哪天开始」."""
+
+    message: str
 
 
 class GeneratePayload(BaseModel):
@@ -137,11 +145,13 @@ def latest_plan_route(
             content={"status": "ok", "plan": None, "phases": [], "empty": True},
         )
     phases = planner_service.list_phases_for_plan(session, plan.id)
+    earliest = min((phase.start_date for phase in phases), default=plan.start_date)
     return JSONResponse(
         status_code=200,
         content={
             "status": "ok",
             "empty": False,
+            "needsStartDate": earliest < plan.start_date,
             "plan": {
                 "id": str(plan.id),
                 "goalName": plan.goal_name,
@@ -154,6 +164,51 @@ def latest_plan_route(
                 "updatedAt": plan.updated_at.isoformat(),
             },
             "phases": [_phase_dict(p) for p in phases],
+        },
+    )
+
+
+@router.post("/start")
+def set_plan_start_route(
+    payload: StartPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    """Move the latest plan so it starts on the day the user just named."""
+    plan = planner_service.get_latest_plan(session, user.id)
+    if plan is None:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "code": "NOT_FOUND", "message": "还没有规划"},
+        )
+    chosen = parse_start_date(payload.message or "", local_today())
+    if chosen is None:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "code": "VALIDATION",
+                "message": "没听懂开始日。回「今天」「明天」，或说「10月8日」。",
+            },
+        )
+    if chosen > plan.goal_date:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "code": "VALIDATION",
+                "message": f"开始日不能晚于目标日 {plan.goal_date.isoformat()}。",
+            },
+        )
+    planner_service.anchor_plan_to(session, plan, chosen)
+    session.commit()
+    phases = planner_service.list_phases_for_plan(session, plan.id)
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "ok",
+            "startDate": chosen.isoformat(),
+            "phases": [_phase_dict(phase) for phase in phases],
         },
     )
 

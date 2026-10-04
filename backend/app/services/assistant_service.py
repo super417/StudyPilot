@@ -17,6 +17,11 @@ from app.core.clock import local_now
 from app.models.entities import Mistake, Plan, UserDocument
 from app.services import document_service
 from app.services.video_draft_store import VideoDraft, video_draft_store
+from app.services.planner_service import (
+    anchor_plan_to,
+    get_latest_plan,
+    list_phases_for_plan,
+)
 from app.services.video_link import (
     extract_url,
     fetch_link,
@@ -27,6 +32,7 @@ from app.services.video_link import (
     start_question,
     study_brief,
     suggest_start,
+    url_is_glued,
     wants_to_adopt,
 )
 from app.services.ai_proxy import (
@@ -69,6 +75,21 @@ _SYSTEM_PROMPT = (
 _DOMAIN_REFUSAL = (
     "【领域拦截】我是考研学习助手，只能帮助数学 / 英语 / 政治 / 专业课、"
     "复习规划、错题复盘与科研阅读。请换一个与考研备考相关的问题。"
+)
+
+# ASCII text running straight into an address leaves the boundary a guess, so we
+# ask instead of picking one. See ``video_link.url_is_glued``.
+_GLUED_LINK_REPLY = (
+    "这个链接后面粘着文字，我没法确定地址到哪结束。"
+    "麻烦单独发一条只含链接的消息，我再读一次。"
+)
+
+# Also covers the case we cannot detect at all: a non-Bilibili address with a
+# word stuck on the end is indistinguishable from a real address, so the fetch
+# simply fails and we point at the likely cause.
+_LINK_UNREADABLE_REPLY = (
+    "这个链接没打开。可能是地址后面粘了文字，也可能是链接本身失效了。"
+    "试试单独发一条只含链接的消息，或者把标题和章节发我。"
 )
 
 # Strip leaked chain-of-thought wrappers some models put into `content`.
@@ -172,7 +193,11 @@ def build_chat_messages(
             "只根据上面读到的内容说，不要编造页面里没有的章节。"
         )
     elif extract_url(message):
-        parts.append("链接内容：这个链接没有打开。不要编造页面里的标题和章节，请用户换一个打得开的链接或补充标题。")
+        parts.append(
+            "链接内容：这个链接没有打开。不要编造页面里的标题和章节。"
+            "请用户单独发一条只含链接的消息再试一次（地址后面粘着文字是最常见的原因），"
+            "或者补充标题和章节。"
+        )
     if rag_text.strip():
         parts.append(
             "知识库摘录（可能不完整，无依据时请声明）：\n" + rag_text.strip()[:6000]
@@ -302,6 +327,13 @@ async def stream_assistant_reply(
     current = now or local_now()
     linked = extract_url(text)
     draft = video_draft_store.get(user_id, current)
+    if draft is None and not linked and url_is_glued(text):
+        async for frame in stream_ai_sse(
+            lambda: _local_text_stream(_GLUED_LINK_REPLY),
+            is_disconnected,
+        ):
+            yield frame
+        return
     if draft is not None and not linked:
         chosen = parse_start_date(text, current.date())
         if chosen is None and wants_to_adopt(text):
@@ -309,6 +341,25 @@ async def stream_assistant_reply(
         if chosen is not None:
             reply = merge_into_daily_plan(session, user_id, draft.material, chosen)
             video_draft_store.clear(user_id)
+            async for frame in stream_ai_sse(
+                lambda: _local_text_stream(reply),
+                is_disconnected,
+            ):
+                yield frame
+            return
+
+    if not linked and len(text) <= 24:
+        chosen = parse_start_date(text, current.date())
+        plan = get_latest_plan(session, user_id) if chosen is not None else None
+        phases = list_phases_for_plan(session, plan.id) if plan is not None else []
+        earliest = min((phase.start_date for phase in phases), default=None)
+        if plan is not None and chosen is not None and earliest is not None and earliest < plan.start_date:
+            if chosen > plan.goal_date:
+                reply = f"这个开始日晚于目标日 {plan.goal_date.isoformat()}，换一个目标日之前的日期。"
+            else:
+                anchor_plan_to(session, plan, chosen)
+                session.commit()
+                reply = f"好，整个规划从 {chosen.isoformat()} 开始。阶段和每天的任务都按这个日期排了。"
             async for frame in stream_ai_sse(
                 lambda: _local_text_stream(reply),
                 is_disconnected,
@@ -350,9 +401,7 @@ async def stream_assistant_reply(
                 return
             if wants_to_adopt(text):
                 async for frame in stream_ai_sse(
-                    lambda: _local_text_stream(
-                        "这个链接没有打开，没读到里面的内容。换一个打得开的链接，或把标题和章节发我。"
-                    ),
+                    lambda: _local_text_stream(_LINK_UNREADABLE_REPLY),
                     is_disconnected,
                 ):
                     yield frame

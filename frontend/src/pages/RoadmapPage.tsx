@@ -11,7 +11,7 @@ import {
   addTodayTask,
   setDailyTaskStatus,
 } from '@/lib/studyApi';
-import { fetchLatestPlan, patchPhase } from '@/lib/plansApi';
+import { fetchLatestPlan, patchPhase, setPlanStart } from '@/lib/plansApi';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
@@ -35,6 +35,9 @@ function RoadmapPage() {
   const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
   const [phaseTasks, setPhaseTasks] = useState<DailyTask[]>([]);
   const [phaseTasksLoading, setPhaseTasksLoading] = useState(false);
+  const [needsStartDate, setNeedsStartDate] = useState(false);
+  const [startReply, setStartReply] = useState('');
+  const [savingStart, setSavingStart] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -47,6 +50,7 @@ function RoadmapPage() {
         fetchLatestPlan().catch(() => ({
           status: 'ok',
           empty: true,
+          needsStartDate: false,
           plan: null,
           phases: [],
         })),
@@ -68,6 +72,7 @@ function RoadmapPage() {
         })),
       );
       setUpdatedAt(latest.plan?.updatedAt?.slice(0, 10) ?? today);
+      setNeedsStartDate(Boolean(latest.needsStartDate));
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Roadmap 加载失败');
     } finally {
@@ -204,6 +209,45 @@ function RoadmapPage() {
           </button>
         </section>
       ) : (
+        <>
+        {needsStartDate ? (
+          <form
+            className="card flex flex-col gap-3 p-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const message = startReply.trim();
+              if (!message || savingStart) return;
+              setSavingStart(true);
+              setStatusMsg(null);
+              void setPlanStart(message)
+                .then((saved) => {
+                  setStartReply('');
+                  setStatusMsg(`已从 ${saved.startDate} 开始排。`);
+                  return reload();
+                })
+                .catch((e: unknown) => {
+                  setStatusMsg(e instanceof ApiError ? e.message : '开始日没记上');
+                })
+                .finally(() => setSavingStart(false));
+            }}
+          >
+            <p className="text-sm font-medium text-brandDark">希望从哪天开始？</p>
+            <p className="text-xs text-gray-500">
+              阶段和每天的任务都会从你定的这一天排起。可以回「今天」「明天」，或「10月8日」。
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={startReply}
+                onChange={(event) => setStartReply(event.target.value)}
+                placeholder="明天"
+                className="min-w-0 flex-1 rounded-full border border-black/10 px-4 py-2 text-sm"
+              />
+              <button type="submit" className="btn-pill px-5 py-2 text-sm" disabled={savingStart}>
+                就从这天开始
+              </button>
+            </div>
+          </form>
+        ) : null}
         <PhaseList
           phases={phases}
           onSavePhase={handleSavePhase}
@@ -213,6 +257,7 @@ function RoadmapPage() {
           onTogglePhase={(id) => void handleTogglePhase(id)}
           onToggleTask={(task) => void handleToggle(task)}
         />
+        </>
       )}
 
       {!loading && hasPlan && !tasks.some((task) => task.taskDate === today) ? (

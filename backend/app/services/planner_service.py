@@ -946,6 +946,40 @@ def _owned_plan(
     return plan
 
 
+def anchor_plan_to(session: Session, plan: Plan, start: date) -> None:
+    """Slide the whole schedule so its first day is ``start``.
+
+    ``start`` is the day the user just confirmed. Gaps between days stay.
+    Days that would pass the goal date stop on the goal date. The caller commits.
+    """
+    phases = list_phases_for_plan(session, plan.id)
+    plan.start_date = start
+    if not phases:
+        return
+    earliest = min(phase.start_date for phase in phases)
+    delta = start - earliest
+    goal = plan.goal_date
+    for phase in phases:
+        phase_start = phase.start_date + delta
+        phase_end = phase.end_date + delta
+        if phase_start > goal:
+            phase_start = goal
+        if phase_end > goal:
+            phase_end = goal
+        if phase_end < phase_start:
+            phase_end = phase_start
+        phase.start_date = phase_start
+        phase.end_date = phase_end
+    for task in session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id)):
+        moved = task.task_date + delta
+        if moved < start:
+            moved = start
+        if moved > goal:
+            moved = goal
+        task.task_date = moved
+        task.week_label = f"W{moved.isocalendar().week:02d}"
+
+
 def get_latest_plan(session: Session, user_id: uuid.UUID) -> Plan | None:
     """Return the user's most recently updated plan, or ``None``."""
     return session.scalar(

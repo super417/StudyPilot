@@ -5,6 +5,7 @@ import { useDocumentsStore } from '@/store/documentsStore';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useAssistantStore } from '@/store';
 import {
+  planStartQuestion,
   streamPlanClarify,
   streamPlanGenerate,
   type PlanGoalFields,
@@ -131,11 +132,12 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       onDone: (data: { planId: string; phases: number; usedDocs: string[] }) => {
         clearClarify();
         setLastPlanId(data.planId);
+        usePlanSessionStore.getState().askForStart();
         const used =
           data.usedDocs.length > 0
             ? `已参考 ${data.usedDocs.length} 份资料`
             : '这次没有使用资料依据';
-        summary = `规划已生成，共 ${data.phases} 个阶段。${used}。总览和路线图会马上更新，也可以在输入框里说明怎么调整。`;
+        summary = `规划已生成，共 ${data.phases} 个阶段。${used}。\n${planStartQuestion()}`;
         onDismiss?.();
       },
       onError: (data: { code: string; message: string }) => {

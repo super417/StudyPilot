@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useDocumentsStore } from '@/store/documentsStore';
-import { streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
+import { planStartQuestion, setPlanStart, streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
 import { streamAssistantChat } from '@/lib/assistantApi';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { isPlanEditIntent, isResourceRequest } from '@/lib/resourceRequest';
@@ -116,6 +116,26 @@ export function useAssistantChat(acceptQueued = true) {
         content: text,
       });
 
+      if (usePlanSessionStore.getState().awaitingStart) {
+        const ac = new AbortController();
+        abortRef.current = ac;
+        setStreaming(true);
+        void (async () => {
+          try {
+            const saved = await setPlanStart(text);
+            if (ac.signal.aborted) return;
+            usePlanSessionStore.setState({ awaitingStart: false });
+            pushAssistant(`好，整个规划从 ${saved.startDate} 开始。路线图已按这个日期重排。`);
+          } catch (err) {
+            if (ac.signal.aborted) return;
+            replyError(err, '开始日没记上，请再说一次今天、明天或具体日期。', pushAssistant);
+          } finally {
+            if (abortRef.current === ac) stopStreaming();
+          }
+        })();
+        return;
+      }
+
       const draftId = usePlanSessionStore.getState().draftId;
       if (draftId) {
         const ac = new AbortController();
@@ -141,7 +161,8 @@ export function useAssistantChat(acceptQueued = true) {
                   if (ac.signal.aborted) return;
                   clearClarify();
                   setLastPlanId(data.planId);
-                  pushAssistant(`已写入规划，共 ${data.phases} 个阶段。总览和路线图已更新。`);
+                  usePlanSessionStore.getState().askForStart();
+                  pushAssistant(`已写入规划，共 ${data.phases} 个阶段。\n${planStartQuestion()}`);
                 },
                 onError: (data) => {
                   if (ac.signal.aborted) return;
@@ -191,7 +212,8 @@ export function useAssistantChat(acceptQueued = true) {
                 onDone: (d) => {
                   if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                   setLastPlanId(d.planId);
-                  summary = `规划已按你的说明更新（${d.phases} 个阶段）。可到 Roadmap 查看本周任务。`;
+                  usePlanSessionStore.getState().askForStart();
+                  summary = `规划已按你的说明更新（${d.phases} 个阶段）。\n${planStartQuestion()}`;
                 },
                 onError: (d) => {
                   if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
