@@ -6,6 +6,8 @@ backend/.venv/
 backend/*.db*
 backend/.sessions.json
 backend/.sessions.json.tmp
+backend/_latest_plan.txt
+backend/scripts/_*.py
 **/.pytest_cache/
 **/.hypothesis/
 
