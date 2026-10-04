@@ -431,6 +431,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
         id: `stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'assistant',
         content: chunk,
+        createdAt: Date.now(),
         streaming: true,
       };
       return {

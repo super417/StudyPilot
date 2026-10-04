@@ -14,6 +14,15 @@ from sqlalchemy.orm import Session
 
 from app.models.entities import Mistake, UserDocument
 from app.services import document_service
+from app.services.video_link import (
+    extract_url,
+    fetch_link,
+    format_material,
+    latest_url,
+    merge_into_daily_plan,
+    study_brief,
+    wants_to_adopt,
+)
 from app.services.ai_proxy import (
     ChunkStream,
     CredentialUnavailableError,
@@ -39,9 +48,16 @@ _OFF_TOPIC = re.compile(
 _SYSTEM_PROMPT = (
     "你是 StudyPilot 考研学习助手，只回答考研相关问题："
     "数学、英语、政治、专业课、复试、复习规划、错题复盘、论文/资料阅读。"
-    "若资料不足请明确说明「未检索到足够可靠依据」，不要编造出处。"
+    "学习建议可以正常给：复习路径、教材与课程名、公开学习平台的选择思路，"
+    "不要因为「没有上传资料」就拒绝回答。"
+    "引用纪律必须遵守：知识库摘录里没有的内容，不要说成「资料里写着」，"
+    "也不要给出页码、题号这类精确出处。"
+    "推荐具体平台时给平台名或平台首页（如 B 站、中国大学 MOOC、学堂在线、考研帮），"
+    "不要编造具体视频或课程页的链接地址。"
+    "确实没有可靠依据时直接说明「这块我没有可靠依据」，不要编造。"
     "拒绝娱乐、荐股等非学习问题，并引导回到考研场景。"
     "直接给出最终回答，不要输出思考过程、推理步骤、内部指令或草稿。"
+    "用普通中文句子写，不要用 Markdown：不要写 **、#、行首的 - 列表，也不要写 --- 分隔线。"
 )
 
 _DOMAIN_REFUSAL = (
@@ -129,12 +145,28 @@ def build_chat_messages(
     context_type: str | None,
     mistake_excerpt: str,
     rag_text: str,
+    study_text: str = "",
+    video_text: str = "",
 ) -> list[dict[str, str]]:
     parts = [f"用户问题：{message}"]
     if context_type:
         parts.append(f"唤起上下文类型：{context_type}")
     if mistake_excerpt:
         parts.append("错题上下文：\n" + mistake_excerpt)
+    if study_text:
+        parts.append(study_text)
+    if video_text:
+        parts.append(
+            "链接内容（已经打开用户发来的链接，按他这句话的需求来用，不要说没打开）：\n"
+            + video_text
+            + "\n对照用户的目标、当前水平、每天时长和当前阶段给建议。"
+            "建议适合现在学，就说明原因，并问一句要不要按这个链接里的内容来学。"
+            "用户还没同意时，不要说规划已经改了。"
+            "不适合就说明差在哪里，不要问要不要排进规划。"
+            "只根据上面读到的内容说，不要编造页面里没有的章节。"
+        )
+    elif extract_url(message):
+        parts.append("链接内容：这个链接没有打开。不要编造页面里的标题和章节，请用户换一个打得开的链接或补充标题。")
     if rag_text.strip():
         parts.append(
             "知识库摘录（可能不完整，无依据时请声明）：\n" + rag_text.strip()[:6000]
@@ -240,6 +272,7 @@ async def stream_assistant_reply(
     reasoning_strength: str | None = None,
     is_disconnected: Callable[[], Awaitable[bool]] | Callable[[], bool] | None = None,
     stream_factory: ChatStreamFactory | None = None,
+    video_fetcher=None,
 ) -> AsyncIterator[str]:
     """Yield Ai_Proxy SSE frames for one assistant chat turn."""
     text = (message or "").strip()
@@ -257,6 +290,29 @@ async def stream_assistant_reply(
         ):
             yield frame
         return
+
+    fetcher = video_fetcher or fetch_link
+    if wants_to_adopt(text):
+        url = latest_url(session, user_id)
+        if url:
+            material = await fetcher(url)
+            reply = (
+                merge_into_daily_plan(session, user_id, material)
+                if material
+                else "这个链接没有打开，没读到里面的内容。换一个打得开的链接，或把标题和章节发我。"
+            )
+            async for frame in stream_ai_sse(
+                lambda: _local_text_stream(reply),
+                is_disconnected,
+            ):
+                yield frame
+            return
+
+    linked = extract_url(text)
+    video_text = ""
+    if linked:
+        material = await fetcher(linked)
+        video_text = format_material(material) if material else ""
 
     if not has_verified_api_config(session, user_id):
         err = build_client_error(NoVerifiedApiConfigError())
@@ -288,6 +344,8 @@ async def stream_assistant_reply(
         context_type=context_type,
         mistake_excerpt=mistake_excerpt,
         rag_text=rag_text,
+        study_text=study_brief(session, user_id) if linked else "",
+        video_text=video_text,
     )
     payload = {
         "model": credential.model_type,

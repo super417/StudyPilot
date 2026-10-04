@@ -160,7 +160,11 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           {messages.map((m) => (
             <div
               key={m.id}
-              className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
+              className={
+                m.role === 'user'
+                  ? 'flex w-full min-w-0 justify-end'
+                  : 'flex w-full min-w-0 justify-start'
+              }
             >
               {m.role === 'user' ? (
                 <UserMessage

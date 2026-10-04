@@ -4,6 +4,8 @@ backend/.venv/
 **/__pycache__/
 *.py[cod]
 backend/*.db*
+backend/.sessions.json
+backend/.sessions.json.tmp
 **/.pytest_cache/
 **/.hypothesis/
 

@@ -380,6 +380,8 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     citations: Mapped[str | None] = mapped_column(Text)
+    # Send order inside one conversation. Reload sorts by this, never by the clock.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

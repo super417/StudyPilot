@@ -29,7 +29,6 @@ export function streamAssistantChat(
   handlers: AssistantChatHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  handlers.onStatus?.('Agent：正在检索知识库并生成回答…');
   const prefs = getModelPrefs();
   const body: Record<string, unknown> = {
     message,

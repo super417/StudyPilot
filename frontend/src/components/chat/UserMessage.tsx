@@ -46,7 +46,7 @@ function UserMessage({ message, bubbleClassName, onResend }: UserMessageProps) {
   };
 
   return (
-    <div className="group flex max-w-[85%] flex-col items-end">
+    <div className="group flex min-w-0 max-w-[85%] flex-col items-end">
       <div className="mb-1 flex items-center gap-1.5 px-1 text-[11px] text-brandDark/55 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {message.createdAt ? <span>{formatMessageTime(message.createdAt)}</span> : null}
         <button
@@ -108,10 +108,10 @@ function UserMessage({ message, bubbleClassName, onResend }: UserMessageProps) {
             }
           }}
           onBlur={save}
-          className={`${bubbleClassName} box-border resize-none overflow-hidden outline-none`}
+          className={`${bubbleClassName} box-border max-w-full resize-none overflow-hidden break-words outline-none [overflow-wrap:anywhere]`}
         />
       ) : (
-        <div ref={bubbleRef} className={bubbleClassName}>
+        <div ref={bubbleRef} className={`${bubbleClassName} max-w-full break-words [overflow-wrap:anywhere]`}>
           {message.content}
         </div>
       )}

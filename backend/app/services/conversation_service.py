@@ -11,7 +11,7 @@
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -133,6 +133,21 @@ def delete_conversation(
     session.commit()
 
 
+def _ordered_created_at(created_at: datetime | None, previous: datetime | None) -> datetime:
+    """Keep the saved list order even when the client omits or repeats timestamps.
+
+    Streaming replies used to be stored with one shared clock time. Reload then
+    sorted those ties by random ids, so the transcript came back shuffled.
+    """
+    if created_at is not None and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    if previous is None:
+        return created_at or utc_now()
+    if created_at is None or created_at <= previous:
+        return previous + timedelta(milliseconds=1)
+    return created_at
+
+
 def load_messages(
     session: Session, user_id: uuid.UUID, conversation_id: uuid.UUID
 ) -> list[ChatMessage]:
@@ -142,7 +157,7 @@ def load_messages(
         session.scalars(
             select(ChatMessage)
             .where(ChatMessage.conversation_id == conversation_id)
-            .order_by(ChatMessage.created_at, ChatMessage.id)
+            .order_by(ChatMessage.position, ChatMessage.id)
         )
     )
 
@@ -171,17 +186,19 @@ def replace_messages(
         delete(ChatMessage).where(ChatMessage.conversation_id == conversation.id)
     )
     rows: list[ChatMessage] = []
-    for item in kept:
+    previous: datetime | None = None
+    for index, item in enumerate(kept):
         role, content, created_at = item[0], item[1], item[2]
         citations = item[3] if len(item) > 3 else None
+        previous = _ordered_created_at(created_at, previous)
         row = ChatMessage(
             conversation_id=conversation.id,
             role=role,
             content=content[:MAX_CONTENT_LENGTH],
             citations=citations,
+            position=index,
+            created_at=previous,
         )
-        if created_at is not None:
-            row.created_at = created_at
         rows.append(row)
     session.add_all(rows)
 

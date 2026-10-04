@@ -166,7 +166,11 @@ function ChatWindow() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                  className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
+                  className={
+                    m.role === 'user'
+                      ? 'flex w-full min-w-0 justify-end'
+                      : 'flex w-full min-w-0 justify-start'
+                  }
                 >
                   {m.role === 'user' ? (
                     <UserMessage

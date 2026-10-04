@@ -24,6 +24,17 @@ function copyText(text: string) {
   void navigator.clipboard.writeText(text).catch(() => undefined);
 }
 
+/** 气泡是纯文本，去掉模型带进来的 Markdown 记号。 */
+function plainAssistant(text: string): string {
+  return text
+    .replace(/\*\*/g, '')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*•]\s+/gm, '')
+    .replace(/^\s*-{2,}\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** 助手回复：悬停后在下方显示删除、复制、评价、朗读、重生成、分享和更多。 */
 function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessageProps) {
   const messages = useAssistantStore(selectActiveMessages);
@@ -87,7 +98,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
       return;
     }
     synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(message.content);
+    const utterance = new SpeechSynthesisUtterance(plainAssistant(message.content));
     utterance.lang = 'zh-CN';
     utterance.onend = () => setSpeaking(false);
     setSpeaking(true);
@@ -95,7 +106,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   };
 
   const share = () => {
-    const text = message.content;
+    const text = plainAssistant(message.content);
     if (!navigator.share) {
       copyText(text);
       return;
@@ -115,11 +126,12 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
 
   const iconBtn =
     'rounded-full p-1 text-brandDark/55 hover:bg-white/80 hover:text-brandDark';
+  const shown = plainAssistant(message.content);
 
   return (
-    <div className="group flex max-w-[85%] flex-col items-start">
-      <div className={bubbleClassName}>
-        {message.content}
+    <div className="group flex min-w-0 max-w-[85%] flex-col items-start">
+      <div className={`${bubbleClassName} max-w-full break-words [overflow-wrap:anywhere]`}>
+        {shown}
         {message.streaming ? <span className="ml-0.5 animate-pulse">▋</span> : null}
       </div>
       {message.citations?.length ? (
@@ -152,7 +164,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          <button type="button" aria-label="复制" title="复制" onMouseEnter={closeMore} onClick={() => copyText(message.content)} className={iconBtn}>
+          <button type="button" aria-label="复制" title="复制" onMouseEnter={closeMore} onClick={() => copyText(shown)} className={iconBtn}>
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
           <button
@@ -278,7 +290,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
                     type="button"
                     className="block w-full px-3 py-2 text-left hover:bg-white/10"
                     onClick={() => {
-                      copyText(message.content);
+                      copyText(shown);
                       closeMore();
                     }}
                   >

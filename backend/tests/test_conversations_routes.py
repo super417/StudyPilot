@@ -182,6 +182,44 @@ class ConversationRouteTests(unittest.TestCase):
         self.assertEqual(len(reloaded.json()["messages"]), 1)
         self.assertEqual(self._message_count(conversation["id"]), 1)
 
+    def test_messages_without_timestamps_reload_in_send_order(self) -> None:
+        conversation = self._create()
+        payload = {
+            "messages": [
+                {"role": "user", "content": "第一问", "createdAt": "2026-10-04T10:00:00+00:00"},
+                {"role": "assistant", "content": "第一答"},
+                {"role": "user", "content": "第二问", "createdAt": "2026-10-04T10:00:00+00:00"},
+                {"role": "assistant", "content": "第二答"},
+            ]
+        }
+        saved = self.client.put(
+            f"/api/conversations/{conversation['id']}/messages", json=payload
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        reloaded = self.client.get(f"/api/conversations/{conversation['id']}/messages")
+        self.assertEqual(
+            [m["content"] for m in reloaded.json()["messages"]],
+            ["第一问", "第一答", "第二问", "第二答"],
+        )
+
+    def test_reload_follows_send_order_when_clocks_go_backwards(self) -> None:
+        conversation = self._create()
+        payload = {
+            "messages": [
+                {"role": "user", "content": "先发", "createdAt": "2026-10-04T12:00:00+00:00"},
+                {"role": "assistant", "content": "后回", "createdAt": "2026-10-04T09:00:00+00:00"},
+            ]
+        }
+        saved = self.client.put(
+            f"/api/conversations/{conversation['id']}/messages", json=payload
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        reloaded = self.client.get(f"/api/conversations/{conversation['id']}/messages")
+        self.assertEqual(
+            [m["content"] for m in reloaded.json()["messages"]],
+            ["先发", "后回"],
+        )
+
     def test_replace_messages_trims_to_per_conversation_limit(self) -> None:
         conversation = self._create()
         many = [
