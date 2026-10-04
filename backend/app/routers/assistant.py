@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models.entities import User
 from app.routers.dependencies import get_current_user
 from app.services import assistant_service
+from app.services.ai_proxy import guard_sse_stream, internal_error_frame
 from app.services.assistant_service import ChatStreamFactory
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
@@ -74,4 +75,10 @@ async def assistant_chat_route(
         ):
             yield frame
 
-    return StreamingResponse(stream(), media_type=SSE_MEDIA_TYPE)
+    # Guarded as a whole: a crash before the first frame would otherwise leave
+    # the client with HTTP 200 and an empty body, i.e. a hang instead of a
+    # failure.
+    return StreamingResponse(
+        guard_sse_stream(stream(), internal_error_frame()),
+        media_type=SSE_MEDIA_TYPE,
+    )

@@ -12,7 +12,7 @@
    - `npm install && npm run dev`
    - Vite 已将 `/api` 代理到 `127.0.0.1:8000`，Cookie 会话同域可用
 
-或双击根目录 `start.bat` 仅启动前端；后端需另行启动（推荐 `backend/start.bat`）。
+或双击根目录 `start-all.bat` 一键启动前后端：自动跑 alembic 迁移、清理 8000/5173 残留进程、开两个窗口（后端 `--reload`、前端 `--strictPort`）并在 6 秒后打开浏览器。只想单独起某一个服务时，按上面 1 / 2 节手动执行命令。
 
 ## 公网部署建议
 

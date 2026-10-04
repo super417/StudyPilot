@@ -53,6 +53,20 @@ def _parse_sse(text: str) -> list[tuple[str, str]]:
     return events
 
 
+class _BrokenSession:
+    """A session whose every query raises — stands in for a database outage.
+
+    Fault injection for the "failure before the first SSE frame" regression:
+    the point is where the exception lands, not what caused it.
+    """
+
+    def __getattr__(self, name: str):
+        def _explode(*_args, **_kwargs):
+            raise RuntimeError("database unavailable")
+
+        return _explode
+
+
 class PlanRouteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -183,6 +197,55 @@ class PlanRouteTests(unittest.TestCase):
         self.assertIn("draftId", data)
         self.assertIn("goalDate", data)
         self.assertEqual(self._plans(), [])
+
+    def test_plan_streams_emit_error_when_the_database_fails(self) -> None:
+        """A crash before the first frame must reach the client, not kill the stream.
+
+        Regression: an exception raised before the generator's first ``yield``
+        left Starlette with an already-started response, so the client got
+        HTTP 200 and an empty body and the UI sat on a spinner.
+        """
+        from types import SimpleNamespace
+
+        from app.routers.dependencies import get_current_user
+
+        def override_get_db():
+            yield _BrokenSession()
+
+        requests = {
+            "/api/plans/generate": {
+                "goalName": "考研数学",
+                "goalDate": "2025-12-21",
+                "currentLevel": "零基础",
+                "dailyMinutes": 120,
+            },
+            f"/api/plans/{uuid.uuid4()}/regenerate": {"message": "每天改成 3 小时"},
+        }
+
+        # Restore from the overrides dict, not off the class: a class attribute
+        # fetched through ``self`` arrives as a bound method, which FastAPI
+        # cannot inspect.
+        previous_db = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=self.user.id
+        )
+        try:
+            for path, payload in requests.items():
+                with self.subTest(path=path):
+                    response = self.client.post(path, json=payload)
+                    self.assertEqual(response.status_code, 200, response.text)
+                    events = _parse_sse(response.text)
+                    self.assertTrue(
+                        events, f"{path}: SSE body was empty, the failure was lost"
+                    )
+                    self.assertEqual(events[0][0], "error", f"{path}: {events}")
+        finally:
+            if previous_db is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous_db
+            app.dependency_overrides.pop(get_current_user, None)
 
     def test_generate_complete_emits_done_and_persists(self) -> None:
         self._add_verified_config()

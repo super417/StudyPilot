@@ -45,6 +45,8 @@ __all__ = [
     "build_client_error",
     "format_sse",
     "stream_ai_sse",
+    "guard_sse_stream",
+    "internal_error_frame",
     "httpx_chunk_stream",
     "FIRST_CHUNK_TIMEOUT_SECONDS",
     "ChunkStream",
@@ -184,6 +186,12 @@ _AI_TIMEOUT_MESSAGE = "AI 响应超时，请稍后重试"
 _AI_STREAM_ERROR_CODE = "AI_STREAM_ERROR"
 _AI_STREAM_ERROR_MESSAGE = "AI 响应异常，请稍后重试"
 
+# Emitted by ``guard_sse_stream`` when a stream crashes for a reason the route
+# did not anticipate. Kept distinct from the AI-specific codes above so an
+# internal fault is not misread as a model problem in logs or in the client.
+SSE_INTERNAL_ERROR_CODE = "INTERNAL_ERROR"
+SSE_INTERNAL_ERROR_MESSAGE = "服务异常，请稍后重试"
+
 
 def format_sse(event: str, data: dict) -> str:
     """Encode a single SSE frame as ``event: <e>\\ndata: <json>\\n\\n``.
@@ -289,6 +297,34 @@ async def stream_ai_sse(
             yield _token_frame(chunk)
 
         yield _done_frame(done_extra)
+
+
+def internal_error_frame() -> str:
+    """The terminal frame ``guard_sse_stream`` sends when a stream crashes."""
+    return _error_frame(SSE_INTERNAL_ERROR_CODE, SSE_INTERNAL_ERROR_MESSAGE)
+
+
+async def guard_sse_stream(
+    frames: AsyncIterator[str], error_frame: str
+) -> AsyncIterator[str]:
+    """Forward SSE frames, converting any crash into one terminal error frame.
+
+    A generator that raises *before* its first ``yield`` cannot be recovered by
+    Starlette: the response has already started, so all that is left is an
+    abrupt close — HTTP 200 with an empty body. A client cannot tell that apart
+    from a slow answer, so a crash there presents as a hang rather than a
+    failure. Wrapping the whole generator guarantees the client always receives
+    a frame it can render.
+
+    ``GeneratorExit`` and ``CancelledError`` are deliberately left uncaught: a
+    client that has already gone cannot receive a frame, and catching them would
+    turn a normal disconnect into an error.
+    """
+    try:
+        async for frame in frames:
+            yield frame
+    except Exception:
+        yield error_frame
 
 
 @asynccontextmanager

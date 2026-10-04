@@ -21,6 +21,7 @@ from app.core.database import get_db
 from app.models.entities import PlanRevision, User
 from app.routers.dependencies import get_current_user
 from app.services import document_service, planner_service
+from app.services.ai_proxy import guard_sse_stream, internal_error_frame
 from app.services.api_config_service import (
     NoVerifiedApiConfigError,
     has_verified_api_config,
@@ -55,6 +56,13 @@ _NO_API_KEY_MESSAGE = "请先在设置中配置并验证 API"
 _GENERATION_FORCED_NOTICE = "系统将基于你已提供的信息生成规划"
 _SKIPPED_DOCS_NOTICE = "部分文档尚未就绪，已从本次规划依据中排除"
 _EMPTY_INSTRUCTION_MESSAGE = "请描述你希望如何调整这份规划"
+
+
+# Every plan stream goes out through ``guard_sse_stream``: a crash before the
+# first frame would otherwise leave the client with HTTP 200 and an empty body,
+# so a failure would look like a hang. See ``ai_proxy.guard_sse_stream``.
+def _guarded(frames: AsyncIterator[str]) -> AsyncIterator[str]:
+    return guard_sse_stream(frames, internal_error_frame())
 
 
 def _to_camel(field_name: str) -> str:
@@ -423,7 +431,7 @@ async def generate_plan_route(
         ):
             yield frame
 
-    return StreamingResponse(stream(), media_type=SSE_MEDIA_TYPE)
+    return StreamingResponse(_guarded(stream()), media_type=SSE_MEDIA_TYPE)
 
 
 @router.post("/{draft_id}/clarify")
@@ -489,7 +497,7 @@ async def clarify_plan_route(
         ):
             yield frame
 
-    return StreamingResponse(stream(), media_type=SSE_MEDIA_TYPE)
+    return StreamingResponse(_guarded(stream()), media_type=SSE_MEDIA_TYPE)
 
 
 @router.post("/{plan_id}/regenerate")
@@ -572,7 +580,7 @@ async def regenerate_plan_route(
             },
         )
 
-    return StreamingResponse(stream(), media_type=SSE_MEDIA_TYPE)
+    return StreamingResponse(_guarded(stream()), media_type=SSE_MEDIA_TYPE)
 
 
 def _revision_summary(row: PlanRevision) -> dict:

@@ -37,6 +37,20 @@ def _parse_sse(body: str):
     return events
 
 
+class _BrokenSession:
+    """A session whose every query raises — stands in for a database outage.
+
+    Fault injection for the "failure before the first SSE frame" regression:
+    the point is where the exception lands, not what caused it.
+    """
+
+    def __getattr__(self, name: str):
+        def _explode(*_args, **_kwargs):
+            raise RuntimeError("database unavailable")
+
+        return _explode
+
+
 class AssistantServiceUnitTests(unittest.TestCase):
     def test_off_topic_detection(self) -> None:
         self.assertTrue(is_off_topic("推荐个炒股荐股软件"))
@@ -134,6 +148,51 @@ class AssistantRouteTests(unittest.TestCase):
         self.assertTrue(events)
         self.assertEqual(events[0][0], "error")
         self.assertEqual(events[0][1]["code"], "NO_API_KEY")
+
+    def test_chat_internal_failure_still_emits_sse_error(self) -> None:
+        """A crash before the first token must reach the client as an error frame.
+
+        Regression: an exception raised before the generator's first ``yield``
+        left Starlette with an already-started response, so the client got
+        HTTP 200 and an empty body — the assistant looked like it was thinking
+        forever instead of failing. The client must always get a frame it can
+        render.
+        """
+        from types import SimpleNamespace
+        import uuid as uuid_mod
+
+        from app.routers.dependencies import get_current_user
+
+        def override_get_db():
+            yield _BrokenSession()
+
+        # Restore the real session afterwards. Take it out of the overrides
+        # dict rather than off the class: a class attribute fetched through
+        # ``self`` arrives as a bound method, which FastAPI cannot inspect.
+        previous_db = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = override_get_db
+        app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+            id=uuid_mod.UUID(self.user_id)
+        )
+        try:
+            response = self.client.post(
+                "/api/assistant/chat", json={"message": "高数怎么复习"}
+            )
+        finally:
+            if previous_db is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous_db
+            app.dependency_overrides.pop(get_current_user, None)
+
+        self.assertEqual(response.status_code, 200)
+        events = _parse_sse(response.text)
+        self.assertTrue(
+            events, "SSE body was empty: the failure never reached the client"
+        )
+        self.assertEqual(events[0][0], "error")
+        self.assertTrue(events[0][1].get("code"))
+        self.assertTrue(events[0][1].get("message"))
 
     def test_chat_off_topic_streams_domain_refusal(self) -> None:
         response = self.client.post(
