@@ -57,14 +57,43 @@ class VideoLinkTests(unittest.TestCase):
 
     def test_extracts_bvid_and_does_not_treat_the_link_as_a_yes(self) -> None:
         text = "https://www.bilibili.com/video/BV1mr4y1K7Lb/?spm_id_from=333 这学习视频可以吗？"
+        clean = "https://www.bilibili.com/video/BV1mr4y1K7Lb"
         self.assertEqual(extract_bvid(text), "BV1mr4y1K7Lb")
-        self.assertEqual(extract_url(text), "https://www.bilibili.com/video/BV1mr4y1K7Lb/?spm_id_from=333")
+        self.assertEqual(extract_url(text), clean)
         glued = "https://www.bilibili.com/video/BV1mr4y1K7Lb/?spm_id_from=333数二基础阶段学这个视频如何？"
-        self.assertEqual(extract_url(glued), "https://www.bilibili.com/video/BV1mr4y1K7Lb/?spm_id_from=333")
+        self.assertEqual(extract_url(glued), clean)
         self.assertFalse(wants_to_adopt(text))
         self.assertFalse(wants_to_adopt("https://example.com/course 这个适合吗"))
         self.assertTrue(wants_to_adopt("按这个来学"))
         self.assertTrue(wants_to_adopt("好的"))
+
+    def test_bilibili_url_drops_tracking_and_glued_text(self) -> None:
+        link = (
+            "https://www.bilibili.com/video/BV1mr4y1K7Lb/"
+            "?spm_id_from=333.1387.favlist.content.click"
+            "&vd_source=cda7d1d06b24a89b41ce2b851321dfe8"
+        )
+        clean = "https://www.bilibili.com/video/BV1mr4y1K7Lb"
+        self.assertEqual(extract_url(link + "P1开始"), clean)
+        self.assertEqual(extract_url(link + "from今天"), clean)
+        self.assertEqual(extract_url(link + "abc"), clean)
+        self.assertEqual(extract_url(link + " 请排进计划"), clean)
+        self.assertEqual(extract_url(link + "，然后排一下"), clean)
+        found = extract_url(link)
+        self.assertEqual(found, clean)
+        assert found is not None
+        self.assertNotIn("spm_id_from", found)
+        self.assertNotIn("vd_source", found)
+
+    def test_generic_url_rejects_glued_ascii(self) -> None:
+        url = "https://example.com/course"
+        self.assertEqual(extract_url(url), url)
+        self.assertEqual(extract_url(url + " 请排进计划"), url)
+        self.assertEqual(extract_url(url + "请排进计划"), url)
+        self.assertEqual(extract_url(url + "，然后排一下"), url)
+        self.assertIsNone(extract_url(url + "abc"))
+        self.assertIsNone(extract_url(url + "P1开始"))
+        self.assertIsNone(extract_url(url + "from今天"))
 
     def test_normalize_keeps_title_and_parts(self) -> None:
         video = normalize_view(

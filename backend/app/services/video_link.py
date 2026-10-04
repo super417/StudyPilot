@@ -23,6 +23,8 @@ from app.models.entities import ChatMessage, Conversation, DailyTask, Phase, Pla
 
 _BVID = re.compile(r"BV[0-9A-Za-z]{10}")
 _URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
+_BOUNDARY = set("，。、）】？！」")
+_GLUED_TAIL = re.compile(r"(?:from|abc|P\d+)$")
 _ADOPT = re.compile(
     r"按这个(视频|课程|系列|集|链接|内容)?(来)?学|就按这个|按这个排|合并到规划|加入规划|排进规划|按这个建议"
 )
@@ -37,11 +39,35 @@ def extract_bvid(text: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _is_boundary(char: str) -> bool:
+    return char.isspace() or ord(char) > 127 or char in _BOUNDARY
+
+
+def _glued_ascii(url: str, nxt: str) -> bool:
+    """True when ASCII text is stuck to a non-Bilibili URL and the end is a guess."""
+    segment = re.split(r"[/?&=#.\-]", url)[-1]
+    if _GLUED_TAIL.fullmatch(segment):
+        return False
+    if _GLUED_TAIL.search(segment):
+        return True
+    return bool(nxt and _is_boundary(nxt) and re.search(r"[A-Za-z]\d+$", segment))
+
+
 def extract_url(text: str) -> str | None:
-    match = _URL.search(text or "")
+    raw = text or ""
+    bvid = extract_bvid(raw)
+    if bvid:
+        return part_url(bvid, 1)
+    match = _URL.search(raw)
     if not match:
         return None
-    return match.group(0).rstrip(".,;，。)")
+    nxt = raw[match.end():match.end() + 1]
+    if nxt and not _is_boundary(nxt):
+        return None
+    url = match.group(0).rstrip(".,;，。)")
+    if _glued_ascii(url, nxt):
+        return None
+    return url
 
 
 def wants_to_adopt(text: str) -> bool:
