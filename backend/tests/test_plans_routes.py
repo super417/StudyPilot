@@ -219,7 +219,8 @@ class PlanRouteTests(unittest.TestCase):
                 select(DailyTask).where(DailyTask.plan_id == plans[0].id)
             )
         )
-        self.assertEqual(len(tasks), 4)
+        # 2025-01-01..2025-02-01 inclusive is 32 days, filled per phase.
+        self.assertEqual(len(tasks), 4 * 32)
 
     def test_generate_without_api_config_emits_no_api_key(self) -> None:
         self._override_generator()
@@ -339,6 +340,125 @@ class PlanRouteTests(unittest.TestCase):
         events = _parse_sse(response.text)
         self.assertEqual([e for e, _ in events], ["done"])
 
+    def test_empty_documents_ask_until_clear_then_save_on_confirm(self) -> None:
+        from app.services.plan_draft_store import plan_draft_store
+
+        plan_draft_store.clear()
+        self._add_verified_config()
+        self._override_generator(phase_count=2)
+        goal = {
+            "goalName": "考研",
+            "goalDate": "2025-12-21",
+            "currentLevel": "零基础",
+            "dailyMinutes": 120,
+            "documentIds": [],
+        }
+        opened = self.client.post("/api/plans/generate", json=goal)
+        self.assertEqual(opened.status_code, 200, opened.text)
+        events = _parse_sse(opened.text)
+        self.assertEqual([e for e, _ in events], ["clarify"])
+        clarify = json.loads(events[0][1])
+        self.assertNotIn("不够具体", clarify["question"])
+        self.assertEqual(self._plans(), [])
+
+        vague = self.client.post(
+            f"/api/plans/{clarify['draftId']}/clarify",
+            json={"message": "考研"},
+        )
+        self.assertEqual([e for e, _ in _parse_sse(vague.text)], ["clarify"])
+        self.assertEqual(self._plans(), [])
+        for _ in range(3):
+            still = self.client.post(
+                f"/api/plans/{clarify['draftId']}/clarify",
+                json={"message": "随便"},
+            )
+            self.assertEqual([e for e, _ in _parse_sse(still.text)], ["clarify"])
+        self.assertEqual(self._plans(), [])
+
+        preview = self.client.post(
+            f"/api/plans/{clarify['draftId']}/clarify",
+            json={"message": "我想学完武忠祥的2028高数二一整本书"},
+        )
+        preview_events = _parse_sse(preview.text)
+        self.assertEqual([e for e, _ in preview_events], ["preview"])
+        summary = json.loads(preview_events[0][1])["summary"]
+        self.assertIn("武忠祥", summary)
+        self.assertNotIn("不够具体", summary)
+        self.assertIn("确定", summary)
+        self.assertEqual(self._plans(), [])
+
+        saved = self.client.post(
+            f"/api/plans/{clarify['draftId']}/clarify",
+            json={"message": "确定"},
+        )
+        saved_events = _parse_sse(saved.text)
+        self.assertEqual([e for e, _ in saved_events], ["done"])
+        self.assertEqual(len(self._plans()), 1)
+        self.assertEqual(json.loads(saved_events[0][1])["phases"], 2)
+
+    def test_form_book_title_previews_without_demanding_chapters(self) -> None:
+        from app.services.plan_draft_store import plan_draft_store
+
+        plan_draft_store.clear()
+        self._add_verified_config()
+        self._override_generator(phase_count=2)
+        opened = self.client.post(
+            "/api/plans/generate",
+            json={
+                "goalName": "我想要学习武忠祥的2028高数二一整本书",
+                "goalDate": "2026-12-31",
+                "currentLevel": "一年前学过",
+                "dailyMinutes": 120,
+                "documentIds": [],
+            },
+        )
+        events = _parse_sse(opened.text)
+        self.assertEqual([event for event, _ in events], ["preview"])
+        summary = json.loads(events[0][1])["summary"]
+        self.assertIn("武忠祥", summary)
+        self.assertNotIn("不够具体", summary)
+        self.assertEqual(self._plans(), [])
+
+        parallel = self.client.post(
+            "/api/plans/generate",
+            json={
+                "goalName": "接下来3个月同时学数学、英语、政治",
+                "goalDate": "2026-12-31",
+                "currentLevel": "零基础",
+                "dailyMinutes": 120,
+                "documentIds": [],
+            },
+        )
+        parallel_events = _parse_sse(parallel.text)
+        self.assertEqual([event for event, _ in parallel_events], ["preview"])
+        self.assertIn("数学", json.loads(parallel_events[0][1])["summary"])
+
+        shrug = self.client.post(
+            "/api/plans/generate",
+            json={
+                "goalName": "考研",
+                "goalDate": "2026-12-31",
+                "currentLevel": "一年前学过",
+                "dailyMinutes": 120,
+                "documentIds": [],
+            },
+        )
+        shrug_events = _parse_sse(shrug.text)
+        draft_id = json.loads(shrug_events[0][1])["draftId"]
+        filled = self.client.post(
+            f"/api/plans/{draft_id}/clarify",
+            json={
+                "goalName": "我想要学习武忠祥的2028高数二一整本书",
+                "goalDate": "2026-12-31",
+                "currentLevel": "一年前学过",
+                "dailyMinutes": 120,
+            },
+        )
+        filled_events = _parse_sse(filled.text)
+        self.assertEqual([event for event, _ in filled_events], ["preview"])
+        self.assertIn("武忠祥", json.loads(filled_events[0][1])["summary"])
+        self.assertEqual(self._plans(), [])
+
     def test_unauthenticated_generate_returns_401(self) -> None:
         self.client.cookies.clear()
         response = self.client.post(
@@ -409,7 +529,7 @@ class PlanRouteTests(unittest.TestCase):
         tasks = list(
             self.session.scalars(select(DailyTask).where(DailyTask.plan_id == original_id))
         )
-        self.assertEqual(len(tasks), 2)  # 2 phases * 1 task
+        self.assertEqual(len(tasks), 2 * 32)  # 2 phases, every day 2025-01-01..02-01
         self.assertEqual(len(set(t.phase_id for t in tasks)), 2)
 
     def test_regenerate_passes_instruction_to_generator(self) -> None:

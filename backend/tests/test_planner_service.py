@@ -1,8 +1,9 @@
 import base64
+import json
 import os
 import unittest
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -230,10 +231,124 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
                 select(DailyTask).where(DailyTask.plan_id == plan.id)
             )
         )
-        self.assertEqual(len(tasks), 10)  # 5 phases * 2 tasks
+        # 2025-01-01..2025-02-01 inclusive is 32 days; gaps are filled.
+        self.assertEqual(len(tasks), 5 * 32)
         self.assertTrue(all(t.status == "pending" for t in tasks))
         phase_ids = {p.id for p in phases}
         self.assertTrue(all(t.phase_id in phase_ids for t in tasks))
+
+    async def test_missing_days_are_filled_and_given_tasks_are_kept(self) -> None:
+        self._add_verified_config()
+
+        def generator(fields, used_docs, context_text, instruction):
+            return {
+                "phases": [
+                    {
+                        "name": "数学基础",
+                        "start_date": "2025-01-01",
+                        "end_date": "2025-01-03",
+                        "daily_tasks": [
+                            {
+                                "task_date": "2025-01-01",
+                                "week_label": "W01",
+                                "description": "数学：武忠祥强化第 3 讲极限，做例题 1-12，整理 2 道错题",
+                            }
+                        ],
+                    },
+                    {
+                        "name": "英语基础",
+                        "start_date": "2025-01-01",
+                        "end_date": "2025-01-03",
+                        "daily_tasks": [
+                            {
+                                "task_date": "2025-01-02",
+                                "week_label": "W01",
+                                "description": "英语：阅读 Unit 1，精读 1 篇，摘 5 个词",
+                            }
+                        ],
+                    },
+                ]
+            }
+
+        await generate_plan(
+            self.session, self.user.id, _complete_payload(), [], generator
+        )
+        plan = self.session.scalar(select(Plan).where(Plan.user_id == self.user.id))
+        tasks = list(
+            self.session.scalars(
+                select(DailyTask)
+                .where(DailyTask.plan_id == plan.id)
+                .order_by(DailyTask.task_date)
+            )
+        )
+        by_phase: dict[uuid.UUID, set[date]] = {}
+        kept = {task.description for task in tasks}
+        for task in tasks:
+            by_phase.setdefault(task.phase_id, set()).add(task.task_date)
+            self.assertNotIn("继续学习", task.description)
+            self.assertNotIn("复习一下", task.description)
+        self.assertEqual(len(by_phase), 2)
+        # The fixture starts in 2025, so it is shifted onto today. The 3-day span stays.
+        today = datetime.now(timezone.utc).date()
+        expected = {today, today + timedelta(days=1), today + timedelta(days=2)}
+        self.assertTrue(all(days == expected for days in by_phase.values()))
+        self.assertIn("数学：武忠祥强化第 3 讲极限，做例题 1-12，整理 2 道错题", kept)
+        self.assertIn("英语：阅读 Unit 1，精读 1 篇，摘 5 个词", kept)
+
+    async def test_past_schedule_is_anchored_to_today_and_not_after_goal(self) -> None:
+        self._add_verified_config()
+
+        def generator(fields, used_docs, context_text, instruction):
+            return {
+                "phases": [
+                    {
+                        "name": "基础",
+                        "start_date": "2026-05-07",
+                        "end_date": "2026-06-15",
+                        "daily_tasks": [
+                            {
+                                "task_date": "2026-05-28",
+                                "week_label": "W04",
+                                "description": "数学：导数定义，做例题，整理 2 道错题",
+                            }
+                        ],
+                    },
+                    {
+                        "name": "冲刺",
+                        "start_date": "2026-11-16",
+                        "end_date": "2026-12-31",
+                        "daily_tasks": [
+                            {
+                                "task_date": "2026-12-21",
+                                "week_label": "W06",
+                                "description": "数学：套卷限时，整理错题",
+                            }
+                        ],
+                    },
+                ]
+            }
+
+        payload = _complete_payload()
+        payload["goalDate"] = "2026-12-31"
+        await generate_plan(self.session, self.user.id, payload, [], generator)
+        plan = self.session.scalar(select(Plan).where(Plan.user_id == self.user.id))
+        today = datetime.now(timezone.utc).date()
+        phases = list(
+            self.session.scalars(
+                select(Phase).where(Phase.plan_id == plan.id).order_by(Phase.phase_index)
+            )
+        )
+        tasks = list(
+            self.session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
+        )
+        self.assertEqual(phases[0].start_date, today)
+        self.assertGreaterEqual(phases[0].end_date, phases[0].start_date)
+        self.assertLessEqual(phases[-1].end_date, date(2026, 12, 31))
+        self.assertTrue(all(today <= task.task_date <= date(2026, 12, 31) for task in tasks))
+        derivative = next(task for task in tasks if "导数定义" in task.description)
+        self.assertEqual(derivative.task_date, date(2026, 5, 28) + (today - date(2026, 5, 7)))
+        self.assertGreaterEqual(derivative.task_date, phases[0].start_date)
+        self.assertLessEqual(derivative.task_date, phases[0].end_date)
 
     def _add_document(self, doc_id: str, chunks: list[str]) -> None:
         for index, chunk in enumerate(chunks):
@@ -392,6 +507,57 @@ class RegeneratePlanTests(unittest.IsolatedAsyncioTestCase):
             self.session, self.user.id, _complete_payload(), [], generator
         )
         return self.session.scalar(select(Plan).where(Plan.id == result.plan_id))
+
+    async def test_regenerate_archives_done_tasks_and_first_generate_does_not(self) -> None:
+        plan = await self._seed_plan(phase_count=2)
+        self.assertEqual(
+            planner_service.list_plan_revisions(self.session, self.user.id, plan.id),
+            [],
+        )
+        task = self.session.scalar(
+            select(DailyTask).where(DailyTask.plan_id == plan.id)
+        )
+        task.status = "done"
+        self.session.commit()
+        done_text = task.description
+
+        def generator(fields, used_docs, context_text, instruction):
+            return _plan_structure(2)
+
+        await planner_service.regenerate_plan(
+            self.session,
+            self.user.id,
+            plan.id,
+            "重排",
+            None,
+            [],
+            generator,
+        )
+        rows = planner_service.list_plan_revisions(
+            self.session, self.user.id, plan.id
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].reason, "regenerate")
+        full = planner_service.get_plan_revision(
+            self.session, self.user.id, plan.id, rows[0].id
+        )
+        snapshot = json.loads(full.snapshot)
+        self.assertTrue(
+            any(
+                item["status"] == "done" and item["description"] == done_text
+                for item in snapshot["dailyTasks"]
+            )
+        )
+        live = list(
+            self.session.scalars(
+                select(DailyTask).where(DailyTask.plan_id == plan.id)
+            )
+        )
+        self.assertTrue(live)
+        self.assertTrue(all(item.status == "pending" for item in live))
+        from app.routers.plans import _revision_summary
+
+        self.assertNotIn("snapshot", _revision_summary(rows[0]))
 
     async def test_regenerate_keeps_plan_id_and_rebuilds_children(self) -> None:
         plan = await self._seed_plan(phase_count=4)

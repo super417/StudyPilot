@@ -29,10 +29,10 @@ import uuid
 from typing import Awaitable, Callable
 
 import httpx
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.models.entities import DailyTask, Phase, Plan
+from app.models.entities import DailyTask, Phase, Plan, PlanRevision
 from app.services import document_service
 from app.services.ai_proxy import (
     CredentialUnavailableError,
@@ -65,14 +65,24 @@ MAX_PHASES = 12
 # Planner SSE event names (distinct from ai_proxy's token/error/done set).
 PLAN_SSE_CLARIFY_EVENT = "clarify"
 PLAN_SSE_NOTICE_EVENT = "notice"
+PLAN_SSE_PREVIEW_EVENT = "preview"
 PLAN_SSE_DONE_EVENT = "done"
 PLAN_SSE_ERROR_EVENT = "error"
 _PLAN_SSE_EVENTS = (
     PLAN_SSE_CLARIFY_EVENT,
     PLAN_SSE_NOTICE_EVENT,
+    PLAN_SSE_PREVIEW_EVENT,
     PLAN_SSE_DONE_EVENT,
     PLAN_SSE_ERROR_EVENT,
 )
+
+_VAGUE_FOCUS = re.compile(r"^(?:考研|学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$")
+_CONFIRM = re.compile(
+    r"^(?:确定|确认|可以|同步|就这样|就按这个|ok|okay|yes)[。.!！]?$",
+    re.IGNORECASE,
+)
+FOCUS_QUESTION = "还没有学习资料。直接说书名、科目，或要一起学的几门课，我来拆成周计划。"
+FOCUS_AGAIN = "我还没抓住要学什么。可以说一本书、一门课，或数学、英语、政治一起学。"
 
 
 class PlanGenerationError(RuntimeError):
@@ -170,6 +180,50 @@ def missing_fields(payload: dict[str, object]) -> list[str]:
         for field in REQUIRED_FIELDS
         if not _is_present(field, payload.get(field))
     ]
+
+
+def focus_is_clear(value: object) -> bool:
+    """A book, a subject, or several subjects together are clear enough to plan.
+
+    Only an empty shrug (考研 / 随便 / 不知道) stays unclear.
+    """
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    return len(text) >= 2 and _VAGUE_FOCUS.fullmatch(text) is None
+
+
+def resolved_focus(fields: dict[str, object], message: str = "") -> str:
+    """Prefer the latest reply, then a stored focus, then the goal name."""
+    text = message.strip()
+    if text and not is_plan_confirm(text):
+        return text
+    for key in ("studyFocus", "goalName"):
+        value = fields.get(key)
+        if focus_is_clear(value):
+            return str(value).strip()
+    return ""
+
+
+def is_plan_confirm(value: object) -> bool:
+    """The whole message is a confirmation, not a new study request."""
+    if not isinstance(value, str):
+        return False
+    return _CONFIRM.fullmatch(value.strip()) is not None
+
+
+def brief_route(focus: str, phases: list[dict]) -> str:
+    """Short chat summary of the route that will be saved on confirm."""
+    lines = [f"按「{focus}」排了 {len(phases)} 个阶段："]
+    for index, phase in enumerate(phases, 1):
+        name = str(phase.get("name") or f"阶段 {index}")
+        tasks = phase.get("daily_tasks") or []
+        detail = ""
+        if tasks and isinstance(tasks[0], dict):
+            detail = str(tasks[0].get("description") or "").strip()
+        lines.append(f"{index}. {name}" + (f"：{detail}" if detail else ""))
+    lines.append("回复「确定」后写入总览和路线图。要改直接说。")
+    return "\n".join(lines)
 
 
 def clarify_question(missing: list[str]) -> str:
@@ -273,7 +327,15 @@ async def _run_generator(
 _PLAN_SYSTEM_PROMPT = """你是 StudyPilot 考研学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
 JSON 形状必须为：
 {"phases":[{"name":"阶段名","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","daily_tasks":[{"task_date":"YYYY-MM-DD","week_label":"W01","description":"任务描述"}]}]}
-约束：phases 长度 2～12；面向考研（数学/英语/政治/专业课/复试/科研阅读）；daily_tasks 每阶段至少 1 条；日期合理递增。"""
+约束：phases 长度 2～12；面向考研（数学/英语/政治/专业课/复试/科研阅读）；日期合理递增，且不得早于用户给出的今天，不得晚于目标日期。
+daily_tasks 必须覆盖该阶段每一天（从 start_date 到 end_date，含首尾），每天至少 1 条，task_date 连续无空缺。
+description 必须具体到可执行：写清「学科 + 章节/范围 + 动作 + 产出」，例如
+「数学：武忠祥强化第 3 讲极限，做例题 1-12，整理 2 道错题」。
+禁止出现「继续学习」「复习一下」这类无法执行的描述。
+每天各科的分钟分配之和应接近用户给出的每日可用分钟数。
+整本书、一门课或长期目标：按常见目录自行拆成阶段并按周安排，不要要求用户先列出章节。
+多门科目同时学：写进同一份 phases，daily_tasks 按每日分钟数把各科时间分开，不要因为科目多而拒绝。
+没有上传资料时用公开课纲或常见目录，不要编造页码。"""
 
 
 def _build_plan_user_prompt(
@@ -288,8 +350,15 @@ def _build_plan_user_prompt(
         f"- 目标日期：{fields.get('goalDate')}",
         f"- 当前水平：{fields.get('currentLevel')}",
         f"- 每日可用分钟：{fields.get('dailyMinutes')}",
+        f"- 今天是 {_today_utc().isoformat()}。阶段和每日任务都从今天排到目标日期，不要写今天之前的日期。",
         f"- 就绪文档 id：{', '.join(used_docs) if used_docs else '无'}",
+        "- 必须为每个阶段输出逐日任务，日期连续。",
     ]
+    focus = str(fields.get("studyFocus") or "").strip()
+    if focus:
+        parts.append(f"- 要学的具体内容：{focus}")
+    if not used_docs:
+        parts.append("- 没有上传资料：按目标拆成章节和周计划；多科目并行写进每日任务。不要编造页码。")
     if instruction.strip():
         parts.append(f"- 用户调整说明：{instruction.strip()}")
     if context_text.strip():
@@ -513,26 +582,194 @@ def _validate_structure(structure: dict) -> list[dict]:
     return phases
 
 
+def _anchor_schedule(phases_data: list[dict], today: date, goal: date) -> None:
+    """Move a schedule that starts before today so its first day is today.
+
+    The gap between days stays the same. When the goal is still ahead, days
+    after it are dropped. A goal already in the past is not used as a cap.
+    """
+    earliest: date | None = None
+    for phase_data in phases_data:
+        if not isinstance(phase_data, dict):
+            continue
+        start = _coerce_date(phase_data.get("start_date"), today)
+        if earliest is None or start < earliest:
+            earliest = start
+    delta = today - earliest if earliest is not None and earliest < today else timedelta(0)
+    limit = goal if goal >= today else None
+    for phase_data in phases_data:
+        if not isinstance(phase_data, dict):
+            continue
+        start = _coerce_date(phase_data.get("start_date"), today) + delta
+        end = _coerce_date(phase_data.get("end_date"), start) + delta
+        if limit is not None and start > limit:
+            start = limit
+        if limit is not None and end > limit:
+            end = limit
+        if end < start:
+            end = start
+        phase_data["start_date"] = start.isoformat()
+        phase_data["end_date"] = end.isoformat()
+        raw = phase_data.get("daily_tasks")
+        if not isinstance(raw, list):
+            continue
+        kept: list = []
+        for task in raw:
+            if isinstance(task, dict):
+                task_day = _coerce_date(task.get("task_date"), start) + delta
+                if task_day < start or task_day > end:
+                    continue
+                task["task_date"] = task_day.isoformat()
+            kept.append(task)
+        phase_data["daily_tasks"] = kept
+
+
+def _cover_phase_days(phase_data: dict, phase_start: date, phase_end: date) -> None:
+    """Fill dates the model skipped. Existing tasks on a date are kept."""
+    raw = phase_data.get("daily_tasks")
+    tasks: list = list(raw) if isinstance(raw, list) else []
+    if phase_end < phase_start:
+        phase_end = phase_start
+    covered: set[date] = set()
+    for task in tasks:
+        if isinstance(task, dict):
+            covered.add(_coerce_date(task.get("task_date"), phase_start))
+        else:
+            covered.add(phase_start)
+    name = str(phase_data.get("name") or "本阶段")
+    day = phase_start
+    while day <= phase_end:
+        if day not in covered:
+            week = (day - phase_start).days // 7 + 1
+            tasks.append(
+                {
+                    "task_date": day.isoformat(),
+                    "week_label": f"W{week:02d}",
+                    "description": f"{name}：完成当日范围的精读与例题，整理 2 道错题",
+                }
+            )
+        day += timedelta(days=1)
+    phase_data["daily_tasks"] = tasks
+
+
+def _snapshot_plan(session: Session, plan: Plan, reason: str) -> PlanRevision:
+    """Store the current phases and tasks before they are replaced."""
+    phases = list(
+        session.scalars(
+            select(Phase)
+            .where(Phase.plan_id == plan.id)
+            .order_by(Phase.phase_index)
+        )
+    )
+    tasks = list(
+        session.scalars(
+            select(DailyTask)
+            .where(DailyTask.plan_id == plan.id)
+            .order_by(DailyTask.task_date, DailyTask.id)
+        )
+    )
+    last_no = session.scalar(
+        select(func.max(PlanRevision.revision_no)).where(
+            PlanRevision.plan_id == plan.id
+        )
+    )
+    body = {
+        "phases": [
+            {
+                "id": str(phase.id),
+                "phaseIndex": phase.phase_index,
+                "name": phase.name,
+                "startDate": phase.start_date.isoformat(),
+                "endDate": phase.end_date.isoformat(),
+                "progressPercent": phase.progress_percent,
+                "isCurrent": phase.is_current,
+                "isCompleted": phase.is_completed,
+            }
+            for phase in phases
+        ],
+        "dailyTasks": [
+            {
+                "id": str(task.id),
+                "phaseId": str(task.phase_id),
+                "taskDate": task.task_date.isoformat(),
+                "weekLabel": task.week_label,
+                "description": task.description,
+                "status": task.status,
+            }
+            for task in tasks
+        ],
+    }
+    row = PlanRevision(
+        plan_id=plan.id,
+        revision_no=(last_no or 0) + 1,
+        snapshot=json.dumps(body, ensure_ascii=False),
+        reason=reason,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def list_plan_revisions(
+    session: Session, user_id: uuid.UUID, plan_id: uuid.UUID
+) -> list[PlanRevision]:
+    _owned_plan(session, user_id, plan_id)
+    return list(
+        session.scalars(
+            select(PlanRevision)
+            .where(PlanRevision.plan_id == plan_id)
+            .order_by(PlanRevision.revision_no)
+        )
+    )
+
+
+def get_plan_revision(
+    session: Session,
+    user_id: uuid.UUID,
+    plan_id: uuid.UUID,
+    revision_id: uuid.UUID,
+) -> PlanRevision:
+    _owned_plan(session, user_id, plan_id)
+    row = session.scalar(
+        select(PlanRevision).where(
+            PlanRevision.id == revision_id, PlanRevision.plan_id == plan_id
+        )
+    )
+    if row is None:
+        raise PlanNotFoundError("修订不存在")
+    return row
+
+
 def _write_plan_structure(
-    session: Session, plan: Plan, phases_data: list[dict], today: date
+    session: Session,
+    plan: Plan,
+    phases_data: list[dict],
+    today: date,
+    reason: str | None = None,
 ) -> None:
     """Replace ``plan``'s phases and daily tasks with ``phases_data``.
 
     Every existing Phase / Daily_Task of the plan is deleted first, so the child
     rows always describe exactly the newly generated structure — no orphaned
-    phase survives a regeneration that shrank the plan. Callers own the commit.
+    phase survives a regeneration that shrank the plan. ``reason`` set means
+    archive the current rows first; the first generate passes ``None``.
+    Callers own the commit.
     """
+    if reason:
+        _snapshot_plan(session, plan, reason)
     session.execute(
         delete(DailyTask).where(DailyTask.plan_id == plan.id)
     )
     session.execute(delete(Phase).where(Phase.plan_id == plan.id))
     plan.total_phases = len(phases_data)
     session.flush()
+    _anchor_schedule(phases_data, today, plan.goal_date)
 
     for offset, phase_data in enumerate(phases_data):
         phase_index = offset + 1
         phase_start = _coerce_date(phase_data.get("start_date"), today)
         phase_end = _coerce_date(phase_data.get("end_date"), phase_start)
+        _cover_phase_days(phase_data, phase_start, phase_end)
         phase = Phase(
             plan_id=plan.id,
             phase_index=phase_index,
@@ -600,7 +837,17 @@ async def generate_plan(
     generator = _resolve_plan_generator(session, user_id, plan_generator)
     structure = await _run_generator(generator, fields, used_docs, context_text, "")
     phases_data = _validate_structure(structure)
+    return _persist_plan(session, user_id, fields, phases_data, used_docs, skipped_docs)
 
+
+def _persist_plan(
+    session: Session,
+    user_id: uuid.UUID,
+    fields: dict[str, object],
+    phases_data: list[dict],
+    used_docs: list[str],
+    skipped_docs: list[str],
+) -> GeneratedPlan:
     today = _today_utc()
     goal_date = _coerce_date(fields.get("goalDate"), today)
     daily_minutes = int(fields["dailyMinutes"])  # validated present by caller
@@ -617,7 +864,7 @@ async def generate_plan(
     session.add(plan)
     session.flush()  # assign plan.id before wiring phases/tasks
 
-    _write_plan_structure(session, plan, phases_data, today)
+    _write_plan_structure(session, plan, phases_data, today, reason=None)
 
     try:
         session.commit()
@@ -631,6 +878,42 @@ async def generate_plan(
         used_docs=used_docs,
         skipped_docs=skipped_docs,
     )
+
+
+async def compose_unpersisted(
+    session: Session,
+    user_id: uuid.UUID,
+    fields: dict[str, object],
+    document_ids: list[str] | None,
+    plan_generator: PlanGenerator | None,
+    instruction: str = "",
+) -> tuple[dict, list[str]]:
+    """Build a plan structure without writing it. Used when no files were uploaded."""
+    require_verified_api_config(session, user_id)
+    used_docs, _skipped = document_service.filter_ready_documents(
+        session, user_id, document_ids
+    )
+    context_text = document_service.retrieve_document_chunks(
+        session, user_id, used_docs
+    )
+    generator = _resolve_plan_generator(session, user_id, plan_generator)
+    structure = await _run_generator(
+        generator, fields, used_docs, context_text, instruction
+    )
+    _validate_structure(structure)
+    return structure, used_docs
+
+
+def confirm_draft_plan(
+    session: Session,
+    user_id: uuid.UUID,
+    fields: dict[str, object],
+    structure: dict,
+    used_docs: list[str],
+) -> GeneratedPlan:
+    """Persist a preview the user already accepted."""
+    phases_data = _validate_structure(structure)
+    return _persist_plan(session, user_id, fields, phases_data, used_docs, [])
 
 
 def _owned_plan(
@@ -725,7 +1008,7 @@ async def regenerate_plan(
     plan.daily_minutes = int(fields.get("dailyMinutes", plan.daily_minutes))
     session.flush()
 
-    _write_plan_structure(session, plan, phases_data, today)
+    _write_plan_structure(session, plan, phases_data, today, reason="regenerate")
 
     try:
         session.commit()

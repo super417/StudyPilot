@@ -103,6 +103,30 @@ class Plan(Base):
     )
 
 
+class PlanRevision(Base):
+    """Read-only snapshot taken before a plan's phases are rebuilt."""
+
+    __tablename__ = "plan_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "plan_id", "revision_no", name="uq_plan_revisions_plan_revision_no"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("plans.id", ondelete="CASCADE"), nullable=False
+    )
+    revision_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
 class Phase(Base):
     __tablename__ = "phases"
     __table_args__ = (
@@ -132,7 +156,8 @@ class DailyTask(Base):
     __tablename__ = "daily_tasks"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'done')", name="ck_daily_tasks_status_values"
+            "status IN ('pending', 'done', 'carried')",
+            name="ck_daily_tasks_status_values",
         ),
     )
 
@@ -149,6 +174,45 @@ class DailyTask(Base):
     week_label: Mapped[str] = mapped_column(String(8), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    carried_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("daily_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class PracticeQuestion(Base):
+    __tablename__ = "practice_questions"
+    __table_args__ = (
+        CheckConstraint(
+            "source IN ('generated', 'uploaded')",
+            name="ck_practice_questions_source",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'correct', 'wrong')",
+            name="ck_practice_questions_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    source_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("daily_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    source_mistake_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("mistakes.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
 
 
 class CheckIn(Base):
@@ -201,6 +265,7 @@ class Mistake(Base):
     my_answer: Mapped[str | None] = mapped_column(Text)
     why_wrong: Mapped[str | None] = mapped_column(Text)
     correct_understanding: Mapped[str | None] = mapped_column(Text)
+    subject: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     review_status: Mapped[str] = mapped_column(
         String(16), default="pending", nullable=False
     )
@@ -364,6 +429,33 @@ class Course(Base):
         DateTime(timezone=True), default=utc_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
+class CourseChapter(Base):
+    __tablename__ = "course_chapters"
+    __table_args__ = (
+        CheckConstraint(
+            "length(title) BETWEEN 1 AND 80", name="ck_course_chapters_title_length"
+        ),
+        CheckConstraint(
+            "length(url) BETWEEN 8 AND 500", name="ck_course_chapters_url_length"
+        ),
+        CheckConstraint("position >= 0", name="ck_course_chapters_position_nonnegative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(80), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
 

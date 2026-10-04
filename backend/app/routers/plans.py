@@ -8,6 +8,7 @@ requirement 10.3).
 """
 
 from typing import AsyncIterator
+import json
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.entities import User
+from app.models.entities import PlanRevision, User
 from app.routers.dependencies import get_current_user
 from app.services import document_service, planner_service
 from app.services.api_config_service import (
@@ -25,13 +26,21 @@ from app.services.api_config_service import (
 )
 from app.services.plan_draft_store import plan_draft_store
 from app.services.planner_service import (
+    FOCUS_AGAIN,
+    FOCUS_QUESTION,
     ClarifyOutcome,
     GenerateOutcome,
     PlanGenerationError,
     PlanGenerator,
     PlanNotFoundError,
+    brief_route,
+    compose_unpersisted,
+    confirm_draft_plan,
+    focus_is_clear,
     format_plan_sse,
+    is_plan_confirm,
     missing_fields,
+    resolved_focus,
 )
 
 router = APIRouter(prefix="/api/plans", tags=["plans"])
@@ -75,6 +84,7 @@ class ClarifyPayload(BaseModel):
     daily_minutes: int | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
+    message: str | None = None
 
 
 class RegeneratePayload(BaseModel):
@@ -230,6 +240,83 @@ async def _generate_frames(
     )
 
 
+async def _no_file_frames(
+    session: Session,
+    user_id,
+    draft,
+    draft_id: str,
+    message: str,
+    plan_generator: PlanGenerator | None,
+    updates: dict | None = None,
+) -> AsyncIterator[str]:
+    """No uploaded files: decompose a stated goal, ask only when it is a shrug."""
+    for key, value in (updates or {}).items():
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+        draft.fields[key] = value
+
+    text = message.strip()
+    if draft.pending and is_plan_confirm(text):
+        result = confirm_draft_plan(
+            session, user_id, draft.fields, draft.pending, draft.used_docs
+        )
+        plan_draft_store.delete(draft_id)
+        yield format_plan_sse(
+            planner_service.PLAN_SSE_DONE_EVENT,
+            {
+                "planId": str(result.plan_id),
+                "phases": result.phases,
+                "usedDocs": result.used_docs,
+            },
+        )
+        return
+
+    if draft.pending and text:
+        draft.fields["studyFocus"] = text
+        structure, used = await compose_unpersisted(
+            session, user_id, draft.fields, [], plan_generator, text
+        )
+        draft.pending = structure
+        draft.used_docs = used
+        focus = str(draft.fields.get("studyFocus") or draft.fields.get("goalName") or "这次学习")
+        yield format_plan_sse(
+            planner_service.PLAN_SSE_PREVIEW_EVENT,
+            {
+                "draftId": draft_id,
+                "summary": brief_route(focus, structure["phases"]),
+            },
+        )
+        return
+
+    focus = resolved_focus(draft.fields, text)
+    if text and not is_plan_confirm(text):
+        draft.fields["studyFocus"] = text
+    if not focus_is_clear(focus):
+        draft.round += 1
+        question = FOCUS_AGAIN if draft.round > 1 else FOCUS_QUESTION
+        yield format_plan_sse(
+            planner_service.PLAN_SSE_CLARIFY_EVENT,
+            {
+                "draftId": draft_id,
+                "round": draft.round,
+                "missing": [],
+                "question": question,
+            },
+        )
+        return
+
+    draft.fields["studyFocus"] = focus
+    structure, used = await compose_unpersisted(
+        session, user_id, draft.fields, [], plan_generator, ""
+    )
+    draft.pending = structure
+    draft.used_docs = used
+    yield format_plan_sse(
+        planner_service.PLAN_SSE_PREVIEW_EVENT,
+        {"draftId": draft_id, "summary": brief_route(focus, structure["phases"])},
+    )
+
+
 @router.post("/generate")
 async def generate_plan_route(
     payload: GeneratePayload,
@@ -256,6 +343,26 @@ async def generate_plan_route(
             )
             return
 
+        if document_ids is not None and len(document_ids) == 0:
+            draft_id = plan_draft_store.create(user.id, fields)
+            draft = plan_draft_store.get(draft_id, user.id)
+            if draft is None:
+                yield _error_frame(_DRAFT_NOT_FOUND_CODE, _DRAFT_NOT_FOUND_MESSAGE)
+                return
+            draft.document_ids = []
+            try:
+                async for frame in _no_file_frames(
+                    session, user.id, draft, draft_id, "", plan_generator
+                ):
+                    yield frame
+            except NoVerifiedApiConfigError:
+                yield _error_frame(NoVerifiedApiConfigError.code, _NO_API_KEY_MESSAGE)
+            except PlanGenerationError as error:
+                yield _error_frame(PlanGenerationError.code, str(error))
+            except Exception:
+                yield _error_frame(PlanGenerationError.code, "规划生成失败，请稍后重试")
+            return
+
         async for frame in _generate_frames(
             session, user.id, fields, document_ids, plan_generator, forced=False
         ):
@@ -279,6 +386,26 @@ async def clarify_plan_route(
     async def stream() -> AsyncIterator[str]:
         if draft is None:
             yield _error_frame(_DRAFT_NOT_FOUND_CODE, _DRAFT_NOT_FOUND_MESSAGE)
+            return
+
+        if draft.document_ids == [] and not payload.document_ids:
+            try:
+                async for frame in _no_file_frames(
+                    session,
+                    user.id,
+                    draft,
+                    draft_id,
+                    payload.message or "",
+                    plan_generator,
+                    updates,
+                ):
+                    yield frame
+            except NoVerifiedApiConfigError:
+                yield _error_frame(NoVerifiedApiConfigError.code, _NO_API_KEY_MESSAGE)
+            except PlanGenerationError as error:
+                yield _error_frame(PlanGenerationError.code, str(error))
+            except Exception:
+                yield _error_frame(PlanGenerationError.code, "规划生成失败，请稍后重试")
             return
 
         outcome = planner_service.advance_state(draft, updates)
@@ -391,3 +518,70 @@ async def regenerate_plan_route(
         )
 
     return StreamingResponse(stream(), media_type=SSE_MEDIA_TYPE)
+
+
+def _revision_summary(row: PlanRevision) -> dict:
+    return {
+        "id": str(row.id),
+        "revisionNo": row.revision_no,
+        "createdAt": row.created_at.isoformat(),
+        "reason": row.reason,
+    }
+
+
+@router.get("/{plan_id}/revisions")
+def list_revisions_route(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed = uuid.UUID(plan_id)
+        rows = planner_service.list_plan_revisions(session, user.id, parsed)
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "revisions": [_revision_summary(row) for row in rows]},
+    )
+
+
+@router.get("/{plan_id}/revisions/{revision_id}")
+def get_revision_route(
+    plan_id: str,
+    revision_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        parsed_revision = uuid.UUID(revision_id)
+        row = planner_service.get_plan_revision(
+            session, user.id, parsed_plan, parsed_revision
+        )
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "修订不存在",
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "ok",
+            "revision": {
+                **_revision_summary(row),
+                "snapshot": json.loads(row.snapshot),
+            },
+        },
+    )
