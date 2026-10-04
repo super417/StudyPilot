@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, ImageUp, Plus, Sparkles, X } from 'lucide-react';
-import { useAssistantStore } from '@/store';
+import { useAssistantStore, selectActiveMessages } from '@/store';
+import { latestExplainReply } from '@/lib/explainFill';
 
 import MistakeList from '@/components/MistakeList';
+import PracticeBoard from '@/components/PracticeBoard';
 import MistakeDetail from '@/components/MistakeDetail';
 import CameraCapture from '@/components/CameraCapture';
 import type { Mistake, ReviewStatus } from '@/mocks/types';
@@ -14,10 +16,14 @@ import {
   getMistake,
   listItemToMistake,
   listMistakes,
+  matchQueueFilter,
   recognizeQuestionImage,
   setMistakeReviewStatus,
+  takeMistakeFilter,
   updateMistake,
+  type QueueFilter,
 } from '@/lib/mistakesApi';
+import { todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
 import type { MistakeEditValues } from '@/components/MistakeDetail';
 
@@ -39,9 +45,22 @@ function MistakeBookPage() {
   const [whyWrong, setWhyWrong] = useState('');
   const [correctUnderstanding, setCorrectUnderstanding] = useState('');
   const [recognizing, setRecognizing] = useState(false);
+  const [board, setBoard] = useState<'practice' | 'mistakes'>('mistakes');
+  const [practiceTab, setPracticeTab] = useState<'today' | 'review'>('today');
+  const [mistakeFilter, setMistakeFilter] = useState<QueueFilter | 'today'>('all');
 
   const [cameraOpen, setCameraOpen] = useState(false);
   const captureInputRef = useRef<HTMLInputElement>(null);
+  const assistantMessages = useAssistantStore(selectActiveMessages);
+  const assistantStreaming = useAssistantStore((s) => s.streaming);
+  const explainFill = latestExplainReply(assistantMessages, assistantStreaming);
+
+  const fillFromAssistant = () => {
+    if (!explainFill) return;
+    setCorrectUnderstanding(explainFill.correctUnderstanding);
+    if (explainFill.whyWrong) setWhyWrong(explainFill.whyWrong);
+    setActionMsg('已填入助手刚才的讲解，核对后再加入复习队列');
+  };
 
   const openCamera = () => {
     if (window.isSecureContext && 'mediaDevices' in navigator) {
@@ -109,6 +128,18 @@ function MistakeBookPage() {
   useEffect(() => {
     void reloadList();
   }, [reloadList]);
+
+  useEffect(() => {
+    const apply = () => {
+      const next = takeMistakeFilter();
+      if (!next) return;
+      setBoard('mistakes');
+      setMistakeFilter(next);
+    };
+    apply();
+    window.addEventListener('studypilot:mistake-filter', apply);
+    return () => window.removeEventListener('studypilot:mistake-filter', apply);
+  }, []);
 
   useEffect(() => {
     const open = () => setShowForm(true);
@@ -221,6 +252,17 @@ function MistakeBookPage() {
     } finally {
       setEditingSave(false);
     }
+  };
+
+  const applyExplain = async () => {
+    if (!detail || !explainFill || editingSave) return;
+    await handleSaveEdit({
+      question: detail.question,
+      myAnswer: detail.myAnswer,
+      whyWrong: explainFill.whyWrong || detail.whyWrong,
+      correctUnderstanding: explainFill.correctUnderstanding,
+    });
+    setActionMsg('已把讲解写入这条错题');
   };
 
   const handleCreate = async (e: FormEvent) => {
@@ -407,31 +449,103 @@ function MistakeBookPage() {
               <Sparkles size={15} aria-hidden="true" />
               让助手讲这道题
             </button>
+            {explainFill ? (
+              <button
+                type="button"
+                onClick={fillFromAssistant}
+                className="inline-flex items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark hover:bg-brandFaint"
+              >
+                把讲解填回来
+              </button>
+            ) : null}
           </div>
           <p className="text-xs text-gray-400">
-            讲题不会保存错题；弄懂后可以把错因和正确理解填回来，再加入复习队列。
+            讲题不会保存错题。助手讲完后点「把讲解填回来」，核对错因和正确理解，再加入复习队列。
           </p>
         </form>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          {loading ? (
-            <section className="card p-6 text-sm text-gray-400">加载错题队列…</section>
-          ) : mistakes.length === 0 ? (
-            <section className="card p-6 text-sm text-gray-500">
-              暂无错题。点右上角「记录一道错题」开始积累复习队列。
-            </section>
-          ) : (
-            <MistakeList
-              mistakes={mistakes}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              pendingCount={pendingCount}
-            />
-          )}
+          <nav className="card mb-4 space-y-3 p-4" aria-label="错题本分区">
+            <div>
+              <button type="button" className={`text-sm font-semibold ${board === 'practice' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('practice')}>
+                习题
+              </button>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button type="button" className="rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('today'); }}>今日练习</button>
+                <button type="button" className="rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('review'); }}>今日复习</button>
+              </div>
+            </div>
+            <div>
+              <button type="button" className={`text-sm font-semibold ${board === 'mistakes' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('mistakes')}>
+                错题
+              </button>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {([
+                  ['today', '今日错题'],
+                  ['all', '全部'],
+                  ['pending', '待复习'],
+                  ['scheduled', '已安排'],
+                  ['done', '已完成'],
+                ] as const).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`rounded-full px-2.5 py-0.5 text-xs ${board === 'mistakes' && mistakeFilter === id ? 'bg-brandDark text-white' : 'bg-brandFaint text-brandDark'}`}
+                    onClick={() => {
+                      setBoard('mistakes');
+                      setMistakeFilter(id);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </nav>
+          {board === 'mistakes' ? (
+            loading ? (
+              <section className="card p-6 text-sm text-gray-400">加载错题队列…</section>
+            ) : mistakes.length === 0 ? (
+              <section className="card p-6 text-sm text-gray-500">
+                暂无错题。点右上角「记录一道错题」开始积累复习队列。
+              </section>
+            ) : (
+              <MistakeList
+                mistakes={
+                  mistakeFilter === 'today'
+                    ? mistakes.filter((item) => item.createdAt?.slice(0, 10) === todayISO())
+                    : mistakes.filter((item) => matchQueueFilter(item, mistakeFilter))
+                }
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                pendingCount={pendingCount}
+                controlledFilter="all"
+              />
+            )
+          ) : null}
         </div>
         <div className="lg:col-span-2">
+          {board === 'practice' ? (
+            <div className="space-y-4">
+              <PracticeBoard tab={practiceTab} onWrong={() => void reloadList()} />
+              {practiceTab === 'review' ? (
+                <MistakeList
+                  mistakes={mistakes.filter((item) => item.due)}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setBoard('mistakes');
+                    setMistakeFilter('due');
+                  }}
+                  pendingCount={pendingCount}
+                  controlledFilter="all"
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {board === 'mistakes' ? (
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedId ?? 'empty'}
@@ -450,10 +564,12 @@ function MistakeBookPage() {
                   deleting={deleting}
                   onSave={handleSaveEdit}
                   saving={editingSave}
+                  onApplyExplain={explainFill ? () => void applyExplain() : undefined}
                 />
               )}
             </motion.div>
           </AnimatePresence>
+          ) : null}
         </div>
       </div>
     </div>

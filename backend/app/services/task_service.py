@@ -58,7 +58,9 @@ def recompute_phase_progress(session: Session, phase: Phase) -> None:
     plan becomes current. Pure recompute — the caller owns the commit.
     """
     total = session.scalar(
-        select(func.count()).select_from(DailyTask).where(DailyTask.phase_id == phase.id)
+        select(func.count())
+        .select_from(DailyTask)
+        .where(DailyTask.phase_id == phase.id, DailyTask.status != "carried")
     ) or 0
     if total == 0:
         phase.progress_percent = 0
@@ -194,6 +196,88 @@ def add_today_task(
     return task, True
 
 
+def settle_overdue_tasks(
+    session: Session,
+    user_id: uuid.UUID | None = None,
+    today: date | None = None,
+) -> list[DailyTask]:
+    """Move pending tasks dated before ``today`` onto ``today``.
+
+    Only days on or after ``Plan.start_date`` count. A plan created today can
+    still contain earlier dates from the model; those were never due, so they
+    stay on their original date. The original row is marked ``carried`` and
+    moved once. ``user_id=None`` scans every user. No scheduler here.
+    """
+    today = today or date.today()
+    statement = (
+        select(DailyTask)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .where(
+            DailyTask.task_date >= Plan.start_date,
+            DailyTask.task_date < today,
+            DailyTask.status == "pending",
+        )
+    )
+    if user_id is not None:
+        statement = statement.where(Plan.user_id == user_id)
+    overdue = list(session.scalars(statement))
+    if not overdue:
+        return []
+
+    created: list[DailyTask] = []
+    phase_ids: set[uuid.UUID] = set()
+    for task in overdue:
+        task.status = "carried"
+        phase_ids.add(task.phase_id)
+        description = task.description
+        if not description.startswith("[顺延]"):
+            description = f"[顺延] {description}"
+        created.append(
+            DailyTask(
+                plan_id=task.plan_id,
+                phase_id=task.phase_id,
+                task_date=today,
+                week_label=f"W{today.isocalendar().week:02d}",
+                description=description,
+                status="pending",
+                carried_from_id=task.id,
+            )
+        )
+    session.add_all(created)
+    session.flush()
+    for phase_id in phase_ids:
+        phase = session.get(Phase, phase_id)
+        if phase is not None:
+            recompute_phase_progress(session, phase)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return created
+
+
+def get_phase_tasks(
+    session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
+) -> list[DailyTask]:
+    """Every daily task of one phase, oldest date first. Missing phase is 404."""
+    settle_overdue_tasks(session, user_id, date.today())
+    phase = session.scalar(
+        select(Phase)
+        .join(Plan, Plan.id == Phase.plan_id)
+        .where(Phase.id == phase_id, Plan.user_id == user_id)
+    )
+    if phase is None:
+        raise TaskNotFoundError("阶段不存在")
+    return list(
+        session.scalars(
+            select(DailyTask)
+            .where(DailyTask.phase_id == phase.id)
+            .order_by(DailyTask.task_date, DailyTask.id)
+        )
+    )
+
+
 def get_daily_tasks(
     session: Session, user_id: uuid.UUID, task_date: date
 ) -> list[DailyTask]:
@@ -202,7 +286,9 @@ def get_daily_tasks(
     ``Daily_Task`` has no ``user_id``; ownership is enforced by joining through
     ``Plan.user_id``, so another user's tasks are never returned. Ordering is
     stable: by owning phase index, then task date, then id.
+    Overdue pending tasks are carried onto today before the read.
     """
+    settle_overdue_tasks(session, user_id, date.today())
     statement = (
         select(DailyTask)
         .join(Plan, Plan.id == DailyTask.plan_id)

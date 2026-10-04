@@ -9,7 +9,7 @@
  */
 
 /** 每日任务状态 */
-export type DailyTaskStatus = 'pending' | 'done';
+export type DailyTaskStatus = 'pending' | 'done' | 'carried';
 
 /** 错题复习安排状态 */
 export type ReviewStatus = 'pending' | 'scheduled' | 'done';
@@ -107,6 +107,8 @@ export interface Mistake {
   nextReviewAt?: string;
   /** 已安排且下次复习时间已到 */
   due?: boolean;
+  /** 录入时间，ISO */
+  createdAt?: string;
 }
 
 /** 某科目掌握度明细项 */

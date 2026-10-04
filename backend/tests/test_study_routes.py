@@ -235,7 +235,9 @@ class StudyRouteTests(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(len(body["tasks"]), 1)
         self.assertEqual(body["tasks"][0]["id"], str(task.id))
-        self.assertEqual(body["tasks"][0]["status"], "pending")
+        # 查询日早于今天时，读取前会把仍 pending 的任务标成 carried。
+        expected = "carried" if date(2025, 2, 10) < date.today() else "pending"
+        self.assertEqual(body["tasks"][0]["status"], expected)
         self.assertEqual(body["tasks"][0]["weekLabel"], "W01")
 
     def test_daily_tasks_missing_date_returns_400(self) -> None:
@@ -345,6 +347,37 @@ class StudyRouteTests(unittest.TestCase):
         self.client.cookies.clear()
         response = self.client.get("/api/metrics/overview?today=2025-02-10")
         self.assertEqual(response.status_code, 401)
+
+    def test_phase_tasks_returns_the_phase_and_404_for_unknown(self) -> None:
+        _, phase, task = self._seed_plan_with_task(date(2025, 2, 10))
+        response = self.client.get(f"/api/phases/{phase.id}/tasks")
+        self.assertEqual(response.status_code, 200, response.text)
+        ids = [item["id"] for item in response.json()["tasks"]]
+        self.assertIn(str(task.id), ids)
+        missing = self.client.get(f"/api/phases/{uuid.uuid4()}/tasks")
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(missing.json()["code"], "NOT_FOUND")
+
+    def test_practice_upload_wrong_answer_joins_mistake_book(self) -> None:
+        created = self.client.post(
+            "/api/practice", json={"question": "1+1 等于几", "answer": "2", "subject": "数学"}
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        question_id = created.json()["question"]["id"]
+        marked = self.client.patch(
+            f"/api/practice/{question_id}/status",
+            json={"status": "wrong", "myAnswer": "3"},
+        )
+        self.assertEqual(marked.status_code, 200, marked.text)
+        self.assertIsNotNone(marked.json()["question"]["sourceMistakeId"])
+        listed = self.client.get("/api/mistakes")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertIn("1+1 等于几", listed.text)
+
+    def test_practice_generate_without_config_returns_no_api_key(self) -> None:
+        response = self.client.post("/api/practice/generate", json={"date": "2026-10-04"})
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertEqual(response.json()["code"], "NO_API_KEY")
 
 
 if __name__ == "__main__":

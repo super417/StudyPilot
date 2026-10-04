@@ -85,6 +85,7 @@ def _task_result(task: DailyTask) -> dict:
         "weekLabel": task.week_label,
         "description": task.description,
         "status": task.status,
+        "dueCarried": task.status == "carried" or task.carried_from_id is not None,
     }
 
 
@@ -151,6 +152,27 @@ def list_daily_tasks_route(
         return _json_error(400, _VALIDATION_CODE, "日期参数不合法")
 
     tasks = task_service.get_daily_tasks(session, user.id, task_date)
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "tasks": [_task_result(task) for task in tasks]},
+    )
+
+
+@router.get("/phases/{phase_id}/tasks")
+def list_phase_tasks_route(
+    phase_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    """All daily tasks of one phase, oldest date first."""
+    try:
+        parsed = uuid.UUID(phase_id)
+    except (ValueError, AttributeError, TypeError):
+        return _json_error(404, TaskNotFoundError.code, str(TaskNotFoundError("阶段不存在")))
+    try:
+        tasks = task_service.get_phase_tasks(session, user.id, parsed)
+    except TaskNotFoundError as error:
+        return _json_error(404, error.code, str(error))
     return JSONResponse(
         status_code=200,
         content={"status": "ok", "tasks": [_task_result(task) for task in tasks]},

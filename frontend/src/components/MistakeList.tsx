@@ -1,6 +1,21 @@
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 
 import type { Mistake, ReviewStatus } from '@/mocks/types';
+import {
+  matchQuestion,
+  matchQueueFilter,
+  takeMistakeFilter,
+  type QueueFilter,
+} from '@/lib/mistakesApi';
+
+const FILTERS: Array<{ id: QueueFilter; label: string }> = [
+  { id: 'all', label: '全部' },
+  { id: 'due', label: '今天到期' },
+  { id: 'pending', label: '待复习' },
+  { id: 'scheduled', label: '已安排' },
+  { id: 'done', label: '已完成' },
+];
 
 /**
  * MistakeList / MistakeListItem — 错题本左侧复习队列（需求 6.1、6.2、18.17）
@@ -97,12 +112,44 @@ export interface MistakeListProps {
   onSelect: (id: string) => void;
   /** 待复习角标；缺省则按列表内 pending 计数 */
   pendingCount?: number;
+  /** 由错题本左侧导航控制时，不再显示列表自己的筛选条 */
+  controlledFilter?: QueueFilter;
 }
 
-function MistakeList({ mistakes, selectedId, onSelect, pendingCount }: MistakeListProps) {
+function MistakeList({ mistakes, selectedId, onSelect, pendingCount, controlledFilter }: MistakeListProps) {
+  const [filter, setFilter] = useState<QueueFilter>(controlledFilter ?? 'all');
+  const activeFilter = controlledFilter ?? filter;
+
+  useEffect(() => {
+    const apply = () => {
+      const next = takeMistakeFilter();
+      if (next) setFilter(next);
+    };
+    apply();
+    window.addEventListener('studypilot:mistake-filter', apply);
+    return () => window.removeEventListener('studypilot:mistake-filter', apply);
+  }, []);
+  const [query, setQuery] = useState('');
   const badge =
     pendingCount ?? mistakes.filter((m) => m.reviewStatus === 'pending').length;
   const dueCount = mistakes.filter((m) => m.due).length;
+  const visible = useMemo(
+    () => mistakes.filter((m) => matchQueueFilter(m, activeFilter) && matchQuestion(m.question, query)),
+    [mistakes, activeFilter, query],
+  );
+
+  useEffect(() => {
+    if (visible.length === 0 || visible.some((m) => m.id === selectedId)) return;
+    onSelect(visible[0].id);
+  }, [visible, selectedId, onSelect]);
+
+  const counts: Record<QueueFilter, number> = {
+    all: mistakes.length,
+    due: dueCount,
+    pending: badge,
+    scheduled: mistakes.filter((m) => m.reviewStatus === 'scheduled').length,
+    done: mistakes.filter((m) => m.reviewStatus === 'done').length,
+  };
 
   return (
     <section className="card flex flex-col overflow-hidden p-5 sm:p-6">
@@ -116,9 +163,13 @@ function MistakeList({ mistakes, selectedId, onSelect, pendingCount }: MistakeLi
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           {dueCount > 0 ? (
-            <span className="rounded-full bg-dangerText px-3 py-1 text-sm font-semibold text-white">
+            <button
+              type="button"
+              onClick={() => setFilter('due')}
+              className="rounded-full bg-dangerText px-3 py-1 text-sm font-semibold text-white"
+            >
               {dueCount} 到期
-            </span>
+            </button>
           ) : null}
           <span className="rounded-full bg-brand px-3 py-1 text-sm font-semibold text-white">
             {badge} 待复习
@@ -126,17 +177,50 @@ function MistakeList({ mistakes, selectedId, onSelect, pendingCount }: MistakeLi
         </div>
       </header>
 
-      {/* 错题列表 */}
-      <ul className="mt-4 flex flex-col gap-1">
-        {mistakes.map((mistake) => (
-          <MistakeListItem
-            key={mistake.id}
-            mistake={mistake}
-            isSelected={mistake.id === selectedId}
-            onSelect={onSelect}
-          />
+      <label className="mt-3 block px-1">
+        <span className="sr-only">搜索原题</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="搜索原题"
+          className="w-full rounded-full border border-brandFaint bg-white px-3.5 py-2 text-sm text-brandDark outline-none focus:border-brand"
+        />
+      </label>
+
+      {controlledFilter ? null : <div className="mt-3 flex flex-wrap gap-1.5 px-1">
+        {FILTERS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setFilter(item.id)}
+            className={[
+              'rounded-full px-2.5 py-0.5 text-xs font-medium',
+              filter === item.id
+                ? 'bg-brandDark text-white'
+                : 'bg-bg text-brandDark hover:bg-brandFaint',
+            ].join(' ')}
+          >
+            {item.label} {counts[item.id]}
+          </button>
         ))}
-      </ul>
+      </div>}
+
+      {visible.length === 0 ? (
+        <p className="mt-6 px-1 text-sm text-gray-400">
+          {query.trim() ? '没有匹配的错题' : '这一栏没有错题'}
+        </p>
+      ) : (
+        <ul className="mt-4 flex flex-col gap-1">
+          {visible.map((mistake) => (
+            <MistakeListItem
+              key={mistake.id}
+              mistake={mistake}
+              isSelected={mistake.id === selectedId}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

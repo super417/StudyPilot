@@ -21,6 +21,38 @@ export function dueFirst<T extends { due?: boolean }>(items: T[]): T[] {
   return [...items.filter((m) => m.due), ...items.filter((m) => !m.due)];
 }
 
+export type QueueFilter = 'all' | 'due' | 'pending' | 'scheduled' | 'done';
+
+const FILTER_KEY = 'studypilot.mistakeFilter';
+const FILTERS: QueueFilter[] = ['all', 'due', 'pending', 'scheduled', 'done'];
+
+/** 切到错题本之前调用。页面还没挂载，所以先记下，挂载时取走。 */
+export function requestMistakeFilter(filter: QueueFilter) {
+  sessionStorage.setItem(FILTER_KEY, filter);
+  window.dispatchEvent(new Event('studypilot:mistake-filter'));
+}
+
+export function takeMistakeFilter(): QueueFilter | null {
+  const value = sessionStorage.getItem(FILTER_KEY);
+  sessionStorage.removeItem(FILTER_KEY);
+  return FILTERS.includes(value as QueueFilter) ? (value as QueueFilter) : null;
+}
+
+export function matchQueueFilter(
+  mistake: { due?: boolean; reviewStatus: ReviewStatus },
+  filter: QueueFilter,
+): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'due') return Boolean(mistake.due);
+  return mistake.reviewStatus === filter;
+}
+
+/** 空关键词不过滤；否则原题包含关键词（忽略大小写）。 */
+export function matchQuestion(question: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || question.toLowerCase().includes(q);
+}
+
 export interface MistakeDetailResponse {
   status: string;
   mistake: Mistake & { createdAt?: string };
@@ -117,5 +149,6 @@ export function listItemToMistake(
     reviewStatus: item.reviewStatus,
     nextReviewAt: item.nextReviewAt ?? undefined,
     due: item.due ?? false,
+    createdAt: item.createdAt,
   };
 }

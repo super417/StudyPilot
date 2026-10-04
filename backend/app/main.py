@@ -13,6 +13,7 @@ from app.routers.mistakes import router as mistakes_router
 from app.routers.notes import router as notes_router
 from app.routers.phases import router as phases_router
 from app.routers.plans import router as plans_router
+from app.routers.practice import router as practice_router
 from app.routers.profile import router as profile_router
 from app.routers.study import router as study_router
 from app.routers.weekly_reviews import router as weekly_reviews_router
@@ -25,6 +26,7 @@ app.include_router(profile_router)
 app.include_router(api_config_router)
 app.include_router(documents_router)
 app.include_router(plans_router)
+app.include_router(practice_router)
 app.include_router(phases_router)
 app.include_router(study_router)
 app.include_router(mistakes_router)
