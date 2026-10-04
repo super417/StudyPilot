@@ -263,6 +263,59 @@ def filter_ready_documents(
     return ready, skipped
 
 
+def build_context(
+    session: Session,
+    user_id: uuid.UUID,
+    doc_ids: list[str] | None,
+    max_chars: int | None = None,
+) -> tuple[str, list[dict]]:
+    """Return ``(context_text, hits)`` for the user's documents.
+
+    ``hits`` items are ``{docId, filename, chunkIndex, snippet}`` and only
+    include text that actually landed in ``context_text``.
+    """
+    if not doc_ids:
+        return "", []
+
+    limit = MAX_CONTEXT_CHARS if max_chars is None else max_chars
+    rows: list[UserDocument] = []
+    for doc_id in doc_ids:
+        rows.extend(
+            session.scalars(
+                select(UserDocument)
+                .where(
+                    UserDocument.user_id == user_id,
+                    UserDocument.doc_id == doc_id,
+                )
+                .order_by(UserDocument.chunk_index)
+            ).all()
+        )
+
+    text = "\n".join(row.content for row in rows)
+    if limit is not None and limit >= 0:
+        text = text[:limit]
+
+    hits: list[dict] = []
+    cursor = 0
+    for index, row in enumerate(rows):
+        if cursor >= len(text):
+            break
+        piece = text[cursor : cursor + len(row.content)]
+        if piece:
+            hits.append(
+                {
+                    "docId": row.doc_id,
+                    "filename": row.filename,
+                    "chunkIndex": row.chunk_index,
+                    "snippet": piece,
+                }
+            )
+        cursor += len(row.content)
+        if index < len(rows) - 1 and cursor < len(text) and text[cursor] == "\n":
+            cursor += 1
+    return text, hits
+
+
 def retrieve_document_chunks(
     session: Session,
     user_id: uuid.UUID,
@@ -273,29 +326,9 @@ def retrieve_document_chunks(
 
     Chunks are grouped per ``doc_id`` and ordered by ``chunk_index`` ascending,
     then joined into a single plain-text block. Only rows owned by ``user_id``
-    contribute, so another user's content can never leak in. Nothing but the
-    stored text is returned (no ids, filenames, or metadata). The result is
+    contribute, so another user's content can never leak in. The result is
     truncated to ``max_chars`` characters (defaulting to ``MAX_CONTEXT_CHARS``)
     to keep the planning prompt bounded.
     """
-    if not doc_ids:
-        return ""
-
-    limit = MAX_CONTEXT_CHARS if max_chars is None else max_chars
-
-    parts: list[str] = []
-    for doc_id in doc_ids:
-        contents = session.scalars(
-            select(UserDocument.content)
-            .where(
-                UserDocument.user_id == user_id,
-                UserDocument.doc_id == doc_id,
-            )
-            .order_by(UserDocument.chunk_index)
-        ).all()
-        parts.extend(contents)
-
-    text = "\n".join(parts)
-    if limit is not None and limit >= 0:
-        text = text[:limit]
+    text, _hits = build_context(session, user_id, doc_ids, max_chars)
     return text

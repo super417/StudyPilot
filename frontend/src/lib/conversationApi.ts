@@ -24,6 +24,8 @@ interface MessageDto {
   id: string;
   role: string;
   content: string;
+  createdAt?: string | null;
+  citations?: ChatMessage['citations'];
 }
 
 function toConversation(dto: ConversationDto): Conversation {
@@ -41,6 +43,8 @@ function toMessage(dto: MessageDto): ChatMessage {
     id: dto.id,
     role: dto.role === 'user' ? 'user' : 'assistant',
     content: dto.content,
+    createdAt: dto.createdAt ? Date.parse(dto.createdAt) : undefined,
+    citations: dto.citations?.length ? dto.citations : undefined,
   };
 }
 
@@ -96,7 +100,12 @@ export const conversationApi = {
     await apiRequest(`${conversationPath(id)}/messages`, {
       method: 'PUT',
       body: JSON.stringify({
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
+          citations: m.citations?.length ? m.citations : undefined,
+        })),
       }),
     });
   },

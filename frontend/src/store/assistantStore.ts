@@ -46,8 +46,19 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  /** 发出时间，毫秒。悬停时显示。 */
+  createdAt?: number;
+  /** 这次回答用到的资料片段。空则不展示。 */
+  citations?: ChatCitation[];
   /** 是否为正在流式接收中的消息 */
   streaming?: boolean;
+}
+
+export interface ChatCitation {
+  docId: string;
+  filename: string;
+  chunkIndex: number;
+  snippet: string;
 }
 
 /** 只保留数组末尾最近 `limit` 条（Property 11 / 需求 8.7）。 */
@@ -136,8 +147,13 @@ export interface AssistantState {
   clampPosition: (viewport: Size, iconSize: Size) => void;
   /** 往当前会话追加消息并裁剪到最近 MAX_MESSAGES 条（需求 8.7） */
   addMessage: (msg: ChatMessage) => void;
+  /** 撤回一条已发出的消息 */
+  removeMessage: (messageId: string) => void;
+  /** 删掉这条和它后面的回复，准备按新内容重发 */
+  truncateFrom: (messageId: string) => void;
   /** 打字机数据层：把 chunk 追加到当前会话末尾的流式消息（需求 8.8） */
   appendStreamChunk: (chunk: string) => void;
+  attachCitations: (citations: ChatCitation[]) => void;
   /** 设置流式状态 */
   setStreaming: (v: boolean) => void;
   /** 结束流式，把末尾流式消息标记为已完成并落盘 */
@@ -305,12 +321,13 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
   addMessage: (msg) => {
     const id = get().activeId;
     if (!id) return;
+    const stamped = { ...msg, createdAt: msg.createdAt ?? Date.now() };
 
     const titleBefore = get().conversations.find((c) => c.id === id)?.title;
 
     set((state) => {
       const list = trimHistory(
-        [...(state.messagesByConversation[id] ?? []), msg],
+        [...(state.messagesByConversation[id] ?? []), stamped],
         MAX_MESSAGES,
       );
       return {
@@ -338,6 +355,55 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
     }
 
     scheduleSave(id);
+  },
+
+  removeMessage: (messageId) => {
+    const id = get().activeId;
+    if (!id) return;
+    set((state) => {
+      const list = state.messagesByConversation[id] ?? [];
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [id]: list.filter((message) => message.id !== messageId),
+        },
+      };
+    });
+    scheduleSave(id, 0);
+  },
+
+  truncateFrom: (messageId) => {
+    const id = get().activeId;
+    if (!id) return;
+    set((state) => {
+      const list = state.messagesByConversation[id] ?? [];
+      const index = list.findIndex((message) => message.id === messageId);
+      if (index < 0) return {};
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [id]: list.slice(0, index),
+        },
+      };
+    });
+    scheduleSave(id, 0);
+  },
+
+  attachCitations: (citations) => {
+    if (!citations.length) return;
+    const id = get().activeId;
+    if (!id) return;
+    set((state) => {
+      const list = state.messagesByConversation[id] ?? [];
+      const last = list[list.length - 1];
+      if (!last || last.role !== 'assistant') return {};
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [id]: [...list.slice(0, -1), { ...last, citations }],
+        },
+      };
+    });
   },
 
   appendStreamChunk: (chunk) => {

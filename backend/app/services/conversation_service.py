@@ -11,6 +11,7 @@
 """
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -150,7 +151,7 @@ def replace_messages(
     session: Session,
     user_id: uuid.UUID,
     conversation_id: uuid.UUID,
-    messages: list[tuple[str, str]],
+    messages: list[tuple],
 ) -> list[ChatMessage]:
     """Replace a conversation's whole message list (frontend save semantics).
 
@@ -162,21 +163,27 @@ def replace_messages(
 
     # 先校验再落库：中途抛错时不该留下「删干净了但没插回去」的半截状态。
     kept = messages[-MAX_MESSAGES_PER_CONVERSATION:]
-    for role, _ in kept:
-        if role not in ("user", "assistant"):
+    for item in kept:
+        if item[0] not in ("user", "assistant"):
             raise ConversationValidationError("消息角色不合法")
 
     session.execute(
         delete(ChatMessage).where(ChatMessage.conversation_id == conversation.id)
     )
-    session.add_all(
-        ChatMessage(
+    rows: list[ChatMessage] = []
+    for item in kept:
+        role, content, created_at = item[0], item[1], item[2]
+        citations = item[3] if len(item) > 3 else None
+        row = ChatMessage(
             conversation_id=conversation.id,
             role=role,
             content=content[:MAX_CONTENT_LENGTH],
+            citations=citations,
         )
-        for role, content in kept
-    )
+        if created_at is not None:
+            row.created_at = created_at
+        rows.append(row)
+    session.add_all(rows)
 
     # 会话列表按「最近活跃」排序，所以每次写入都要顶一下时间戳。
     conversation.updated_at = utc_now()

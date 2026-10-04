@@ -8,10 +8,17 @@ export interface AssistantChatContext {
   hint?: string;
 }
 
+export interface AssistantCitation {
+  docId: string;
+  filename: string;
+  chunkIndex: number;
+  snippet: string;
+}
+
 export interface AssistantChatHandlers {
   onToken?: (delta: string) => void;
   onError?: (code: string, message: string) => void;
-  onDone?: () => void;
+  onDone?: (data: { citations?: AssistantCitation[] }) => void;
   onStatus?: (text: string) => void;
 }
 
@@ -50,7 +57,24 @@ export function streamAssistantChat(
           String(data.message ?? 'AI 响应异常'),
         );
       } else if (event === 'done') {
-        handlers.onDone?.();
+        const raw = data.citations;
+        const citations = Array.isArray(raw)
+          ? raw.flatMap((item) => {
+              if (!item || typeof item !== 'object') return [];
+              const row = item as Record<string, unknown>;
+              const snippet = String(row.snippet ?? '');
+              if (!snippet) return [];
+              return [
+                {
+                  docId: String(row.docId ?? ''),
+                  filename: String(row.filename ?? '资料'),
+                  chunkIndex: Number(row.chunkIndex ?? 0),
+                  snippet,
+                },
+              ];
+            })
+          : [];
+        handlers.onDone?.({ citations });
       }
     },
   });

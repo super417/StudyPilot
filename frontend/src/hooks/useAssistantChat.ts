@@ -9,8 +9,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useDocumentsStore } from '@/store/documentsStore';
-import { streamPlanRegenerate } from '@/lib/plansApi';
+import { streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
 import { streamAssistantChat } from '@/lib/assistantApi';
+import { isPauseRequest } from '@/lib/pauseRequest';
 import { ApiError } from '@/lib/httpClient';
 
 /** `acceptQueued` 为 false 时先别发（悬浮窗关着）。全屏面板挂载即接收。 */
@@ -21,16 +22,21 @@ export function useAssistantChat(acceptQueued = true) {
   const queuedPrompt = useAssistantStore((s) => s.queuedPrompt);
   const addMessage = useAssistantStore((s) => s.addMessage);
   const appendStreamChunk = useAssistantStore((s) => s.appendStreamChunk);
+  const attachCitations = useAssistantStore((s) => s.attachCitations);
   const setStreaming = useAssistantStore((s) => s.setStreaming);
   const stopStreaming = useAssistantStore((s) => s.stopStreaming);
 
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const setLastPlanId = usePlanSessionStore((s) => s.setLastPlanId);
+  const setClarify = usePlanSessionStore((s) => s.setClarify);
+  const setPreview = usePlanSessionStore((s) => s.setPreview);
+  const clearClarify = usePlanSessionStore((s) => s.clearClarify);
   const markSkipped = useDocumentsStore((s) => s.markSkipped);
 
   /** 用户主动按了停止，或流式被中断 —— 用于在列表底部提示"响应未完成" */
   const [interrupted, setInterrupted] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const abortReasonRef = useRef<'stop' | 'pause' | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -60,22 +66,88 @@ export function useAssistantChat(acceptQueued = true) {
   );
 
   const stop = useCallback(() => {
+    abortReasonRef.current = 'stop';
     abortRef.current?.abort();
     stopStreaming();
     setInterrupted(true);
   }, [stopStreaming]);
 
+  const pause = useCallback(() => {
+    abortReasonRef.current = 'pause';
+    abortRef.current?.abort();
+    stopStreaming();
+    setInterrupted(false);
+    pushAssistant('已暂停');
+  }, [pushAssistant, stopStreaming]);
+
   const send = useCallback(
     (raw: string) => {
       const text = raw.trim();
-      if (!text || streaming) return;
+      if (!text) return;
+      if (isPauseRequest(text)) {
+        addMessage({
+          id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          role: 'user',
+          content: text,
+        });
+        pause();
+        return;
+      }
+      if (useAssistantStore.getState().streaming) return;
 
+      abortReasonRef.current = null;
       setInterrupted(false);
       addMessage({
         id: `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         role: 'user',
         content: text,
       });
+
+      const draftId = usePlanSessionStore.getState().draftId;
+      if (draftId) {
+        const ac = new AbortController();
+        abortRef.current = ac;
+        setStreaming(true);
+        void (async () => {
+          try {
+            await streamPlanClarify(
+              draftId,
+              { message: text },
+              {
+                onClarify: (data) => {
+                  if (ac.signal.aborted) return;
+                  setClarify(data.draftId, data.question);
+                  pushAssistant(data.question);
+                },
+                onPreview: (data) => {
+                  if (ac.signal.aborted) return;
+                  setPreview(data.draftId);
+                  pushAssistant(data.summary);
+                },
+                onDone: (data) => {
+                  if (ac.signal.aborted) return;
+                  clearClarify();
+                  setLastPlanId(data.planId);
+                  pushAssistant(`已写入规划，共 ${data.phases} 个阶段。总览和路线图已更新。`);
+                },
+                onError: (data) => {
+                  if (ac.signal.aborted) return;
+                  pushAssistant(`规划失败（${data.code}）：${data.message}`);
+                },
+              },
+              ac.signal,
+            );
+          } catch (err) {
+            if (abortRef.current !== ac || abortReasonRef.current === 'pause') return;
+            if (!ac.signal.aborted) {
+              pushAssistant(err instanceof ApiError ? err.message : '规划请求失败，请稍后重试');
+            }
+          } finally {
+            if (abortRef.current === ac) stopStreaming();
+          }
+        })();
+        return;
+      }
 
       // 已有规划且用户在改规划：走 regenerate SSE
       if (lastPlanId && (context?.type === 'plan' || /规划|阶段|每天|复习计划/.test(text))) {
@@ -89,28 +161,37 @@ export function useAssistantChat(acceptQueued = true) {
               lastPlanId,
               { message: text },
               {
-                onStatus: (s) => pushAssistant(s),
+                onStatus: (s) => {
+                  if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
+                  pushAssistant(s);
+                },
                 onNotice: (d) => {
+                  if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                   if (d.skippedDocs?.length) markSkipped(d.skippedDocs);
                   if (d.message) pushAssistant(`提示：${d.message}`);
                 },
                 onDone: (d) => {
+                  if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                   setLastPlanId(d.planId);
                   summary = `规划已按你的说明更新（${d.phases} 个阶段）。可到 Roadmap 查看本周任务。`;
                 },
-                onError: (d) => pushAssistant(`调整失败（${d.code}）：${d.message}`),
+                onError: (d) => {
+                  if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
+                  pushAssistant(`调整失败（${d.code}）：${d.message}`);
+                },
               },
               ac.signal,
             );
             if (summary && !ac.signal.aborted) await typewrite(summary, ac.signal);
           } catch (err) {
+            if (abortRef.current !== ac) return;
             if (!ac.signal.aborted) {
               pushAssistant(
                 err instanceof ApiError ? err.message : '规划调整失败，请稍后重试',
               );
             }
           } finally {
-            stopStreaming();
+            if (abortRef.current === ac) stopStreaming();
           }
         })();
         return;
@@ -134,50 +215,77 @@ export function useAssistantChat(acceptQueued = true) {
                 }
               : { type: 'free' },
             {
-              onStatus: (s) => pushAssistant(s),
+              onStatus: (s) => {
+                if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
+                pushAssistant(s);
+              },
               onToken: (delta) => {
+                if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                 sawToken = true;
                 appendStreamChunk(delta);
               },
               onError: (code, message) => {
+                if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                 pushAssistant(
                   code === 'NO_API_KEY'
                     ? `请先在个人中心配置并验证 API（${message}）`
                     : `回答中断（${code}）：${message}`,
                 );
               },
-              onDone: () => {
+              onDone: (data) => {
+                if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                 if (!sawToken) {
                   pushAssistant('未检索到足够可靠依据，请补充科目/题目或上传考研资料后再问。');
+                  return;
                 }
+                if (data.citations?.length) attachCitations(data.citations);
               },
             },
             ac.signal,
           );
         } catch (err) {
+          if (abortRef.current !== ac || abortReasonRef.current === 'pause') return;
           if (!ac.signal.aborted) {
             pushAssistant(err instanceof ApiError ? err.message : '助手请求失败，请稍后重试');
           } else if (sawToken) {
             pushAssistant('响应未完成（已停止），已保留上方内容。');
           }
         } finally {
-          stopStreaming();
+          if (abortRef.current === ac) stopStreaming();
         }
       })();
     },
     [
       addMessage,
       appendStreamChunk,
+      attachCitations,
       context,
       lastPlanId,
+      clearClarify,
       markSkipped,
       pushAssistant,
+      setClarify,
+      setPreview,
       setLastPlanId,
       setStreaming,
       stopStreaming,
-      streaming,
+      pause,
       typewrite,
     ],
+  );
+
+  /** 改一条已发出的消息：丢掉它和后面的回复，再按新内容走原来的发送。 */
+  const resend = useCallback(
+    (messageId: string, raw: string) => {
+      const text = raw.trim();
+      if (!text) return;
+      abortRef.current?.abort();
+      stopStreaming();
+      setInterrupted(false);
+      useAssistantStore.getState().truncateFrom(messageId);
+      send(text);
+    },
+    [send, stopStreaming],
   );
 
   useEffect(() => {
@@ -188,5 +296,5 @@ export function useAssistantChat(acceptQueued = true) {
     send(text);
   }, [acceptQueued, activeId, streaming, queuedPrompt, send]);
 
-  return { send, stop, streaming, interrupted, abortRef };
+  return { send, resend, stop, pause, streaming, interrupted, abortRef };
 }

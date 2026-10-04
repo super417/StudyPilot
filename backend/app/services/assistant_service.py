@@ -281,7 +281,7 @@ async def stream_assistant_reply(
         session, user_id, str(mistake_id) if mistake_id else None
     )
     doc_ids = _list_user_doc_ids(session, user_id)
-    rag_text = document_service.retrieve_document_chunks(session, user_id, doc_ids)
+    rag_text, citations = document_service.build_context(session, user_id, doc_ids)
 
     messages = build_chat_messages(
         text,
@@ -302,7 +302,11 @@ async def stream_assistant_reply(
         return factory(credential, payload)
 
     try:
-        async for frame in stream_ai_sse(_factory, is_disconnected):
+        async for frame in stream_ai_sse(
+            _factory,
+            is_disconnected,
+            done_extra={"citations": citations} if citations else None,
+        ):
             yield frame
     except Exception:
         yield format_sse(

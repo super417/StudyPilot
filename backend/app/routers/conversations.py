@@ -8,7 +8,9 @@ sides, so there is no soft-delete flag to keep around.
 Every error collapses to the shared ``{status, code, message}`` JSON shape.
 """
 
+import json
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -47,6 +49,16 @@ def _parse_id(raw: str) -> uuid.UUID | None:
         return None
 
 
+def _load_citations(raw: str | None) -> list:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
 def _conversation_json(conversation: Conversation) -> dict:
     return {
         "id": str(conversation.id),
@@ -58,10 +70,13 @@ def _conversation_json(conversation: Conversation) -> dict:
 
 
 def _message_json(message: ChatMessage) -> dict:
+    created = message.created_at
     return {
         "id": str(message.id),
         "role": message.role,
         "content": message.content,
+        "createdAt": created.isoformat() if created is not None else None,
+        "citations": _load_citations(message.citations),
     }
 
 
@@ -85,6 +100,8 @@ class MessagePayload(BaseModel):
 
     role: str = ""
     content: str = ""
+    created_at: datetime | None = None
+    citations: list | None = None
 
 
 class MessagesReplacePayload(BaseModel):
@@ -211,7 +228,15 @@ def replace_messages_route(
             session,
             user.id,
             parsed_id,
-            [(m.role, m.content) for m in payload.messages],
+            [
+                (
+                    m.role,
+                    m.content,
+                    m.created_at,
+                    json.dumps(m.citations, ensure_ascii=False) if m.citations else None,
+                )
+                for m in payload.messages
+            ],
         )
     except ConversationValidationError as error:
         return _json_error(422, error.code, str(error))

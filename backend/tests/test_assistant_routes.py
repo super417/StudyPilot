@@ -185,7 +185,53 @@ class AssistantRouteTests(unittest.TestCase):
             data.get("delta", "") for event, data in events if event == "token"
         )
         self.assertEqual(tokens, "考研加油")
-        self.assertTrue(any(event == "done" for event, _ in events))
+        done = [data for event, data in events if event == "done"]
+        self.assertTrue(done)
+        self.assertNotIn("citations", done[-1])
+
+    def test_chat_done_includes_citation_only_when_a_chunk_was_used(self) -> None:
+        from app.core.crypto import encrypt
+        from app.models.entities import ApiConfig, User, UserDocument
+        import uuid as uuid_mod
+
+        user = self.session.get(User, uuid_mod.UUID(self.user_id))
+        self.session.add(
+            ApiConfig(
+                user_id=user.id,
+                api_key_cipher=encrypt("sk-test-key-xxxxxxxx"),
+                model_type="gpt-test",
+                base_url="https://example.com/v1/chat/completions",
+                is_verified=True,
+            )
+        )
+        self.session.add(
+            UserDocument(
+                user_id=user.id,
+                doc_id="doc-gaoshu",
+                filename="高数笔记.txt",
+                file_type="txt",
+                chunk_index=0,
+                content="导数定义：函数在一点的变化率。",
+            )
+        )
+        self.session.commit()
+
+        @asynccontextmanager
+        async def fake_factory(_credential, _payload):
+            async def _chunks():
+                yield "根据笔记"
+
+            yield _chunks()
+
+        app.dependency_overrides[get_assistant_stream_factory] = lambda: fake_factory
+        response = self.client.post(
+            "/api/assistant/chat",
+            json={"message": "导数是什么", "context": {"type": "free"}},
+        )
+        events = _parse_sse(response.text)
+        done = [data for event, data in events if event == "done"]
+        self.assertEqual(done[-1]["citations"][0]["filename"], "高数笔记.txt")
+        self.assertIn("导数定义", done[-1]["citations"][0]["snippet"])
 
 
 if __name__ == "__main__":

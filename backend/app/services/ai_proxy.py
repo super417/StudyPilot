@@ -202,8 +202,11 @@ def _token_frame(delta: str) -> str:
     return format_sse(SSE_TOKEN_EVENT, {"delta": delta})
 
 
-def _done_frame() -> str:
-    return format_sse(SSE_DONE_EVENT, {"finish": "stop"})
+def _done_frame(extra: dict | None = None) -> str:
+    data = {"finish": "stop"}
+    if extra:
+        data.update(extra)
+    return format_sse(SSE_DONE_EVENT, data)
 
 
 def _error_frame(code: str, message: str) -> str:
@@ -228,6 +231,7 @@ async def stream_ai_sse(
     is_disconnected: Callable[[], Awaitable[bool]] | Callable[[], bool] | None = None,
     *,
     timeout: float = FIRST_CHUNK_TIMEOUT_SECONDS,
+    done_extra: dict | None = None,
 ) -> AsyncIterator[str]:
     """Forward an external AI chunk stream as SSE frames.
 
@@ -262,7 +266,7 @@ async def stream_ai_sse(
             return
         except StopAsyncIteration:
             # Upstream closed with no data at all: still a clean finish.
-            yield _done_frame()
+            yield _done_frame(done_extra)
             return
         except Exception:
             # Opaque failure: never surface internal detail or credentials.
@@ -284,7 +288,7 @@ async def stream_ai_sse(
                 return
             yield _token_frame(chunk)
 
-        yield _done_frame()
+        yield _done_frame(done_extra)
 
 
 @asynccontextmanager
