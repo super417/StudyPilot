@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from datetime import date
+from datetime import datetime, timedelta, timezone
 from typing import AsyncIterator, Awaitable, Callable
 import json
 import re
@@ -13,15 +13,19 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Mistake, UserDocument
+from app.models.entities import Mistake, Plan, UserDocument
 from app.services import document_service
+from app.services.video_draft_store import VideoDraft, video_draft_store
 from app.services.video_link import (
     extract_url,
     fetch_link,
     format_material,
     latest_url,
     merge_into_daily_plan,
+    parse_start_date,
+    start_question,
     study_brief,
+    suggest_start,
     wants_to_adopt,
 )
 from app.services.ai_proxy import (
@@ -274,6 +278,7 @@ async def stream_assistant_reply(
     is_disconnected: Callable[[], Awaitable[bool]] | Callable[[], bool] | None = None,
     stream_factory: ChatStreamFactory | None = None,
     video_fetcher=None,
+    now: datetime | None = None,
 ) -> AsyncIterator[str]:
     """Yield Ai_Proxy SSE frames for one assistant chat turn."""
     text = (message or "").strip()
@@ -293,15 +298,16 @@ async def stream_assistant_reply(
         return
 
     fetcher = video_fetcher or fetch_link
-    if wants_to_adopt(text):
-        url = latest_url(session, user_id)
-        if url:
-            material = await fetcher(url)
-            reply = (
-                merge_into_daily_plan(session, user_id, material, date.today())
-                if material
-                else "这个链接没有打开，没读到里面的内容。换一个打得开的链接，或把标题和章节发我。"
-            )
+    current = now or datetime.now(timezone(timedelta(hours=8)))
+    linked = extract_url(text)
+    draft = video_draft_store.get(user_id, current)
+    if draft is not None and not linked:
+        chosen = parse_start_date(text, current.date())
+        if chosen is None and wants_to_adopt(text):
+            chosen = draft.suggested_start
+        if chosen is not None:
+            reply = merge_into_daily_plan(session, user_id, draft.material, chosen)
+            video_draft_store.clear(user_id)
             async for frame in stream_ai_sse(
                 lambda: _local_text_stream(reply),
                 is_disconnected,
@@ -309,10 +315,52 @@ async def stream_assistant_reply(
                 yield frame
             return
 
-    linked = extract_url(text)
+    fetched = False
+    material = None
+    if linked or wants_to_adopt(text):
+        url = linked or latest_url(session, user_id)
+        if url:
+            fetched = True
+            material = await fetcher(url)
+            if material:
+                plan = session.scalar(
+                    select(Plan)
+                    .where(Plan.user_id == user_id)
+                    .order_by(Plan.created_at.desc(), Plan.id.desc())
+                )
+                if plan is None:
+                    reply = "还没有每日规划。先生成规划，再说按这个来学，我才能把链接里的内容排进每一天。"
+                else:
+                    video_draft_store.put(
+                        VideoDraft(
+                            user_id=user_id,
+                            material=material,
+                            url=url,
+                            suggested_start=suggest_start(current),
+                            created_at=current,
+                        )
+                    )
+                    reply = start_question(material, plan.daily_minutes, current)
+                async for frame in stream_ai_sse(
+                    lambda: _local_text_stream(reply),
+                    is_disconnected,
+                ):
+                    yield frame
+                return
+            if wants_to_adopt(text):
+                async for frame in stream_ai_sse(
+                    lambda: _local_text_stream(
+                        "这个链接没有打开，没读到里面的内容。换一个打得开的链接，或把标题和章节发我。"
+                    ),
+                    is_disconnected,
+                ):
+                    yield frame
+                return
+
     video_text = ""
     if linked:
-        material = await fetcher(linked)
+        if not fetched:
+            material = await fetcher(linked)
         video_text = format_material(material) if material else ""
 
     if not has_verified_api_config(session, user_id):

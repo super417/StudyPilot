@@ -7,7 +7,7 @@ short excerpt. Private and local addresses are refused.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 import ipaddress
@@ -26,6 +26,9 @@ _BVID = re.compile(r"BV[0-9A-Za-z]{10}")
 _URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
 _BOUNDARY = set("，。、）】？！」")
 _GLUED_TAIL = re.compile(r"(?:from|abc|P\d+)$")
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+_CN_DATE = re.compile(r"(\d{1,2})月(\d{1,2})[日号]")
+_DASH_DATE = re.compile(r"(?<!\d)(\d{1,2})-(\d{2})(?!\d)")
 _ADOPT = re.compile(
     r"按这个(视频|课程|系列|集|链接|内容)?(来)?学|就按这个|按这个排|合并到规划|加入规划|排进规划|按这个建议"
 )
@@ -69,6 +72,68 @@ def extract_url(text: str) -> str | None:
     if _glued_ascii(url, nxt):
         return None
     return url
+
+
+def _nearest_future(today: date, month: int, day: int) -> date | None:
+    try:
+        candidate = date(today.year, month, day)
+    except ValueError:
+        return None
+    if candidate < today:
+        try:
+            return date(today.year + 1, month, day)
+        except ValueError:
+            return None
+    return candidate
+
+
+def parse_start_date(text: str, today: date) -> date | None:
+    """Read a start day from a short reply. Unknown wording stays ``None``."""
+    raw = text or ""
+    iso = _ISO_DATE.search(raw)
+    if iso:
+        try:
+            return date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3)))
+        except ValueError:
+            return None
+    cn = _CN_DATE.search(raw)
+    if cn:
+        return _nearest_future(today, int(cn.group(1)), int(cn.group(2)))
+    dash = _DASH_DATE.search(raw)
+    if dash:
+        return _nearest_future(today, int(dash.group(1)), int(dash.group(2)))
+    if "后天" in raw:
+        return today + timedelta(days=2)
+    if "明天" in raw or "明晚" in raw:
+        return today + timedelta(days=1)
+    if "今天" in raw:
+        return today
+    return None
+
+
+def suggest_start(now: datetime) -> date:
+    """At or after 20:00 the suggested day is tomorrow; otherwise today."""
+    if now.hour >= 20:
+        return now.date() + timedelta(days=1)
+    return now.date()
+
+
+def start_question(material: dict, daily_minutes: int, now: datetime) -> str:
+    sections = material.get("sections") or []
+    total = sum(int(section.get("duration") or 0) for section in sections)
+    hours = round(total / 3600) if total else 0
+    days = len(_pack(sections, daily_minutes))
+    suggested = suggest_start(now)
+    today = now.date()
+    hour_text = f"合计约 {hours} 小时。" if hours else "合计时长还没读到。"
+    return (
+        f"我读到了《{material['title']}》，共 {len(sections)} 个分 P，{hour_text}\n"
+        f"按你每天 {daily_minutes} 分钟算，大约要 {days} 天。\n"
+        f"现在 {now:%H:%M}，从哪天开始？建议从 {suggested.isoformat()} 开始。\n"
+        f"· 回「明天」→ {(today + timedelta(days=1)).isoformat()} 开始\n"
+        f"· 回「今天」→ {today.isoformat()} 开始\n"
+        f"· 也可以直接说日期，比如「10月8日」"
+    )
 
 
 def wants_to_adopt(text: str) -> bool:
