@@ -16,6 +16,7 @@ from app.services.video_link import (
     material_from_html,
     merge_into_daily_plan,
     normalize_view,
+    url_is_glued,
     wants_to_adopt,
 )
 
@@ -86,15 +87,44 @@ class VideoLinkTests(unittest.TestCase):
         self.assertNotIn("spm_id_from", found)
         self.assertNotIn("vd_source", found)
 
-    def test_generic_url_rejects_glued_ascii(self) -> None:
+    def test_generic_url_is_taken_as_written(self) -> None:
+        """A non-Bilibili address is never trimmed, and its end is never guessed."""
         url = "https://example.com/course"
         self.assertEqual(extract_url(url), url)
         self.assertEqual(extract_url(url + " 请排进计划"), url)
         self.assertEqual(extract_url(url + "请排进计划"), url)
         self.assertEqual(extract_url(url + "，然后排一下"), url)
-        self.assertIsNone(extract_url(url + "abc"))
-        self.assertIsNone(extract_url(url + "P1开始"))
-        self.assertIsNone(extract_url(url + "from今天"))
+        # ASCII glued straight on: the boundary is undecidable, so the address
+        # stays whole and a fetch failure gets reported instead of a wrong
+        # address being invented.
+        self.assertEqual(extract_url(url + "abc"), url + "abc")
+        self.assertEqual(extract_url(url + "P1开始"), url + "P1")
+
+    def test_address_ending_in_letters_and_digits_is_not_discarded(self) -> None:
+        """Regression: these used to be dropped as "glued text"."""
+        for link in (
+            "https://example.com/lesson1",
+            "https://exam8.com/p12",
+            "https://open.163.com/course/XYZ123",
+        ):
+            self.assertEqual(extract_url(link), link)
+            self.assertEqual(extract_url(link + " 帮我排一下"), link)
+            self.assertEqual(extract_url(link + "，然后排一下"), link)
+            self.assertFalse(url_is_glued(link + " 帮我排一下"))
+
+    def test_glued_detection_skips_what_a_bv_id_pins_down(self) -> None:
+        self.assertFalse(
+            url_is_glued(
+                "https://www.bilibili.com/video/BV1mr4y1K7Lb/?spm_id_from=333数二基础"
+            )
+        )
+        self.assertFalse(url_is_glued("https://example.com/courseabc"))
+        self.assertFalse(url_is_glued("https://example.com/course请排"))
+        self.assertFalse(url_is_glued("帮我看看 https://example.com/course"))
+        self.assertFalse(url_is_glued("没有链接"))
+        # Only when ASCII runs into the address with no separator at all.
+        self.assertTrue(url_is_glued('https://example.com/course"abc'))
+        self.assertIsNone(extract_url('https://example.com/course"abc'))
 
     def test_normalize_keeps_title_and_parts(self) -> None:
         video = normalize_view(

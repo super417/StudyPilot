@@ -20,12 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.entities import ChatMessage, Conversation, DailyTask, Phase, Plan
-from app.services import task_service
+from app.services import resource_links, task_service
 
 _BVID = re.compile(r"BV[0-9A-Za-z]{10}")
 _URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
 _BOUNDARY = set("，。、）】？！」")
-_GLUED_TAIL = re.compile(r"(?:from|abc|P\d+)$")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
 _CN_DATE = re.compile(r"(\d{1,2})月(\d{1,2})[日号]")
 _DASH_DATE = re.compile(r"(?<!\d)(\d{1,2})-(\d{2})(?!\d)")
@@ -47,31 +46,57 @@ def _is_boundary(char: str) -> bool:
     return char.isspace() or ord(char) > 127 or char in _BOUNDARY
 
 
-def _glued_ascii(url: str, nxt: str) -> bool:
-    """True when ASCII text is stuck to a non-Bilibili URL and the end is a guess."""
-    segment = re.split(r"[/?&=#.\-]", url)[-1]
-    if _GLUED_TAIL.fullmatch(segment):
-        return False
-    if _GLUED_TAIL.search(segment):
-        return True
-    return bool(nxt and _is_boundary(nxt) and re.search(r"[A-Za-z]\d+$", segment))
+def _stuck_tail(text: str) -> str | None:
+    """The text right after a link, when ASCII runs straight into the address.
+
+    ``None`` means either there is no link, or the link ends cleanly — at
+    whitespace, at a CJK character, at Chinese punctuation, or at the end of the
+    message. A non-empty return is the only case where the address boundary
+    would be a guess.
+    """
+    match = _URL.search(text or "")
+    if match is None:
+        return None
+    tail = (text or "")[match.end():]
+    if tail and not _is_boundary(tail[0]):
+        return tail
+    return None
+
+
+def url_is_glued(text: str) -> bool:
+    """True when ASCII text runs into a link, so its end cannot be trusted."""
+    raw = text or ""
+    if extract_bvid(raw):
+        return False  # a BV id pins the address down exactly
+    return _stuck_tail(raw) is not None
 
 
 def extract_url(text: str) -> str | None:
+    """Pull one http(s) address out of a message.
+
+    A Bilibili link is rebuilt from its ``BV`` id, which drops the tracking
+    parameters and is immune to text glued onto the address. Any other link is
+    taken exactly as written. The one case refused is ASCII text running
+    straight into the address with no separator at all: there the boundary is a
+    guess, and guessing would mean inventing an address.
+
+    Note what this deliberately does *not* do: it never strips a "suspicious"
+    tail off a non-Bilibili address. ``https://example.com/lesson1`` and
+    ``https://example.com/lesson1abc`` are indistinguishable from the text
+    alone, so the address is kept whole and a fetch failure is reported to the
+    user instead of a wrong address being stored.
+    """
     raw = text or ""
     bvid = extract_bvid(raw)
     if bvid:
         return part_url(bvid, 1)
-    match = _URL.search(raw)
-    if not match:
+    if _stuck_tail(raw) is not None:
         return None
-    nxt = raw[match.end():match.end() + 1]
-    if nxt and not _is_boundary(nxt):
+    match = _URL.search(raw)
+    if match is None:
         return None
     url = match.group(0).rstrip(".,;，。)")
-    if _glued_ascii(url, nxt):
-        return None
-    return url
+    return url or None
 
 
 def _nearest_future(today: date, month: int, day: int) -> date | None:
@@ -478,7 +503,11 @@ def merge_into_daily_plan(
             .order_by(DailyTask.id)
         )
         label = "、".join(piece["label"] for piece in group)
-        link = public_http_url(group[0]["url"])
+        # Store the part's own address, validated against the platform
+        # allow-list. ``public_http_url`` is for *fetching* (it resolves DNS to
+        # block private hosts) and must not be used here — a write path must not
+        # depend on the network, and a DNS hiccup would silently drop the link.
+        link = resource_links.sanitize_resource_url(group[0]["url"])
         if task is None:
             phase = _phase_for_day(session, plan.id, target)
             if phase is None:
