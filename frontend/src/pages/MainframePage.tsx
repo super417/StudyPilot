@@ -53,7 +53,7 @@ interface NavLink {
 const NAV_LINKS: readonly NavLink[] = [
   { label: '总览', tab: 'overview' },
   { label: 'Roadmap', tab: 'roadmap' },
-  { label: '错题本', tab: 'mistakes' },
+  { label: '习题本', tab: 'mistakes' },
   { label: '本周复盘', tab: 'weekly' },
   { label: '个人中心', tab: 'profile' },
 ];

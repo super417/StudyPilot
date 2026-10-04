@@ -24,11 +24,15 @@ from app.services.planner_service import (
 )
 from app.services.video_link import (
     extract_url,
+    extract_urls,
     fetch_link,
+    format_comparison,
     format_material,
     latest_url,
     merge_into_daily_plan,
     parse_start_date,
+    schedule_confirmation,
+    select_candidate,
     start_question,
     study_brief,
     suggest_start,
@@ -174,6 +178,7 @@ def build_chat_messages(
     rag_text: str,
     study_text: str = "",
     video_text: str = "",
+    comparison_text: str = "",
 ) -> list[dict[str, str]]:
     parts = [f"用户问题：{message}"]
     if context_type:
@@ -182,7 +187,16 @@ def build_chat_messages(
         parts.append("错题上下文：\n" + mistake_excerpt)
     if study_text:
         parts.append(study_text)
-    if video_text:
+    if comparison_text:
+        parts.append(
+            "多链接实际读取结果：\n"
+            + comparison_text
+            + "\n逐项对比章节结构、时长、覆盖范围、来源，并分别列出优势和劣势。"
+            "标记「这个没读到」的链接没有内容依据，不得编造或评价它。"
+            "没有完整时长时不得推算总时长；未出现在目录里不代表没讲。"
+            "用户必须明确选定一个链接才能进入开始日期确认，当前没有改动规划。"
+        )
+    elif video_text:
         parts.append(
             "链接内容（已经打开用户发来的链接，按他这句话的需求来用，不要说没打开）：\n"
             + video_text
@@ -325,8 +339,93 @@ async def stream_assistant_reply(
 
     fetcher = video_fetcher or fetch_link
     current = now or local_now()
-    linked = extract_url(text)
+    links = extract_urls(text)
+    linked = links[0] if links else None
     draft = video_draft_store.get(user_id, current)
+    if len(links) >= 2:
+        candidates = []
+        for url in links:
+            try:
+                material = await fetcher(url)
+            except Exception:
+                material = None
+            candidates.append({"url": url, "material": material})
+        video_draft_store.put(
+            VideoDraft(
+                user_id=user_id,
+                material=None,
+                url="",
+                suggested_start=suggest_start(current),
+                created_at=current,
+                candidates=candidates,
+            )
+        )
+        reply = format_comparison(candidates)
+        async for frame in stream_ai_sse(
+            lambda: _local_text_stream(reply),
+            is_disconnected,
+        ):
+            yield frame
+        return
+
+    if draft is not None and draft.candidates:
+        if linked:
+            unread = next(
+                (item for item in draft.candidates if item["url"] == linked and not item["material"]),
+                None,
+            )
+            if unread is not None:
+                try:
+                    unread["material"] = await fetcher(linked)
+                except Exception:
+                    unread["material"] = None
+        candidate = select_candidate(text, draft.candidates)
+        if candidate is not None:
+            draft.material = candidate["material"]
+            draft.url = candidate["url"]
+            draft.pending_start = None
+            if not candidate["material"]:
+                reply = f"{candidate['url']}：这个没读到，不能排进规划。请重新发链接或选择已读到的那个。"
+            else:
+                plan = get_latest_plan(session, user_id)
+                if plan is None:
+                    reply = "还没有每日规划。先生成规划，再选择课程，我才能把链接里的内容排进每一天。"
+                else:
+                    reply = start_question(draft.material, plan.daily_minutes, current)
+            async for frame in stream_ai_sse(
+                lambda: _local_text_stream(reply),
+                is_disconnected,
+            ):
+                yield frame
+            return
+        if (
+            draft.material is None
+            or any(item["url"] == linked for item in draft.candidates)
+            or re.search(r"哪个|哪门|比较|对比|还是", text)
+        ) and (not linked or any(item["url"] == linked for item in draft.candidates)):
+            comparison = format_comparison(draft.candidates)
+            if wants_to_adopt(text) or parse_start_date(text, current.date()) is not None:
+                reply = "还没有选定课程，先明确选择一个链接，再确认开始日期。\n" + comparison
+                async for frame in stream_ai_sse(
+                    lambda: _local_text_stream(reply),
+                    is_disconnected,
+                ):
+                    yield frame
+            else:
+                async for frame in _stream_chat_reply(
+                    session, user_id, text, context,
+                    study_text=study_brief(session, user_id),
+                    comparison_text=comparison,
+                    reasoning_strength=reasoning_strength,
+                    is_disconnected=is_disconnected,
+                    stream_factory=stream_factory,
+                ):
+                    yield frame
+            return
+
+    if linked:
+        video_draft_store.clear(user_id)
+        draft = None
     if draft is None and not linked and url_is_glued(text):
         async for frame in stream_ai_sse(
             lambda: _local_text_stream(_GLUED_LINK_REPLY),
@@ -335,9 +434,38 @@ async def stream_assistant_reply(
             yield frame
         return
     if draft is not None and not linked:
-        chosen = parse_start_date(text, current.date())
+        if re.fullmatch(
+            r"(?:先|暂时|现在)?(?:不要|别|取消|不同意)"
+            r"(?:按这个排|加入规划|排进规划|写入规划|写入)?[，,。.!！\s]*",
+            text,
+        ):
+            draft.pending_start = None
+            reply = "暂不写入规划。课程草稿保留，之后同意开始日期时会重新展示待写入的日期范围。"
+            async for frame in stream_ai_sse(
+                lambda: _local_text_stream(reply),
+                is_disconnected,
+            ):
+                yield frame
+            return
+        chosen = None if re.search(r"吗|[？?]|是否", text) else parse_start_date(text, current.date())
         if chosen is None and wants_to_adopt(text):
-            chosen = draft.suggested_start
+            if draft.pending_start is not None:
+                chosen = draft.pending_start
+            else:
+                plan = get_latest_plan(session, user_id)
+                if plan is None:
+                    reply = "还没有每日规划，先生成规划再确认开始日期。"
+                else:
+                    draft.pending_start = draft.suggested_start
+                    reply = schedule_confirmation(
+                        draft.material, plan.daily_minutes, draft.pending_start,
+                    )
+                async for frame in stream_ai_sse(
+                    lambda: _local_text_stream(reply),
+                    is_disconnected,
+                ):
+                    yield frame
+                return
         if chosen is not None:
             reply = merge_into_daily_plan(session, user_id, draft.material, chosen)
             video_draft_store.clear(user_id)
@@ -347,6 +475,16 @@ async def stream_assistant_reply(
             ):
                 yield frame
             return
+        async for frame in _stream_chat_reply(
+            session, user_id, text, context,
+            study_text=study_brief(session, user_id),
+            video_text=format_material(draft.material),
+            reasoning_strength=reasoning_strength,
+            is_disconnected=is_disconnected,
+            stream_factory=stream_factory,
+        ):
+            yield frame
+        return
 
     if not linked and len(text) <= 24:
         chosen = parse_start_date(text, current.date())
@@ -413,6 +551,30 @@ async def stream_assistant_reply(
             material = await fetcher(linked)
         video_text = format_material(material) if material else ""
 
+    async for frame in _stream_chat_reply(
+        session, user_id, text, context,
+        study_text=study_brief(session, user_id) if linked else "",
+        video_text=video_text,
+        reasoning_strength=reasoning_strength,
+        is_disconnected=is_disconnected,
+        stream_factory=stream_factory,
+    ):
+        yield frame
+
+
+async def _stream_chat_reply(
+    session: Session,
+    user_id: uuid.UUID,
+    text: str,
+    context: dict | None,
+    *,
+    study_text: str = "",
+    video_text: str = "",
+    comparison_text: str = "",
+    reasoning_strength: str | None = None,
+    is_disconnected=None,
+    stream_factory: ChatStreamFactory | None = None,
+) -> AsyncIterator[str]:
     if not has_verified_api_config(session, user_id):
         err = build_client_error(NoVerifiedApiConfigError())
         yield format_sse(
@@ -443,8 +605,9 @@ async def stream_assistant_reply(
         context_type=context_type,
         mistake_excerpt=mistake_excerpt,
         rag_text=rag_text,
-        study_text=study_brief(session, user_id) if linked else "",
+        study_text=study_text,
         video_text=video_text,
+        comparison_text=comparison_text,
     )
     payload = {
         "model": credential.model_type,

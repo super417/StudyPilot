@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 import ipaddress
+import logging
 import re
 import socket
 import uuid
@@ -23,18 +24,19 @@ from app.models.entities import ChatMessage, Conversation, DailyTask, Phase, Pla
 from app.services import resource_links, task_service
 
 _BVID = re.compile(r"BV[0-9A-Za-z]{10}")
-_URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
-_BOUNDARY = set("，。、）】？！」")
+_URL = re.compile(r"https?://(?:(?![,;)]https?://)[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%])+")
+_BOUNDARY = set("，。、）】？！」,;)")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
 _CN_DATE = re.compile(r"(\d{1,2})月(\d{1,2})[日号]")
 _DASH_DATE = re.compile(r"(?<!\d)(\d{1,2})-(\d{2})(?!\d)")
 _ADOPT = re.compile(
     r"按这个(视频|课程|系列|集|链接|内容)?(来)?学|就按这个|按这个排|合并到规划|加入规划|排进规划|按这个建议"
 )
-_YES = re.compile(r"^\s*(是的?|好的?|可以|行|要|嗯|同意)[，,。.!！\s]*$")
+_YES = re.compile(r"^\s*(是的?|好的?|可以|行|要|嗯|同意|确认(?:写入)?|确定)[，,。.!！\s]*$")
 _VIEW = "https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
 _MAX_SECTIONS = 40
 _MAX_BYTES = 400_000
+_logger = logging.getLogger(__name__)
 
 
 def extract_bvid(text: str) -> str | None:
@@ -71,32 +73,40 @@ def url_is_glued(text: str) -> bool:
     return _stuck_tail(raw) is not None
 
 
-def extract_url(text: str) -> str | None:
-    """Pull one http(s) address out of a message.
+def extract_urls(text: str) -> list[str]:
+    """Return distinct http(s) links and bare BV ids in message order.
 
-    A Bilibili link is rebuilt from its ``BV`` id, which drops the tracking
-    parameters and is immune to text glued onto the address. Any other link is
-    taken exactly as written. The one case refused is ASCII text running
-    straight into the address with no separator at all: there the boundary is a
-    guess, and guessing would mean inventing an address.
-
-    Note what this deliberately does *not* do: it never strips a "suspicious"
-    tail off a non-Bilibili address. ``https://example.com/lesson1`` and
-    ``https://example.com/lesson1abc`` are indistinguishable from the text
-    alone, so the address is kept whole and a fetch failure is reported to the
-    user instead of a wrong address being stored.
+    Bilibili addresses are rebuilt from their BV ids. Other addresses stay
+    as written; ambiguous ASCII tails are refused, not guessed or trimmed.
     """
     raw = text or ""
-    bvid = extract_bvid(raw)
-    if bvid:
-        return part_url(bvid, 1)
-    if _stuck_tail(raw) is not None:
-        return None
-    match = _URL.search(raw)
-    if match is None:
-        return None
-    url = match.group(0).rstrip(".,;，。)")
-    return url or None
+    urls: list[str] = []
+    for match in re.finditer(f"{_URL.pattern}|{_BVID.pattern}", raw):
+        value = match.group(0)
+        if value.startswith("BV"):
+            url = part_url(value, 1)
+        else:
+            try:
+                host = (urlsplit(value).hostname or "").lower()
+            except ValueError:
+                continue
+            bvid = extract_bvid(value)
+            if bvid and (host == "bilibili.com" or host.endswith(".bilibili.com")):
+                url = part_url(bvid, 1)
+            else:
+                tail = raw[match.end():]
+                if tail and not _is_boundary(tail[0]):
+                    continue
+                url = value.rstrip(".,;，。)")
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
+def extract_url(text: str) -> str | None:
+    """Compatibility helper for callers that need only the first link."""
+    urls = extract_urls(text)
+    return urls[0] if urls else None
 
 
 def _nearest_future(today: date, month: int, day: int) -> date | None:
@@ -161,11 +171,155 @@ def start_question(material: dict, daily_minutes: int, now: datetime) -> str:
     )
 
 
+def schedule_confirmation(material: dict, daily_minutes: int, start: date) -> str:
+    days = len(_pack(material.get("sections") or [], daily_minutes))
+    end = start + timedelta(days=max(days - 1, 0))
+    return (
+        f"即将把《{material['title']}》写入每日规划：\n"
+        f"日期范围：{start.isoformat()} 至 {end.isoformat()}，共 {days} 天。\n"
+        f"每天按 {daily_minutes} 分钟安排。尚未写入，回复「确认」后才写入。"
+    )
+
+
 def wants_to_adopt(text: str) -> bool:
     raw = text or ""
-    if extract_url(raw):
+    if extract_url(raw) or re.search(r"不要|别|取消|不同意|不想|不需要|吗|[？?]|是否", raw):
         return False
     return bool(_ADOPT.search(raw) or _YES.match(raw))
+
+
+def select_candidate(text: str, candidates: list[dict]) -> dict | None:
+    """Only resolve a single, explicit choice; questions are not selections."""
+    raw = (text or "").strip()
+    if re.search(r"吗|？|\?|哪个|哪门|还是|适合|是否|不要|不选|别选", _URL.sub("", raw)):
+        return None
+    urls = extract_urls(raw)
+    if urls:
+        matches = [item for item in candidates if item["url"] in urls]
+        return matches[0] if len(urls) == 1 and len(matches) == 1 else None
+    named = [
+        item for item in candidates
+        if raw in (
+            (item.get("material") or {}).get("title"),
+            (item.get("material") or {}).get("source"),
+        )
+    ]
+    if named:
+        return named[0] if len(named) == 1 else None
+    if not re.search(r"选|就用|就学|就按", raw) and not re.fullmatch(
+        r"第?[一二三四五六七八九十\d]+个|[A-Za-z]", raw
+    ):
+        return None
+    numbers = {char: index for index, char in enumerate("一二三四五六七八九十", 1)}
+    ordinals = {
+        int(value) if value.isascii() else numbers.get(value)
+        for value in re.findall(r"第?([一二三四五六七八九十\d]+)个", raw)
+    }
+    matches = []
+    for index, item in enumerate(candidates, 1):
+        if index in ordinals or (index <= 26 and re.search(
+            rf"(?<![A-Za-z])[{chr(64 + index)}{chr(96 + index)}](?![A-Za-z])", raw
+        )):
+            matches.append(item)
+            continue
+        material = item.get("material") or {}
+        names = [
+            name for name in (material.get("title"), material.get("source")) if name
+        ]
+        if any(name in raw for name in names):
+            matches.append(item)
+    return matches[0] if len(matches) == 1 else None
+
+
+def format_comparison(candidates: list[dict]) -> str:
+    """Compare fetched facts without inferring unseen topics or quality."""
+    complete_totals = []
+    for item in candidates:
+        sections = (item.get("material") or {}).get("sections") or []
+        if sections and all(section.get("duration", 0) > 0 for section in sections):
+            complete_totals.append(sum(section["duration"] for section in sections))
+    lines = ["按实际读到的内容逐个对比："]
+    for index, item in enumerate(candidates, 1):
+        material = item.get("material")
+        if not material:
+            lines.extend(
+                (
+                    f"{index}. {item['url']}",
+                    "这个没读到。章节结构、时长、覆盖范围和来源都无法核实，不能判断优劣或排进规划。",
+                )
+            )
+            continue
+        sections = material.get("sections") or []
+        labels = [
+            str(section.get("label") or "") for section in sections
+        ] if material.get("has_outline", True) else []
+        total = sum(int(section.get("duration") or 0) for section in sections)
+        unknown = sum(not section.get("duration") for section in sections)
+        duration = f"{total / 60:g} 分钟"
+        if not total:
+            duration = "没读到，不能估算总时长"
+        elif unknown:
+            duration = f"已知部分 {duration}，另有 {unknown} 节没读到时长，不能当作总时长"
+        coverage = material.get("summary") or material.get("body")
+        if not coverage:
+            coverage = (
+                "只读到目录：" + "、".join(labels)
+                if labels else f"只读到标题：{material['title']}"
+            )
+        source = material.get("source") or "没读到"
+        lines.extend(
+            (
+                f"{index}. 《{material['title']}》",
+                f"链接：{item['url']}",
+                f"章节结构：共读到 {len(sections)} 节；" + " → ".join(labels)
+                if labels else "章节结构：没读到章节目录，仅有标题。",
+                f"时长（已读章节）：{duration}",
+                f"覆盖范围（页面摘要、正文或目录）：{coverage}",
+                f"来源：{source}",
+                "优势：",
+                f"1）读到的目录可按章节安排学习：{'、'.join(labels)}。"
+                if labels else "1）读到了标题，但尚无章节依据。",
+            )
+        )
+        advantage_number = 2
+        other_labels = {
+            re.sub(r"^P\d+\s*", "", str(section.get("label") or ""))
+            for other in candidates if other is not item and other.get("material")
+            and other["material"].get("has_outline", True)
+            for section in other["material"].get("sections") or []
+        }
+        distinct = [
+            label for label in labels if re.sub(r"^P\d+\s*", "", label) not in other_labels
+        ]
+        if other_labels and distinct:
+            lines.append(
+                f"{advantage_number}）目录区别：这份明确列出{'、'.join(distinct)}，"
+                "其他已读取目录未列出，便于按这些章节选课；不代表其他课程没讲。"
+            )
+            advantage_number += 1
+        if (
+            not unknown and total and len(complete_totals) > 1
+            and total == min(complete_totals) < max(complete_totals)
+        ):
+            lines.append(
+                f"{advantage_number}）相较其他已读到时长的资料，"
+                "已读章节合计更短，学习这些章节所需时间更少。"
+            )
+        lines.append("劣势与限制：")
+        if unknown or not total:
+            lines.append("1）没读到完整时长，无法与其他资料比较总学习投入。")
+        elif (
+            len(complete_totals) > 1
+            and total == max(complete_totals) > min(complete_totals)
+        ):
+            lines.append("1）相较其他已读到时长的资料，已读章节合计更长，需要更多学习时间。")
+        else:
+            lines.append("1）时长不能证明讲解深度，不能据此认定课程质量更好。")
+        lines.append("2）覆盖范围只限已读到的内容，不能确认是否完整覆盖考试；目录未列出不代表没讲。")
+        if not material.get("source"):
+            lines.append("3）来源没读到，无法核实讲授者。")
+    lines.append("请明确选择一个，比如「选第一个」「选第二个」或发送选定的链接。选定前不会写入规划。")
+    return "\n".join(lines)
 
 
 def part_url(bvid: str, page: int) -> str:
@@ -187,7 +341,8 @@ def public_http_url(value: str) -> str | None:
         return None
     try:
         infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
+    except socket.gaierror as error:
+        _logger.warning("Study link DNS lookup failed: host=%s error=%s", host, error)
         return None
     for info in infos:
         try:
@@ -195,6 +350,7 @@ def public_http_url(value: str) -> str | None:
         except ValueError:
             return None
         if not ip.is_global:
+            _logger.warning("Study link DNS address rejected: host=%s address=%s", host, ip)
             return None
     return text
 
@@ -225,6 +381,7 @@ def normalize_view(payload: dict, bvid: str) -> dict | None:
             }
         )
     title = str(data.get("title") or "未命名").strip()[:120]
+    has_outline = bool(sections)
     if not sections and title:
         try:
             seconds = int(data.get("duration") or 0)
@@ -239,6 +396,7 @@ def normalize_view(payload: dict, bvid: str) -> dict | None:
         "summary": str(data.get("desc") or "").strip()[:400],
         "body": "",
         "sections": sections,
+        "has_outline": has_outline,
     }
 
 
@@ -316,6 +474,7 @@ def material_from_html(url: str, html: str) -> dict:
         "summary": parser.summary,
         "body": body,
         "sections": sections,
+        "has_outline": bool(headings),
     }
 
 
@@ -332,8 +491,19 @@ async def fetch_link(url: str) -> dict | None:
             if bvid and host.endswith("bilibili.com"):
                 response = await client.get(_VIEW.format(bvid=bvid), headers=headers)
                 if response.status_code >= 400:
+                    _logger.warning(
+                        "Bilibili metadata request failed: bvid=%s status=%s",
+                        bvid, response.status_code,
+                    )
                     return None
-                return normalize_view(response.json(), bvid)
+                payload = response.json()
+                material = normalize_view(payload, bvid)
+                if material is None:
+                    _logger.warning(
+                        "Bilibili metadata rejected: bvid=%s code=%s",
+                        bvid, payload.get("code"),
+                    )
+                return material
             response = await client.get(safe, headers=headers)
             if response.status_code >= 400:
                 return None
@@ -342,6 +512,7 @@ async def fetch_link(url: str) -> dict | None:
                 return None
             return material_from_html(safe, response.text[:_MAX_BYTES])
     except Exception:
+        _logger.warning("Study link fetch failed: host=%s bvid=%s", host, bvid, exc_info=True)
         return None
 
 
@@ -391,9 +562,10 @@ def latest_url(session: Session, user_id: uuid.UUID) -> str | None:
         .limit(8)
     ).all()
     for (content,) in rows:
-        found = extract_url(content or "")
+        found = extract_urls(content or "")
         if found:
-            return found
+            # Comparison history is not permission to choose its first link.
+            return found[0] if len(found) == 1 else None
     return None
 
 

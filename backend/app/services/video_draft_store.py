@@ -1,4 +1,4 @@
-"""Process-local draft for a pasted study link, until the start date is confirmed.
+"""Process-local link choices and schedule draft, until the user confirms.
 
 One draft per user. A newer link replaces the previous one. Drafts older than
 30 minutes are dropped. Lookup is by ``user_id``, so one user cannot read
@@ -15,10 +15,12 @@ _TTL = timedelta(minutes=30)
 @dataclass
 class VideoDraft:
     user_id: uuid.UUID
-    material: dict
+    material: dict | None
     url: str
     suggested_start: date
     created_at: datetime
+    candidates: list[dict] | None = None
+    pending_start: date | None = None
 
 
 class VideoDraftStore:

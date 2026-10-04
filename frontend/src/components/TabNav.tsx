@@ -13,7 +13,7 @@ interface TabItem {
 const TABS: readonly TabItem[] = [
   { key: 'overview', label: '总览' },
   { key: 'roadmap', label: 'Roadmap' },
-  { key: 'mistakes', label: '错题本' },
+  { key: 'mistakes', label: '习题本' },
   { key: 'weekly', label: '本周复盘' },
   { key: 'profile', label: '个人中心' },
 ];

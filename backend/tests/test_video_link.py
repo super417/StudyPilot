@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.models.base import Base
 from app.models.entities import DailyTask, Phase, Plan, User
+from app.services import video_link
 from app.services.video_link import (
     _pack,
     extract_bvid,
@@ -68,6 +69,55 @@ class VideoLinkTests(unittest.TestCase):
         self.assertFalse(wants_to_adopt("https://example.com/course 这个适合吗"))
         self.assertTrue(wants_to_adopt("按这个来学"))
         self.assertTrue(wants_to_adopt("好的"))
+        self.assertFalse(wants_to_adopt("要不要按这个排？"))
+        self.assertFalse(wants_to_adopt("先不要按这个排吧"))
+
+    def test_extracts_all_bvids_without_spaces(self) -> None:
+        self.assertEqual(
+            video_link.extract_urls("408数据结构要BV1b7411N798还是BV1SiDYBeET5"),
+            [
+                "https://www.bilibili.com/video/BV1b7411N798",
+                "https://www.bilibili.com/video/BV1SiDYBeET5",
+            ],
+        )
+
+    def test_extracts_mixed_links_in_order_without_duplicates(self) -> None:
+        self.assertEqual(
+            video_link.extract_urls(
+                "https://example.com/course，"
+                "https://www.bilibili.com/video/BV1b7411N798/?spm_id_from=333 "
+                "还是BV1SiDYBeET5？BV1b7411N798 "
+                "https://example.org/notes."
+            ),
+            [
+                "https://example.com/course",
+                "https://www.bilibili.com/video/BV1b7411N798",
+                "https://www.bilibili.com/video/BV1SiDYBeET5",
+                "https://example.org/notes",
+            ],
+        )
+
+    def test_extracts_only_unambiguous_addresses(self) -> None:
+        self.assertEqual(video_link.extract_urls("没有链接"), [])
+        self.assertEqual(
+            video_link.extract_urls(
+                'https://example.com/course"abc 和 https://example.org/notes'
+            ),
+            ["https://example.org/notes"],
+        )
+        self.assertEqual(
+            video_link.extract_urls("https://example.com/BV1b7411N798"),
+            ["https://example.com/BV1b7411N798"],
+        )
+        self.assertEqual(video_link.extract_urls("https://["), [])
+
+    def test_extracts_urls_separated_by_ascii_punctuation(self) -> None:
+        self.assertEqual(
+            video_link.extract_urls(
+                "https://example.com/a,https://example.org/b;https://example.net/c"
+            ),
+            ["https://example.com/a", "https://example.org/b", "https://example.net/c"],
+        )
 
     def test_bilibili_url_drops_tracking_and_glued_text(self) -> None:
         link = (

@@ -3,12 +3,13 @@ import json
 import os
 import unittest
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.clock import local_today
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.models.base import Base
@@ -211,7 +212,7 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNotNone(plan)
         self.assertEqual(plan.total_phases, 5)
-        self.assertEqual(plan.start_date, datetime.now(timezone.utc).date())
+        self.assertEqual(plan.start_date, local_today())
 
         phases = list(
             self.session.scalars(
@@ -289,7 +290,7 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn("复习一下", task.description)
         self.assertEqual(len(by_phase), 2)
         # The fixture starts in 2025, so it is shifted onto today. The 3-day span stays.
-        today = datetime.now(timezone.utc).date()
+        today = local_today()
         expected = {today, today + timedelta(days=1), today + timedelta(days=2)}
         self.assertTrue(all(days == expected for days in by_phase.values()))
         self.assertIn("数学：武忠祥强化第 3 讲极限，做例题 1-12，整理 2 道错题", kept)
@@ -332,7 +333,7 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
         payload["goalDate"] = "2026-12-31"
         await generate_plan(self.session, self.user.id, payload, [], generator)
         plan = self.session.scalar(select(Plan).where(Plan.user_id == self.user.id))
-        today = datetime.now(timezone.utc).date()
+        today = local_today()
         phases = list(
             self.session.scalars(
                 select(Phase).where(Phase.plan_id == plan.id).order_by(Phase.phase_index)

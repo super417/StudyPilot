@@ -117,7 +117,7 @@ function MistakeBookPage() {
         return items[0]?.id ?? null;
       });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : '错题本加载失败');
+      setError(e instanceof ApiError ? e.message : '习题本加载失败');
       setMistakes([]);
       setPendingCount(0);
     } finally {
@@ -467,7 +467,7 @@ function MistakeBookPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <nav className="card mb-4 space-y-3 p-4" aria-label="错题本分区">
+          <nav className="card mb-4 space-y-3 p-4" aria-label="习题本分区">
             <div>
               <button type="button" className={`text-sm font-semibold ${board === 'practice' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('practice')}>
                 习题

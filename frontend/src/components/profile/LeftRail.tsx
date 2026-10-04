@@ -19,7 +19,7 @@ export interface LeftRailProps {
 const QUICK_LINKS: { tab: TabKey; label: string; icon: typeof Map }[] = [
   { tab: 'overview', label: '总览', icon: LayoutDashboard },
   { tab: 'roadmap', label: 'Roadmap', icon: Map },
-  { tab: 'mistakes', label: '错题本', icon: BookX },
+  { tab: 'mistakes', label: '习题本', icon: BookX },
   { tab: 'weekly', label: '本周复盘', icon: CalendarRange },
 ];
 

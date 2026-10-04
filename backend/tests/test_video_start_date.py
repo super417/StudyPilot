@@ -146,10 +146,13 @@ class ConfirmBeforeWriteTests(unittest.TestCase):
         self.assertGreaterEqual(len(tasks), 1)
         self.assertEqual(tasks[0].task_date, date(2026, 10, 5))
 
-    def test_yes_uses_the_suggested_day(self) -> None:
+    def test_yes_previews_the_suggested_day_before_confirmation(self) -> None:
         morning = datetime(2026, 10, 4, 9, 0)
         self._text("https://www.bilibili.com/video/BV1mr4y1K7Lb", morning)
         self.assertEqual(self._count(), 0)
-        self._text("可以", morning)
+        preview = self._text("可以", morning)
+        self.assertEqual(self._count(), 0)
+        self.assertIn("2026-10-04", preview)
+        self._text("确认", morning)
         tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
         self.assertEqual(tasks[0].task_date, date(2026, 10, 4))

@@ -35,7 +35,7 @@ function ReviewQueueCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-dangerText">REVIEW QUEUE</p>
-          <h3 className="mt-1 font-display text-2xl font-bold text-brandDark">能重新做的错题本</h3>
+          <h3 className="mt-1 font-display text-2xl font-bold text-brandDark">能重新做的习题本</h3>
         </div>
         <span
           className="flex h-8 min-w-8 items-center justify-center rounded-full bg-dangerText px-2 text-sm font-bold text-white"
