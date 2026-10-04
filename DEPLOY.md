@@ -37,7 +37,7 @@
 
 | 能力 | 状态 |
 |------|------|
-| `POST /api/assistant/chat` | ✅ SSE token/error/done；领域拦截；文档 RAG 摘录；推理强度透传；思考链不进回复 |
+| `POST /api/assistant/chat` | ✅ SSE token/error/done；领域拦截；文档 RAG 摘录；推理强度透传；思考链不进回复；可给通用学习建议（不编造链接与出处） |
 | `POST /api/api-config/models` | ✅ 代理供应商 `/models`；DeepSeek platform 主机自动纠正 |
 | `GET /api/plans/latest` | ✅ 最新规划 + 阶段列表 |
 | `GET /api/weekly-reviews/latest` | ✅；无记录时惰性生成上周/本周；掌握度按课程科目的本周任务完成比例现算 |
@@ -46,6 +46,7 @@
 | `POST /api/mistakes` | ✅ 手动录入错题；默认 pending 进复习队列；标「已安排」按 1/2/4/7/15/30 天、之后翻倍排下次复习 |
 | `POST /api/mistakes/ocr` | ✅；错题本「拍照 / 上传图片」识别题目，走设置里的模型，需支持识图（GPT-4o、Gemini 等） |
 | 课程章节 | ✅；一门课可加网页链接（视频或课程页），学完打勾。链接由用户填写，不编造地址 |
+| 每日任务资源链接 | ✅；规划生成的每日任务可带 `resourceUrl`，只接受白名单平台域名（B 站 / 中国大学 MOOC / 学堂在线 / 研招网 / 高校域名等，见 `services/resource_links.py`）。名单外的链接直接丢弃、任务描述保留。助手里问「找课程 / 推荐网课 / 学习路径」会走 regenerate 把资源排进每日任务 |
 
 ## API 配置与真实调用
 

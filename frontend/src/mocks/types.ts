@@ -73,6 +73,8 @@ export interface DailyTask {
   description: string;
   /** 状态 */
   status: DailyTaskStatus;
+  /** 该任务的公开学习链接（后端已做域名白名单校验）；无则 null */
+  resourceUrl?: string | null;
 }
 
 /** 打卡记录（对应 Check_Ins 表） */

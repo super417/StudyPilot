@@ -12,9 +12,22 @@ import { useDocumentsStore } from '@/store/documentsStore';
 import { streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
 import { streamAssistantChat } from '@/lib/assistantApi';
 import { isPauseRequest } from '@/lib/pauseRequest';
+import { isPlanEditIntent, isResourceRequest } from '@/lib/resourceRequest';
 import { ApiError } from '@/lib/httpClient';
+import { useAuthStore } from '@/store/authStore';
 
-/** `acceptQueued` 为 false 时先别发（悬浮窗关着）。全屏面板挂载即接收。 */
+function replyError(err: unknown, fallback: string, pushAssistant: (text: string) => void) {
+  if (err instanceof ApiError && (err.status === 401 || err.code === 'UNAUTHENTICATED')) {
+    useAuthStore.setState({
+      status: 'unauthenticated',
+      userId: null,
+      dataLoad: null,
+      error: null,
+    });
+    return;
+  }
+  pushAssistant(err instanceof ApiError ? err.message : fallback);
+}
 export function useAssistantChat(acceptQueued = true) {
   const context = useAssistantStore((s) => s.context);
   const streaming = useAssistantStore((s) => s.streaming);
@@ -140,7 +153,7 @@ export function useAssistantChat(acceptQueued = true) {
           } catch (err) {
             if (abortRef.current !== ac || abortReasonRef.current === 'pause') return;
             if (!ac.signal.aborted) {
-              pushAssistant(err instanceof ApiError ? err.message : '规划请求失败，请稍后重试');
+              replyError(err, '规划请求失败，请稍后重试', pushAssistant);
             }
           } finally {
             if (abortRef.current === ac) stopStreaming();
@@ -149,8 +162,13 @@ export function useAssistantChat(acceptQueued = true) {
         return;
       }
 
-      // 已有规划且用户在改规划：走 regenerate SSE
-      if (lastPlanId && (context?.type === 'plan' || /规划|阶段|每天|复习计划/.test(text))) {
+      // 已有规划且用户在改规划、或在要具体学习资源：走 regenerate SSE
+      if (
+        lastPlanId &&
+        (context?.type === 'plan' ||
+          isPlanEditIntent(text) ||
+          isResourceRequest(text))
+      ) {
         const ac = new AbortController();
         abortRef.current = ac;
         setStreaming(true);
@@ -235,7 +253,7 @@ export function useAssistantChat(acceptQueued = true) {
               onDone: (data) => {
                 if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                 if (!sawToken) {
-                  pushAssistant('未检索到足够可靠依据，请补充科目/题目或上传考研资料后再问。');
+                  pushAssistant('这次没有生成内容，换个问法或补充科目/资料后再问一次。');
                   return;
                 }
                 if (data.citations?.length) attachCitations(data.citations);
@@ -246,7 +264,7 @@ export function useAssistantChat(acceptQueued = true) {
         } catch (err) {
           if (abortRef.current !== ac || abortReasonRef.current === 'pause') return;
           if (!ac.signal.aborted) {
-            pushAssistant(err instanceof ApiError ? err.message : '助手请求失败，请稍后重试');
+            replyError(err, '助手请求失败，请稍后重试', pushAssistant);
           } else if (sawToken) {
             pushAssistant('响应未完成（已停止），已保留上方内容。');
           }

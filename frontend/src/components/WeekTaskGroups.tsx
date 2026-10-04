@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import type { DailyTask } from '@/mocks/types';
+import TaskResourceLink from './TaskResourceLink';
 
 /**
  * WeekTaskGroups — Roadmap 页周任务详情（需求 5.4）
@@ -110,6 +111,7 @@ function WeekTaskGroups({ tasks, onToggleStatus }: WeekTaskGroupsProps) {
                       ) : (
                         <p className="text-sm text-brandDark">{task.description}</p>
                       )}
+                      <TaskResourceLink task={task} />
                       <p className="mt-0.5 text-xs text-gray-400">{task.taskDate}</p>
                     </div>
                   </li>

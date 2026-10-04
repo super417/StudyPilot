@@ -241,6 +241,7 @@ def settle_overdue_tasks(
                 description=description,
                 status="pending",
                 carried_from_id=task.id,
+                resource_url=task.resource_url,
             )
         )
     session.add_all(created)

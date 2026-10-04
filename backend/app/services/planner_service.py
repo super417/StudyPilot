@@ -33,7 +33,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import DailyTask, Phase, Plan, PlanRevision
-from app.services import document_service
+from app.services import document_service, resource_links
 from app.services.ai_proxy import (
     CredentialUnavailableError,
     build_outbound_headers,
@@ -326,7 +326,7 @@ async def _run_generator(
 
 _PLAN_SYSTEM_PROMPT = """你是 StudyPilot 考研学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
 JSON 形状必须为：
-{"phases":[{"name":"阶段名","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","daily_tasks":[{"task_date":"YYYY-MM-DD","week_label":"W01","description":"任务描述"}]}]}
+{"phases":[{"name":"阶段名","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","daily_tasks":[{"task_date":"YYYY-MM-DD","week_label":"W01","description":"任务描述","resource_url":"可选，公开学习链接"}]}]}
 约束：phases 长度 2～12；面向考研（数学/英语/政治/专业课/复试/科研阅读）；日期合理递增，且不得早于用户给出的今天，不得晚于目标日期。
 daily_tasks 必须覆盖该阶段每一天（从 start_date 到 end_date，含首尾），每天至少 1 条，task_date 连续无空缺。
 description 必须具体到可执行：写清「学科 + 章节/范围 + 动作 + 产出」，例如
@@ -335,7 +335,14 @@ description 必须具体到可执行：写清「学科 + 章节/范围 + 动作 
 每天各科的分钟分配之和应接近用户给出的每日可用分钟数。
 整本书、一门课或长期目标：按常见目录自行拆成阶段并按周安排，不要要求用户先列出章节。
 多门科目同时学：写进同一份 phases，daily_tasks 按每日分钟数把各科时间分开，不要因为科目多而拒绝。
-没有上传资料时用公开课纲或常见目录，不要编造页码。"""
+没有上传资料时用公开课纲或常见目录，不要编造页码。
+resource_url 是可选字段：只有确定是真实存在的公开平台地址时才填，且主机必须是下列之一：
+bilibili.com、icourse163.org、xuetangx.com、zhihuishu.com、chaoxing.com、open.163.com、
+coursera.org、zhihu.com、kaoyan.com、kaoyan365.cn、exam8.com、koolearn.com、chsi.com.cn，
+或高校/科研机构域名（edu.cn、ac.cn、mit.edu）。不确定具体课程页时填平台首页；拿不准就省略该
+字段或留空字符串——不要编造链接地址。后端会丢弃不在名单内的链接，编造没有收益。
+用户问「推荐课程 / 找资料 / 学习网站」时，在 description 里写清推荐的教材、课程名或平台名，
+resource_url 填对应平台地址即可，不要因为「没有上传资料」而拒绝规划。"""
 
 
 def _build_plan_user_prompt(
@@ -695,6 +702,7 @@ def _snapshot_plan(session: Session, plan: Plan, reason: str) -> PlanRevision:
                 "weekLabel": task.week_label,
                 "description": task.description,
                 "status": task.status,
+                "resourceUrl": task.resource_url,
             }
             for task in tasks
         ],
@@ -791,9 +799,13 @@ def _write_plan_structure(
             if isinstance(task_data, dict):
                 description = str(task_data.get("description", ""))
                 week_label = str(task_data.get("week_label", ""))
+                resource_url = resource_links.sanitize_resource_url(
+                    task_data.get("resource_url")
+                )
             else:
                 description = str(task_data)
                 week_label = ""
+                resource_url = None
             session.add(
                 DailyTask(
                     plan_id=plan.id,
@@ -802,6 +814,7 @@ def _write_plan_structure(
                     week_label=week_label,
                     description=description,
                     status="pending",
+                    resource_url=resource_url,
                 )
             )
 

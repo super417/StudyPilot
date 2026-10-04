@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { DailyTask, Phase } from '@/mocks/types';
 import { FADE_IN_EASE } from './motion/utils';
+import TaskResourceLink from './TaskResourceLink';
 
 export interface PhaseEdit {
   name: string;
@@ -269,9 +270,14 @@ function PhaseItem({
                           onChange={() => onToggleTask?.(task)}
                         />
                       )}
-                      <span className={task.status === 'done' ? 'text-gray-400 line-through' : ''}>
-                        {task.description}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className={task.status === 'done' ? 'text-gray-400 line-through' : ''}
+                        >
+                          {task.description}
+                        </span>
+                        <TaskResourceLink task={task} />
+                      </div>
                     </li>
                   ))}
                 </ul>

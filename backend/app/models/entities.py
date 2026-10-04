@@ -177,6 +177,10 @@ class DailyTask(Base):
     carried_from_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("daily_tasks.id", ondelete="SET NULL"), nullable=True
     )
+    # Optional public study link for this task (公开平台首页/课程页). Only
+    # host-whitelisted addresses are ever written here — see
+    # ``services/resource_links.py``. ``NULL`` means the task has no resource.
+    resource_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class PracticeQuestion(Base):
