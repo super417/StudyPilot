@@ -13,7 +13,17 @@ from app.core.clock import local_today
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.models.base import Base
-from app.models.entities import ApiConfig, DailyTask, Phase, Plan, User, UserDocument
+from app.models.entities import (
+    ApiConfig,
+    CheckIn,
+    DailyTask,
+    Mistake,
+    Phase,
+    Plan,
+    PracticeQuestion,
+    User,
+    UserDocument,
+)
 from app.services import planner_service
 from app.services.api_config_service import NoVerifiedApiConfigError
 from app.services.plan_draft_store import MAX_CLARIFY_ROUNDS, PlanDraft
@@ -554,8 +564,12 @@ class RegeneratePlanTests(unittest.IsolatedAsyncioTestCase):
                 select(DailyTask).where(DailyTask.plan_id == plan.id)
             )
         )
-        self.assertTrue(live)
-        self.assertTrue(all(item.status == "pending" for item in live))
+        self.assertTrue(
+            any(
+                item.status == "done" and item.description == done_text
+                for item in live
+            )
+        )
         from app.routers.plans import _revision_summary
 
         self.assertNotIn("snapshot", _revision_summary(rows[0]))
@@ -663,6 +677,138 @@ class RegeneratePlanTests(unittest.IsolatedAsyncioTestCase):
             self.session.scalars(select(Phase).where(Phase.plan_id == plan_id))
         )
         self.assertEqual(len(phases), 4)
+
+    async def test_regenerate_keeps_done_carried_and_past_tasks(self) -> None:
+        today = local_today()
+        plan = Plan(
+            user_id=self.user.id,
+            goal_name="考研数学",
+            start_date=today - timedelta(days=10),
+            goal_date=today + timedelta(days=120),
+            current_level="零基础",
+            daily_minutes=90,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="基础",
+            start_date=today - timedelta(days=10),
+            end_date=today + timedelta(days=20),
+            is_current=True,
+        )
+        self.session.add(phase)
+        self.session.flush()
+        past = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today - timedelta(days=2),
+            week_label="W01",
+            description="过去的任务",
+            status="pending",
+            resource_url="https://www.bilibili.com/video/BV1past0001",
+        )
+        done = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today,
+            week_label="W02",
+            description="已完成的任务",
+            status="done",
+            resource_url="https://www.bilibili.com/video/BV1done0001",
+        )
+        self.session.add_all([past, done])
+        self.session.flush()
+        carried = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=1),
+            week_label="W02",
+            description="已顺延的任务",
+            status="carried",
+            carried_from_id=past.id,
+        )
+        pending = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=4),
+            week_label="W02",
+            description="将来可替换",
+            status="pending",
+        )
+        self.session.add_all([carried, pending])
+        practice = PracticeQuestion(
+            user_id=self.user.id,
+            source="uploaded",
+            question="题干保持不变",
+            answer="我的作答",
+            explanation="解析",
+            status="wrong",
+            source_task_id=done.id,
+        )
+        check_in = CheckIn(
+            user_id=self.user.id,
+            check_date=today - timedelta(days=1),
+            duration_minutes=40,
+            difficulty=3,
+            energy=3,
+            note="打卡备注",
+        )
+        mistake = Mistake(
+            user_id=self.user.id,
+            question="错题原文",
+            my_answer="写错了",
+            why_wrong="符号",
+            correct_understanding="应取正号",
+        )
+        self.session.add_all([practice, check_in, mistake])
+        self.session.commit()
+        protected = {
+            past.id: ("过去的任务", past.task_date, "pending", past.resource_url),
+            done.id: ("已完成的任务", today, "done", done.resource_url),
+            carried.id: ("已顺延的任务", carried.task_date, "carried", None),
+        }
+
+        def generator(fields, used_docs, context_text, instruction):
+            return _plan_structure(2)
+
+        await planner_service.regenerate_plan(
+            self.session, self.user.id, plan.id, "重排未来", None, [], generator
+        )
+        self.session.expire_all()
+
+        for task_id, (description, task_date, status, url) in protected.items():
+            task = self.session.get(DailyTask, task_id)
+            self.assertIsNotNone(task)
+            self.assertEqual(task.phase_id, phase.id)
+            self.assertEqual(task.description, description)
+            self.assertEqual(task.task_date, task_date)
+            self.assertEqual(task.status, status)
+            self.assertEqual(task.resource_url, url)
+        self.assertEqual(
+            self.session.get(DailyTask, carried.id).carried_from_id, past.id
+        )
+        self.assertIsNotNone(self.session.get(Phase, phase.id))
+        self.assertIsNone(self.session.get(DailyTask, pending.id))
+
+        saved = self.session.get(PracticeQuestion, practice.id)
+        self.assertEqual(saved.source_task_id, done.id)
+        self.assertEqual(saved.question, "题干保持不变")
+        self.assertEqual(saved.answer, "我的作答")
+        self.assertEqual(saved.explanation, "解析")
+        self.assertEqual(saved.status, "wrong")
+        saved_check = self.session.get(CheckIn, check_in.id)
+        self.assertEqual(saved_check.duration_minutes, 40)
+        self.assertEqual(saved_check.difficulty, 3)
+        self.assertEqual(saved_check.energy, 3)
+        self.assertEqual(saved_check.note, "打卡备注")
+        saved_mistake = self.session.get(Mistake, mistake.id)
+        self.assertEqual(saved_mistake.question, "错题原文")
+        self.assertEqual(saved_mistake.my_answer, "写错了")
+        self.assertEqual(saved_mistake.why_wrong, "符号")
+        self.assertEqual(saved_mistake.correct_understanding, "应取正号")
 
 
 class UpdatePhaseTests(unittest.TestCase):

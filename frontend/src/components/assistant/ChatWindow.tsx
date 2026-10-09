@@ -6,6 +6,7 @@ import { selectActiveMessages, useAssistantStore } from '@/store';
 import type { AssistantContext } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
+import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
 import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
 import UserMessage from '@/components/chat/UserMessage';
@@ -329,6 +330,15 @@ function ChatWindow() {
             ) : null}
           </div>
 
+          <AdjustmentPreviewBar
+            onNotice={(text) =>
+              useAssistantStore.getState().addMessage({
+                id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                role: 'assistant',
+                content: text,
+              })
+            }
+          />
           <div className="min-w-0 shrink-0 border-t border-brandFaint px-3 py-3">
             <AssistantInput
               value={input}

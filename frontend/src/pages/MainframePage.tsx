@@ -40,7 +40,7 @@ const FOLLOW_EASE = 0.18;
 const FRAME_SECONDS = 1 / 24;
 /** 同一帧时长换算成毫秒，作为 seek 的时间节流下限（rAF 60Hz 而视频只有 24fps）。 */
 const FRAME_MS = 1000 / 24;
-const TYPEWRITER_TEXT = '既然来了，就聊聊。你现在复习到哪一步了？';
+const TYPEWRITER_TEXT = '既然来了，跟我聊聊吧';
 
 /**
  * 顶部导航：内容板块 + 个人中心；右侧独立「聊天记录」。
@@ -529,12 +529,29 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
             }}
           >
             {displayed}
-            {!done ? (
+            {done ? (
+              <svg
+                viewBox="0 0 24 24"
+                className="ml-1.5 inline-block h-[0.85em] w-[0.85em] translate-y-[-0.08em]"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.7" />
+                <circle cx="9" cy="10" r="1.05" fill="currentColor" />
+                <circle cx="15" cy="10" r="1.05" fill="currentColor" />
+                <path
+                  d="M8.2 14.2c1.1 1.5 2.4 2.15 3.8 2.15s2.7-.65 3.8-2.15"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
               <span
                 className="mainframe-cursor ml-[2px] inline-block h-[1.1em] w-[2px] align-middle bg-white"
                 aria-hidden="true"
               />
-            ) : null}
+            )}
           </p>
 
           <div

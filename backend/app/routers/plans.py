@@ -20,7 +20,11 @@ from app.core.clock import local_today
 from app.core.database import get_db
 from app.models.entities import PlanRevision, User
 from app.routers.dependencies import get_current_user
-from app.services import document_service, planner_service
+from app.services import adjustment_service, document_service, planner_service
+from app.services.adjustment_service import (
+    AdjustmentConflictError,
+    AdjustmentNotFoundError,
+)
 from app.services.ai_proxy import guard_sse_stream, internal_error_frame
 from app.services.api_config_service import (
     NoVerifiedApiConfigError,
@@ -508,11 +512,9 @@ async def regenerate_plan_route(
     session: Session = Depends(get_db),
     plan_generator: PlanGenerator | None = Depends(get_plan_generator),
 ) -> StreamingResponse:
-    """Re-generate an existing plan from a conversational edit request (10.1/10.2).
+    """Build a durable adjustment preview for an existing plan (batch 2).
 
-    Streams the same notice/done/error vocabulary as ``/generate``. ``planId`` in
-    the done frame is the *same* id that was passed in: the plan row is updated
-    in place rather than replaced, so the client's Roadmap keeps its reference.
+    Does not mutate phases/tasks until the user confirms the preview.
     """
     instruction = (payload.message or "").strip()
     overrides = {
@@ -549,7 +551,7 @@ async def regenerate_plan_route(
             )
 
         try:
-            result = await planner_service.regenerate_plan(
+            preview = await adjustment_service.create_preview(
                 session,
                 user.id,
                 parsed_plan_id,
@@ -571,16 +573,157 @@ async def regenerate_plan_route(
             yield _error_frame(PlanGenerationError.code, "规划生成失败，请稍后重试")
             return
 
-        yield format_plan_sse(
-            planner_service.PLAN_SSE_DONE_EVENT,
-            {
-                "planId": str(result.plan_id),
-                "phases": result.phases,
-                "usedDocs": result.used_docs,
-            },
-        )
+        body = adjustment_service.adjustment_to_api(preview)
+        body["planId"] = str(parsed_plan_id)
+        body["summary"] = preview.decision_summary
+        body["phases"] = len(preview.proposal.get("phases") or [])
+        body["usedDocs"] = list(preview.proposal.get("usedDocs") or [])
+        yield format_plan_sse(planner_service.PLAN_SSE_PREVIEW_EVENT, body)
 
     return StreamingResponse(_guarded(stream()), media_type=SSE_MEDIA_TYPE)
+
+
+@router.post("/{plan_id}/adjustments/undo")
+def undo_adjustment_route(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed = uuid.UUID(plan_id)
+        row = adjustment_service.undo_latest(session, user.id, parsed)
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
+
+
+@router.post("/{plan_id}/adjustments/{adjustment_id}/confirm")
+def confirm_adjustment_route(
+    plan_id: str,
+    adjustment_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        parsed_adj = uuid.UUID(adjustment_id)
+        row = adjustment_service.confirm_adjustment(
+            session, user.id, parsed_plan, parsed_adj
+        )
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    except PlanGenerationError as error:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
+
+
+@router.post("/{plan_id}/adjustments/{adjustment_id}/reject")
+def reject_adjustment_route(
+    plan_id: str,
+    adjustment_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        parsed_adj = uuid.UUID(adjustment_id)
+        row = adjustment_service.reject_adjustment(
+            session, user.id, parsed_plan, parsed_adj
+        )
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
 
 
 def _revision_summary(row: PlanRevision) -> dict:

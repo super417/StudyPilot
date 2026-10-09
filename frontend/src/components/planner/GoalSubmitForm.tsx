@@ -34,6 +34,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const setClarify = usePlanSessionStore((s) => s.setClarify);
   const clearClarify = usePlanSessionStore((s) => s.clearClarify);
   const setLastPlanId = usePlanSessionStore((s) => s.setLastPlanId);
+  const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
 
   const addMessage = useAssistantStore((s) => s.addMessage);
   const appendStreamChunk = useAssistantStore((s) => s.appendStreamChunk);
@@ -132,6 +133,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       onDone: (data: { planId: string; phases: number; usedDocs: string[] }) => {
         clearClarify();
         setLastPlanId(data.planId);
+        setActivePlanId(data.planId);
         usePlanSessionStore.getState().askForStart();
         const used =
           data.usedDocs.length > 0

@@ -13,6 +13,7 @@ import { planStartQuestion, setPlanStart, streamPlanClarify, streamPlanRegenerat
 import { streamAssistantChat } from '@/lib/assistantApi';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { isPlanEditIntent, isResourceRequest } from '@/lib/resourceRequest';
+import { resolvePlanTargetId } from '@/lib/planTarget';
 import { ApiError } from '@/lib/httpClient';
 import { useAuthStore } from '@/store/authStore';
 
@@ -45,10 +46,14 @@ export function useAssistantChat(acceptQueued = true) {
   const stopStreaming = useAssistantStore((s) => s.stopStreaming);
 
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const activePlanId = usePlanSessionStore((s) => s.activePlanId);
+  const targetPlanId = resolvePlanTargetId(activePlanId, lastPlanId);
   const setLastPlanId = usePlanSessionStore((s) => s.setLastPlanId);
+  const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
   const setClarify = usePlanSessionStore((s) => s.setClarify);
   const setPreview = usePlanSessionStore((s) => s.setPreview);
   const clearClarify = usePlanSessionStore((s) => s.clearClarify);
+  const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
   const markSkipped = useDocumentsStore((s) => s.markSkipped);
 
   /** 用户主动按了停止，或流式被中断 —— 用于在列表底部提示"响应未完成" */
@@ -63,20 +68,6 @@ export function useAssistantChat(acceptQueued = true) {
       });
     },
     [addMessage],
-  );
-
-  /** 本地逐字播放（用于 regenerate 返回的总结句，那条没有 token 流） */
-  const typewrite = useCallback(
-    async (text: string, signal: AbortSignal) => {
-      setStreaming(true);
-      for (const ch of text) {
-        if (signal.aborted) break;
-        appendStreamChunk(ch);
-        await new Promise((r) => setTimeout(r, 12));
-      }
-      stopStreaming();
-    },
-    [appendStreamChunk, setStreaming, stopStreaming],
   );
 
   const stop = useCallback(() => {
@@ -162,6 +153,7 @@ export function useAssistantChat(acceptQueued = true) {
                   if (ac.signal.aborted) return;
                   clearClarify();
                   setLastPlanId(data.planId);
+                  setActivePlanId(data.planId);
                   usePlanSessionStore.getState().askForStart();
                   pushAssistant(`已写入规划，共 ${data.phases} 个阶段。\n${planStartQuestion()}`);
                 },
@@ -184,9 +176,9 @@ export function useAssistantChat(acceptQueued = true) {
         return;
       }
 
-      // 已有规划且用户在改规划、或在要具体学习资源：走 regenerate SSE
+      // 已有规划且用户在改规划、或在要具体学习资源：走 regenerate → 持久化预览
       if (
-        lastPlanId &&
+        targetPlanId &&
         (context?.type === 'plan' ||
           isPlanEditIntent(text) ||
           isResourceRequest(text))
@@ -195,10 +187,9 @@ export function useAssistantChat(acceptQueued = true) {
         abortRef.current = ac;
         setStreaming(true);
         void (async () => {
-          let summary: string | null = null;
           try {
             await streamPlanRegenerate(
-              lastPlanId,
+              targetPlanId,
               { message: text },
               {
                 onStatus: (s) => {
@@ -210,11 +201,14 @@ export function useAssistantChat(acceptQueued = true) {
                   if (d.skippedDocs?.length) markSkipped(d.skippedDocs);
                   if (d.message) pushAssistant(`提示：${d.message}`);
                 },
-                onDone: (d) => {
+                onAdjustmentPreview: (d) => {
                   if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                   setLastPlanId(d.planId);
-                  usePlanSessionStore.getState().askForStart();
-                  summary = `规划已按你的说明更新（${d.phases} 个阶段）。\n${planStartQuestion()}`;
+                  setActivePlanId(d.planId);
+                  setPendingAdjustment(d);
+                  pushAssistant(
+                    `${d.decisionSummary || d.summary}\n请在下方确认或拒绝；确认前不会改动现有规划。`,
+                  );
                 },
                 onError: (d) => {
                   if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
@@ -223,7 +217,6 @@ export function useAssistantChat(acceptQueued = true) {
               },
               ac.signal,
             );
-            if (summary && !ac.signal.aborted) await typewrite(summary, ac.signal);
           } catch (err) {
             if (abortRef.current !== ac) return;
             if (!ac.signal.aborted) {
@@ -301,17 +294,18 @@ export function useAssistantChat(acceptQueued = true) {
       appendStreamChunk,
       attachCitations,
       context,
-      lastPlanId,
+      targetPlanId,
       clearClarify,
       markSkipped,
       pushAssistant,
       setClarify,
       setPreview,
       setLastPlanId,
+      setActivePlanId,
+      setPendingAdjustment,
       setStreaming,
       stopStreaming,
       pause,
-      typewrite,
     ],
   );
 

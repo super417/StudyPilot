@@ -23,6 +23,8 @@ function RoadmapPage() {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const planDataEpoch = usePlanSessionStore((s) => s.planDataEpoch);
+  const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
 
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -59,6 +61,7 @@ function RoadmapPage() {
       const planExists =
         Boolean(latest.plan) || overview.phaseProgress.total > 0;
       setHasPlan(planExists);
+      setActivePlanId(latest.plan?.id ?? null);
       setPhases(
         (latest.phases ?? []).map((p) => ({
           id: p.id,
@@ -78,11 +81,11 @@ function RoadmapPage() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, setActivePlanId]);
 
   useEffect(() => {
     void reload();
-  }, [reload, lastPlanId]);
+  }, [reload, lastPlanId, planDataEpoch]);
 
   const handleAddToday = async () => {
     if (addingToday) return;

@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
 from app.models.entities import DailyTask, Phase, Plan, PlanRevision
-from app.services import document_service, resource_links
+from app.services import document_service, resource_links, task_service
 from app.services.ai_proxy import (
     CredentialUnavailableError,
     build_outbound_headers,
@@ -485,8 +485,8 @@ async def _generate_structure_via_ai_proxy(
 
     Does not change Ai_Proxy's SSE helpers; reuses ``resolve_credential`` /
     ``build_outbound_headers`` so the API key never enters the business JSON
-    body. On unusable model output, falls back to a deterministic 考研骨架 so
-    the product remains demoable without inventing a chat reply.
+    body. Unusable model output raises :class:`PlanGenerationError` — no
+    silent skeleton substitute.
     """
     try:
         credential = resolve_credential(session, user_id)
@@ -531,11 +531,7 @@ async def _generate_structure_via_ai_proxy(
     except Exception:
         body = response.text
 
-    try:
-        return _parse_plan_structure_from_text(_extract_assistant_text(body))
-    except PlanGenerationError:
-        # Model reachable but structure unusable — keep demo path alive.
-        return _heuristic_plan_structure(fields)
+    return _parse_plan_structure_from_text(_extract_assistant_text(body))
 
 
 def _bound_ai_plan_generator(
@@ -755,30 +751,65 @@ def _write_plan_structure(
     phases_data: list[dict],
     today: date,
     reason: str | None = None,
+    *,
+    exact: bool = False,
 ) -> None:
-    """Replace ``plan``'s phases and daily tasks with ``phases_data``.
+    """Replace replaceable phases and daily tasks with ``phases_data``.
 
-    Every existing Phase / Daily_Task of the plan is deleted first, so the child
-    rows always describe exactly the newly generated structure — no orphaned
-    phase survives a regeneration that shrank the plan. ``reason`` set means
-    archive the current rows first; the first generate passes ``None``.
-    Callers own the commit.
+    Done, carried, and past-dated tasks stay, with their ids and phase rows.
+    Pending tasks on today or later are deleted and rewritten. ``reason`` set
+    means archive the current rows first; the first generate passes ``None``.
+    ``exact=True`` skips date anchoring and gap-filling so callers write the
+    same structure the user already previewed. Callers own the commit.
     """
     if reason:
         _snapshot_plan(session, plan, reason)
-    session.execute(
-        delete(DailyTask).where(DailyTask.plan_id == plan.id)
+    existing = list(
+        session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
     )
-    session.execute(delete(Phase).where(Phase.plan_id == plan.id))
-    plan.total_phases = len(phases_data)
+    answered_ids = task_service.answered_practice_task_ids(session, plan.id)
+    protected_ids = [
+        task.id
+        for task in existing
+        if task_service.task_is_protected(task, today) or task.id in answered_ids
+    ]
+    kept_phase_ids = {
+        task.phase_id
+        for task in existing
+        if task.id in set(protected_ids)
+    }
+    task_delete = delete(DailyTask).where(DailyTask.plan_id == plan.id)
+    if protected_ids:
+        task_delete = task_delete.where(DailyTask.id.not_in(protected_ids))
+    session.execute(task_delete)
     session.flush()
-    _anchor_schedule(phases_data, today, plan.goal_date)
+    for phase_id in kept_phase_ids:
+        phase = session.get(Phase, phase_id)
+        if phase is not None:
+            task_service.recompute_phase_progress(session, phase)
+    phase_delete = delete(Phase).where(Phase.plan_id == plan.id)
+    if kept_phase_ids:
+        phase_delete = phase_delete.where(Phase.id.not_in(kept_phase_ids))
+    session.execute(phase_delete)
+    session.flush()
+    kept_count = len(kept_phase_ids)
+    next_index = 0
+    if kept_phase_ids:
+        next_index = session.scalar(
+            select(func.max(Phase.phase_index)).where(Phase.plan_id == plan.id)
+        ) or 0
+    plan.total_phases = kept_count + len(phases_data)
+    session.flush()
+    working = [dict(phase) for phase in phases_data]
+    if not exact:
+        _anchor_schedule(working, today, plan.goal_date)
 
-    for offset, phase_data in enumerate(phases_data):
-        phase_index = offset + 1
+    for offset, phase_data in enumerate(working):
+        phase_index = next_index + offset + 1
         phase_start = _coerce_date(phase_data.get("start_date"), today)
         phase_end = _coerce_date(phase_data.get("end_date"), phase_start)
-        _cover_phase_days(phase_data, phase_start, phase_end)
+        if not exact:
+            _cover_phase_days(phase_data, phase_start, phase_end)
         phase = Phase(
             plan_id=plan.id,
             phase_index=phase_index,
@@ -797,6 +828,8 @@ def _write_plan_structure(
                 task_data.get("task_date") if isinstance(task_data, dict) else None,
                 phase_start,
             )
+            if task_date < today:
+                continue
             if isinstance(task_data, dict):
                 description = str(task_data.get("description", ""))
                 week_label = str(task_data.get("week_label", ""))
@@ -987,7 +1020,10 @@ def anchor_plan_to(session: Session, plan: Plan, start: date) -> None:
         phase_end = min(max(move(phase.end_date), phase_start), goal)
         phase.start_date = phase_start
         phase.end_date = phase_end
+    today = _today_local()
     for task in tasks:
+        if task_service.task_is_protected(task, today):
+            continue
         moved = min(max(move(task.task_date), start), goal)
         task.task_date = moved
         task.week_label = f"W{moved.isocalendar().week:02d}"
@@ -1031,9 +1067,10 @@ async def regenerate_plan(
     is carried over from the stored plan, so a vague edit request like
     "把每天时间改成 3 小时" cannot blank out the goal name.
 
-    Phases and Daily_Tasks are rebuilt wholesale from the new structure, in the
-    same transaction as the plan update, so a failure leaves the previous plan
-    fully intact.
+    Replaceable phases and pending tasks dated today or later are rebuilt from
+    the new structure; done, carried, and past-dated tasks keep their ids and
+    phase rows. The rebuild runs in the same transaction as the plan update, so
+    a failure leaves the previous plan fully intact.
     """
     require_verified_api_config(session, user_id)
 

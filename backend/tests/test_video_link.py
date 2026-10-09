@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.clock import local_today
 from app.core.config import get_settings
 from app.models.base import Base
 from app.models.entities import DailyTask, Phase, Plan, User
@@ -395,6 +396,105 @@ class VideoLinkTests(unittest.TestCase):
         self.assertEqual(tasks[0].description.count("按《高数基础》"), 1)
         self.assertIn(today.isoformat(), again)
 
+    def test_merge_does_not_rewrite_done_carried_or_past_tasks(self) -> None:
+        today = local_today()
+        user = User(username=f"u-{os.urandom(3).hex()}", password_hash="x" * 8)
+        self.session.add(user)
+        self.session.flush()
+        plan = Plan(
+            user_id=user.id,
+            goal_name="数学二",
+            start_date=today - timedelta(days=3),
+            goal_date=today + timedelta(days=10),
+            current_level="基础",
+            daily_minutes=40,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="基础",
+            start_date=today - timedelta(days=3),
+            end_date=today + timedelta(days=3),
+            is_current=True,
+        )
+        self.session.add(phase)
+        self.session.flush()
+        marker = "按《高数基础》学："
+        past = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today - timedelta(days=1),
+            week_label="W01",
+            description=f"原任务 {marker}P2",
+            status="pending",
+            resource_url="https://www.bilibili.com/video/BV1past0001",
+        )
+        done = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today,
+            week_label="W01",
+            description=f"{marker}P1",
+            status="done",
+            resource_url="https://www.bilibili.com/video/BV1done0001",
+        )
+        self.session.add_all([past, done])
+        self.session.flush()
+        carried = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=1),
+            week_label="W01",
+            description=f"顺延 {marker}P3",
+            status="carried",
+            carried_from_id=past.id,
+            resource_url="https://www.bilibili.com/video/BV1carr0001",
+        )
+        self.session.add(carried)
+        self.session.commit()
+        kept = {
+            past.id: (past.description, past.task_date, "pending", past.resource_url),
+            done.id: (done.description, today, "done", done.resource_url),
+            carried.id: (carried.description, carried.task_date, "carried", carried.resource_url),
+        }
+        video = {
+            "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+            "title": "高数基础",
+            "source": "",
+            "summary": "",
+            "body": "",
+            "sections": [
+                {
+                    "label": "P9 新内容",
+                    "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+                    "duration": 600,
+                }
+            ],
+        }
+        merge_into_daily_plan(self.session, user.id, video, past.task_date)
+        self.session.expire_all()
+        past_rows = list(
+            self.session.scalars(
+                select(DailyTask).where(DailyTask.task_date == past.task_date)
+            )
+        )
+        self.assertEqual(len(past_rows), 1)
+        for task_id, (description, task_date, status, url) in kept.items():
+            task = self.session.get(DailyTask, task_id)
+            self.assertIsNotNone(task)
+            self.assertEqual(task.description, description)
+            self.assertEqual(task.task_date, task_date)
+            self.assertEqual(task.status, status)
+            self.assertEqual(task.resource_url, url)
+            self.assertEqual(task.phase_id, phase.id)
+        self.assertEqual(
+            self.session.get(DailyTask, carried.id).carried_from_id, past.id
+        )
+        self.assertIsNotNone(self.session.get(Phase, phase.id))
+
     def test_pack_uses_consecutive_days_not_sparse_rows(self) -> None:
         budget = 120 * 60
         short = _pack(
@@ -488,9 +588,17 @@ class VideoLinkTests(unittest.TestCase):
         }
         merge_into_daily_plan(self.session, user.id, long, start)
         tasks = list(self.session.scalars(select(DailyTask).order_by(DailyTask.task_date)))
+        # 2026-10-04 is already in the past and holds a pending task, so the
+        # second merge must leave that row alone and place later sections after it.
+        kept = next(task for task in tasks if task.task_date == start)
+        self.assertIn("高数基础", kept.description)
+        self.assertNotIn("长视频", kept.description)
         video_days = [task.task_date for task in tasks if "按《长视频》" in task.description]
-        self.assertGreaterEqual(len(video_days), 3)
-        self.assertEqual(video_days, [start + timedelta(days=i) for i in range(len(video_days))])
+        self.assertGreaterEqual(len(video_days), 2)
+        self.assertEqual(
+            video_days,
+            [start + timedelta(days=i + 1) for i in range(len(video_days))],
+        )
         self.assertNotIn(date(2026, 10, 20), video_days)
         self.assertEqual(
             next(task.description for task in tasks if task.task_date == date(2026, 10, 20)),

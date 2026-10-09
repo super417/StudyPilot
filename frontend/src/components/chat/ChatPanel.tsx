@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { Bell, CalendarRange, MessageSquarePlus, Workflow, X } from 'lucide-react';
 import { selectActiveMessages, useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
+import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
@@ -193,6 +194,15 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           ) : null}
         </div>
 
+        <AdjustmentPreviewBar
+          onNotice={(text) =>
+            useAssistantStore.getState().addMessage({
+              id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              role: 'assistant',
+              content: text,
+            })
+          }
+        />
         <div className="min-w-0 shrink-0 px-4 pb-4">
           <AssistantInput
             value={input}

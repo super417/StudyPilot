@@ -1,11 +1,12 @@
 import os
 import unittest
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.clock import local_today
 from app.core.config import get_settings
 from app.models.base import Base
 from app.models.entities import DailyTask, Phase, Plan, User
@@ -168,4 +169,98 @@ class AnchorPlanStartTests(unittest.TestCase):
         self.assertEqual(phase.start_date, date(2026, 10, 8))
         task = self.session.scalar(select(DailyTask))
         assert task is not None
-        self.assertEqual(task.task_date, date(2026, 10, 8))
+        self.assertEqual(task.task_date, date(2026, 5, 7))
+        self.assertEqual(task.description, "诊断")
+        self.assertEqual(task.status, "pending")
+
+    def test_shift_leaves_done_carried_and_past_tasks_on_their_dates(self) -> None:
+        today = local_today()
+        user = User(username=f"u-{os.urandom(3).hex()}", password_hash="x" * 8)
+        self.session.add(user)
+        self.session.flush()
+        plan = Plan(
+            user_id=user.id,
+            goal_name="数学二",
+            start_date=today - timedelta(days=5),
+            goal_date=today + timedelta(days=90),
+            current_level="基础",
+            daily_minutes=120,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="基础",
+            start_date=today + timedelta(days=2),
+            end_date=today + timedelta(days=20),
+            is_current=True,
+        )
+        self.session.add(phase)
+        self.session.flush()
+        past = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today - timedelta(days=3),
+            week_label="W01",
+            description="过去",
+            status="pending",
+        )
+        done = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=3),
+            week_label="W02",
+            description="做完",
+            status="done",
+        )
+        movable = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=6),
+            week_label="W02",
+            description="可平移",
+            status="pending",
+        )
+        self.session.add_all([past, done, movable])
+        self.session.flush()
+        carried = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today + timedelta(days=4),
+            week_label="W02",
+            description="顺延",
+            status="carried",
+            carried_from_id=past.id,
+        )
+        self.session.add(carried)
+        self.session.commit()
+        past_date = past.task_date
+        done_date = done.task_date
+        carried_date = carried.task_date
+        movable_date = movable.task_date
+        phase_id = phase.id
+        start = today + timedelta(days=1)
+        anchor_plan_to(self.session, plan, start)
+        self.session.commit()
+        self.session.expire_all()
+        kept = {
+            past.id: ("过去", past_date, "pending"),
+            done.id: ("做完", done_date, "done"),
+            carried.id: ("顺延", carried_date, "carried"),
+        }
+        for task_id, (description, task_date, status) in kept.items():
+            task = self.session.get(DailyTask, task_id)
+            self.assertIsNotNone(task)
+            self.assertEqual(task.phase_id, phase_id)
+            self.assertEqual(task.description, description)
+            self.assertEqual(task.task_date, task_date)
+            self.assertEqual(task.status, status)
+        self.assertEqual(
+            self.session.get(DailyTask, carried.id).carried_from_id, past.id
+        )
+        self.assertIsNotNone(self.session.get(Phase, phase_id))
+        movable_row = self.session.get(DailyTask, movable.id)
+        self.assertNotEqual(movable_row.task_date, movable_date)
+        self.assertEqual(movable_row.description, "可平移")

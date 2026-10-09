@@ -23,9 +23,9 @@ export interface BasicInfoCardProps {
 
 const FIELDS: { key: keyof BasicProfile; label: string; placeholder: string; textarea?: boolean }[] = [
   { key: 'nickname', label: '昵称', placeholder: '如：小明' },
-  { key: 'direction', label: '学习方向 / 目标专业', placeholder: '如：计算机科学与技术' },
-  { key: 'targetSchool', label: '目标院校', placeholder: '如：某某大学' },
-  { key: 'bio', label: '简介', placeholder: '一句话介绍自己的备考目标', textarea: true },
+  { key: 'direction', label: '方向/目标', placeholder: '如：想研究的方向' },
+  { key: 'targetSchool', label: '以后想到的地方', placeholder: '如：想去的城市' },
+  { key: 'bio', label: '简介', placeholder: '一句话介绍自己的目标', textarea: true },
 ];
 
 /** 基本信息：GET/PUT /api/profile，编辑走弹窗。 */
@@ -86,8 +86,8 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
   };
 
   const rows: { label: string; value: string }[] = [
-    { label: '学习方向', value: profile.direction || '未填写' },
-    { label: '目标院校', value: profile.targetSchool || '未填写' },
+    { label: '方向/目标', value: profile.direction || '未填写' },
+    { label: '以后想到的地方', value: profile.targetSchool || '未填写' },
     { label: '简介', value: profile.bio || '未填写' },
   ];
 
@@ -120,14 +120,14 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
               <div className="min-w-0">
                 <p className="truncate text-base font-bold text-brandDark">{displayName}</p>
                 <p className="truncate text-sm text-gray-400">
-                  {profile.direction || '尚未设置学习方向'}
+                  {profile.direction || '尚未设置方向/目标'}
                 </p>
               </div>
             </div>
             <dl className="mt-4 space-y-2.5">
               {rows.map((row) => (
                 <div key={row.label} className="flex gap-3 text-sm">
-                  <dt className="w-16 shrink-0 text-gray-400">{row.label}</dt>
+                  <dt className="w-28 shrink-0 text-gray-400">{row.label}</dt>
                   <dd className="min-w-0 flex-1 break-words text-brandDark">{row.value}</dd>
                 </div>
               ))}

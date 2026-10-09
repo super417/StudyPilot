@@ -559,6 +559,13 @@ class PlanRouteTests(unittest.TestCase):
         plan_id = self._seed_plan(phase_count=5)
         original = self.session.scalar(select(Plan).where(Plan.id == uuid.UUID(plan_id)))
         original_id = original.id
+        before_task_count = len(
+            list(
+                self.session.scalars(
+                    select(DailyTask).where(DailyTask.plan_id == original_id)
+                )
+            )
+        )
 
         self._override_generator(phase_count=2)
         response = self.client.post(
@@ -567,12 +574,35 @@ class PlanRouteTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.text)
         events = _parse_sse(response.text)
-        self.assertEqual([e for e, _ in events], ["done"])
-        done = json.loads(events[0][1])
+        self.assertEqual([e for e, _ in events], ["preview"])
+        preview = json.loads(events[0][1])
+        self.assertEqual(preview["planId"], plan_id)
+        self.assertEqual(preview["phases"], 2)
+        self.assertEqual(preview["status"], "pending")
+        adjustment_id = preview["id"]
 
-        # Same plan id: the record was updated, not replaced (需求 10.2).
-        self.assertEqual(done["planId"], plan_id)
-        self.assertEqual(done["phases"], 2)
+        # Preview must not mutate the live plan.
+        self.session.expire_all()
+        unchanged = self.session.scalar(select(Plan).where(Plan.id == original_id))
+        self.assertEqual(unchanged.total_phases, 5)
+        self.assertEqual(unchanged.daily_minutes, 120)
+        self.assertEqual(
+            len(
+                list(
+                    self.session.scalars(
+                        select(DailyTask).where(DailyTask.plan_id == original_id)
+                    )
+                )
+            ),
+            before_task_count,
+        )
+
+        confirmed = self.client.post(
+            f"/api/plans/{plan_id}/adjustments/{adjustment_id}/confirm"
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.text)
+        body = confirmed.json()
+        self.assertEqual(body["adjustment"]["status"], "confirmed")
 
         self.session.expire_all()
         refreshed = self.session.scalar(select(Plan).where(Plan.id == original_id))
@@ -592,7 +622,8 @@ class PlanRouteTests(unittest.TestCase):
         tasks = list(
             self.session.scalars(select(DailyTask).where(DailyTask.plan_id == original_id))
         )
-        self.assertEqual(len(tasks), 2 * 32)  # 2 phases, every day 2025-01-01..02-01
+        # Confirm writes the exact previewed tasks (no silent gap-fill).
+        self.assertEqual(len(tasks), 2)
         self.assertEqual(len(set(t.phase_id for t in tasks)), 2)
 
     def test_regenerate_passes_instruction_to_generator(self) -> None:
@@ -665,7 +696,7 @@ class PlanRouteTests(unittest.TestCase):
         events = _parse_sse(response.text)
         self.assertEqual([e for e, _ in events], ["error"])
 
-    def test_regenerate_reports_skipped_docs_before_done(self) -> None:
+    def test_regenerate_reports_skipped_docs_before_preview(self) -> None:
         plan_id = self._seed_plan(phase_count=2)
         self._add_ready_document("doc_ready")
         self._override_generator(phase_count=2)
@@ -675,9 +706,10 @@ class PlanRouteTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200, response.text)
         events = _parse_sse(response.text)
-        self.assertEqual([e for e, _ in events], ["notice", "done"])
+        self.assertEqual([e for e, _ in events], ["notice", "preview"])
         self.assertEqual(json.loads(events[0][1])["skippedDocs"], ["doc_gone"])
         self.assertEqual(json.loads(events[1][1])["usedDocs"], ["doc_ready"])
+        self.assertEqual(json.loads(events[1][1])["status"], "pending")
 
     # --- 19.1 phase PATCH ---------------------------------------------------
 

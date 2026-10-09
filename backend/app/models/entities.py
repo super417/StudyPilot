@@ -127,6 +127,44 @@ class PlanRevision(Base):
     )
 
 
+class PlanAdjustment(Base):
+    """Persisted plan-edit preview waiting for confirm / reject / undo."""
+
+    __tablename__ = "plan_adjustments"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'confirmed', 'rejected', 'conflict', 'undone')",
+            name="ck_plan_adjustments_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("plans.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    instruction: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    basis_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    proposal: Mapped[dict] = mapped_column(JSON, nullable=False)
+    diff: Mapped[dict] = mapped_column(JSON, nullable=False)
+    validation: Mapped[dict] = mapped_column(JSON, nullable=False)
+    steps: Mapped[list] = mapped_column(JSON, nullable=False)
+    decision_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    evidence_refs: Mapped[list] = mapped_column(JSON, nullable=False)
+    applied_record: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
+
 class Phase(Base):
     __tablename__ = "phases"
     __table_args__ = (

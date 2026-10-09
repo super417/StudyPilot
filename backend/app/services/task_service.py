@@ -14,9 +14,38 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
-from app.models.entities import DailyTask, Phase, Plan
+from app.models.entities import DailyTask, Phase, Plan, PracticeQuestion
 
 VALID_STATUSES = ("pending", "done")
+
+
+def task_is_protected(task: DailyTask, today: date) -> bool:
+    """Finished, carried, and past-dated tasks are historical records.
+
+    A pending task dated today or later can still be replaced. Callers that
+    rewrite a plan must leave protected rows and their ids untouched.
+    Answered practice links are handled separately via ``answered_practice_task_ids``.
+    """
+    return task.status in ("done", "carried") or task.task_date < today
+
+
+def practice_is_answered(status: str) -> bool:
+    """User feedback uses status; reference ``answer`` text is not submission."""
+    return status in ("correct", "wrong")
+
+
+def answered_practice_task_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID]:
+    """Task ids on this plan that already have correct/wrong practice feedback."""
+    rows = session.scalars(
+        select(PracticeQuestion.source_task_id)
+        .join(DailyTask, DailyTask.id == PracticeQuestion.source_task_id)
+        .where(
+            DailyTask.plan_id == plan_id,
+            PracticeQuestion.status.in_(("correct", "wrong")),
+            PracticeQuestion.source_task_id.is_not(None),
+        )
+    )
+    return {task_id for task_id in rows if task_id is not None}
 
 
 class TaskStatusValidationError(ValueError):

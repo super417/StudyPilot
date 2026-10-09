@@ -20,6 +20,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.clock import local_today
 from app.models.entities import ChatMessage, Conversation, DailyTask, Phase, Plan
 from app.services import resource_links, task_service
 
@@ -679,9 +680,12 @@ def _phase_for_day(session: Session, plan_id: uuid.UUID, day: date) -> Phase | N
 
 
 def _strip_marker(session: Session, plan_id: uuid.UUID, marker: str) -> None:
+    today = local_today()
     tasks = list(session.scalars(select(DailyTask).where(DailyTask.plan_id == plan_id)))
     for task in tasks:
         if marker not in task.description:
+            continue
+        if task_service.task_is_protected(task, today):
             continue
         head = task.description.split(marker, 1)[0].rstrip()
         if not head:
@@ -720,6 +724,10 @@ def merge_into_daily_plan(
             )
             .order_by(DailyTask.id)
         )
+        if task is not None and task_service.task_is_protected(task, local_today()):
+            if target < local_today():
+                continue
+            task = None
         label = "、".join(piece["label"] for piece in group)
         # Store the part's own address, validated against the platform
         # allow-list. ``public_http_url`` is for *fetching* (it resolves DNS to

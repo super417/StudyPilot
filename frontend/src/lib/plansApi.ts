@@ -29,6 +29,36 @@ export interface PlanPreviewEvent {
   summary: string;
 }
 
+export interface PlanAdjustmentDiff {
+  removedOrReplaced: Array<{
+    id: string;
+    taskDate: string;
+    description: string;
+    status: string;
+  }>;
+  proposedPending: Array<{
+    taskDate: string;
+    description: string;
+    status: string;
+  }>;
+  protectedKept: number;
+}
+
+export interface PlanAdjustmentPreview {
+  id: string;
+  planId: string;
+  status: string;
+  instruction: string;
+  diff: PlanAdjustmentDiff;
+  validation: Record<string, unknown>;
+  steps: Array<Record<string, unknown>>;
+  decisionSummary: string;
+  evidenceRefs: unknown[];
+  summary: string;
+  phases: number;
+  usedDocs: string[];
+}
+
 export interface PlanDoneEvent {
   planId: string;
   phases: number;
@@ -44,6 +74,7 @@ export interface PlanStreamHandlers {
   onClarify?: (data: PlanClarifyEvent) => void;
   onNotice?: (data: PlanNoticeEvent) => void;
   onPreview?: (data: PlanPreviewEvent) => void;
+  onAdjustmentPreview?: (data: PlanAdjustmentPreview) => void;
   onDone?: (data: PlanDoneEvent) => void;
   onError?: (data: PlanErrorEvent) => void;
   /** Agent 阶段文案，如「正在调用学习规划工具…」 */
@@ -89,13 +120,42 @@ function dispatch(event: string, data: SseData, handlers: PlanStreamHandlers) {
       handlers.onStatus?.('Agent：信息不足，正在追问补充…');
       handlers.onClarify?.(asClarify(data));
       break;
-    case 'preview':
+    case 'preview': {
       handlers.onStatus?.('Agent：路线已整理，等你确认');
-      handlers.onPreview?.({
-        draftId: String(data.draftId ?? ''),
-        summary: String(data.summary ?? ''),
-      });
+      if (data.id && data.planId && data.diff) {
+        const diff = data.diff as Record<string, unknown>;
+        handlers.onAdjustmentPreview?.({
+          id: String(data.id),
+          planId: String(data.planId),
+          status: String(data.status ?? 'pending'),
+          instruction: String(data.instruction ?? ''),
+          diff: {
+            removedOrReplaced: Array.isArray(diff.removedOrReplaced)
+              ? (diff.removedOrReplaced as PlanAdjustmentDiff['removedOrReplaced'])
+              : [],
+            proposedPending: Array.isArray(diff.proposedPending)
+              ? (diff.proposedPending as PlanAdjustmentDiff['proposedPending'])
+              : [],
+            protectedKept: Number(diff.protectedKept ?? 0),
+          },
+          validation: (data.validation as Record<string, unknown>) ?? {},
+          steps: Array.isArray(data.steps)
+            ? (data.steps as Array<Record<string, unknown>>)
+            : [],
+          decisionSummary: String(data.decisionSummary ?? data.summary ?? ''),
+          evidenceRefs: Array.isArray(data.evidenceRefs) ? data.evidenceRefs : [],
+          summary: String(data.summary ?? data.decisionSummary ?? ''),
+          phases: Number(data.phases ?? 0),
+          usedDocs: Array.isArray(data.usedDocs) ? data.usedDocs.map(String) : [],
+        });
+      } else {
+        handlers.onPreview?.({
+          draftId: String(data.draftId ?? ''),
+          summary: String(data.summary ?? ''),
+        });
+      }
       break;
+    }
     case 'notice':
       handlers.onStatus?.('Agent：正在处理规划依据 / 就绪性检查…');
       handlers.onNotice?.(asNotice(data));
@@ -151,13 +211,34 @@ export function streamPlanRegenerate(
   handlers: PlanStreamHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  handlers.onStatus?.('Agent：正在按你的说明重新生成规划…');
+  handlers.onStatus?.('Agent：正在按你的说明生成调整预览…');
   return consumeSse({
     path: `/api/plans/${encodeURIComponent(planId)}/regenerate`,
     body: withReasoningStrength({ ...body }),
     signal,
     onEvent: (event, data) => dispatch(event, data, handlers),
   });
+}
+
+export function confirmPlanAdjustment(planId: string, adjustmentId: string) {
+  return apiRequest<{ status: string; adjustment: { decisionSummary?: string; status: string } }>(
+    `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/confirm`,
+    { method: 'POST' },
+  ).then((body) => body.adjustment);
+}
+
+export function rejectPlanAdjustment(planId: string, adjustmentId: string) {
+  return apiRequest<{ status: string; adjustment: { status: string } }>(
+    `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/reject`,
+    { method: 'POST' },
+  ).then((body) => body.adjustment);
+}
+
+export function undoPlanAdjustment(planId: string) {
+  return apiRequest<{ status: string; adjustment: { decisionSummary?: string; status: string } }>(
+    `/api/plans/${encodeURIComponent(planId)}/adjustments/undo`,
+    { method: 'POST' },
+  ).then((body) => body.adjustment);
 }
 
 export function planStartQuestion(today = new Date()): string {
