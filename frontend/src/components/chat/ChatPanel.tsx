@@ -7,7 +7,6 @@
  * 顶部工具栏收纳了原本浮在页面上的两个演示入口（看看它怎么工作 / 收一条学习通知）
  * —— 它们弹出聊天框后被盖住了，不留个去处就等于丢了功能。
  */
-import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, CalendarRange, MessageSquarePlus, Workflow, X } from 'lucide-react';
 import { selectActiveMessages, useAssistantStore } from '@/store';
@@ -17,6 +16,7 @@ import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
 import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
@@ -43,18 +43,16 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const awaitingConfirm = usePlanSessionStore((s) => s.awaitingConfirm);
   const { send, resend, stop, pause, streaming, interrupted } = useAssistantChat();
 
-  const [input, setInput] = useState('');
-  const listRef = useRef<HTMLDivElement>(null);
+  const input = useAssistantStore((s) => s.composerDraft);
+  const setInput = useAssistantStore((s) => s.setComposerDraft);
   const showPlanForm = context?.type === 'plan';
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  const contentKey = `${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}`;
+  const { listRef, onScroll, pinToBottom } = useStickToBottom(true, contentKey);
 
   const handleSend = () => {
     const text = input.trim();
     if (!text || (streaming && !isPauseRequest(text))) return;
+    pinToBottom();
     setInput('');
     send(text);
   };
@@ -78,7 +76,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
         不透传的话，聊天框一开，左上角的 logo 和导航链接就全点不动了 —— 而且看不出原因。
       */}
       <div className="liquid-glass pointer-events-auto flex h-full flex-col rounded-[28px]">
-        <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-5">
+        <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-5">
           <div className="min-w-0">
             <h2 className="text-[15px] font-medium text-brandDark">学习助手</h2>
             <p className="mt-0.5 truncate text-[12px] text-brandDark/55">
@@ -144,9 +142,17 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           </div>
         </header>
 
-        {showPlanForm ? <GoalSubmitForm onDismiss={clearContext} /> : null}
+        {showPlanForm ? (
+          <div className="min-h-0 max-h-[38%] shrink-0 overflow-y-auto overflow-x-hidden">
+            <GoalSubmitForm onDismiss={clearContext} />
+          </div>
+        ) : null}
 
-        <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        <div
+          ref={listRef}
+          onScroll={onScroll}
+          className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-5 py-4"
+        >
           {messages.length === 0 ? (
             <p className="pt-10 text-center text-[13px] leading-relaxed text-brandDark/45">
               问点考研相关的，或者说说你想怎么调整复习计划
@@ -175,7 +181,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
               ) : (
                 <AssistantMessage
                   message={m}
-                  bubbleClassName="whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/80 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-brandDark"
+                  bubbleClassName="rounded-2xl rounded-bl-sm bg-white/80 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-brandDark"
                   onResend={resend}
                 />
               )}
@@ -187,7 +193,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           ) : null}
         </div>
 
-        <div className="px-4 pb-4">
+        <div className="min-w-0 shrink-0 px-4 pb-4">
           <AssistantInput
             value={input}
             onChange={setInput}

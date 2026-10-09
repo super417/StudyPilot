@@ -16,6 +16,7 @@ import {
   type DemoSnapshot,
 } from '@/lib/mainframeDemo';
 import { useAssistantStore, type AssistantContext } from '@/store';
+import { isMainframeChatExpand } from '@/lib/mainframeRoute';
 /**
  * 背景视频：人物（A.R.I.A）在红幕前从右向左转头，时间轴由鼠标横向位置驱动 ——
  * 视线因此跟随鼠标。必须是 H.264/avc1 8-bit 才能在浏览器里解出来：
@@ -93,8 +94,8 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
   const [videoReady, setVideoReady] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
-  /** 左侧毛玻璃聊天框 */
-  const [chatOpen, setChatOpen] = useState(false);
+  /** 左侧毛玻璃聊天框：仅小窗「展开」入口默认打开，普通 #/mainframe 仍是首屏。 */
+  const [chatOpen, setChatOpen] = useState(() => isMainframeChatExpand());
   /** 右侧会话列表栏 */
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** 演示卡片上的数字：先用兜底值渲染，接口回来再替换 —— 首屏永远不会空白。 */
@@ -120,11 +121,13 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
    * 进页面先把会话准备好（hydrate 拉历史 → ensure 兜底新建），但**不自动展开聊天框**：
    * 首屏永远先给大图 + 药丸按钮，点「和助手聊两句 / 说出你的学习目标」才弹面板。
    *
-   * 这一步不能省 —— `addMessage` 只往 `activeId` 上写，没有活动会话时会静默丢弃。
+   * 从小窗展开进来时 store 里已经有当前会话和消息（含未完成的流式回复），
+   * 再 hydrate 会把内存里的记录盖成库里的旧快照，所以有 activeId 就跳过。
    */
   useEffect(() => {
     void (async () => {
       try {
+        if (isMainframeChatExpand() && useAssistantStore.getState().activeId) return;
         await hydrate();
         await ensureConversation();
       } catch {

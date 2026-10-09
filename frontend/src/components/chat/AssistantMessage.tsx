@@ -10,6 +10,7 @@ import {
   Trash2,
   Volume2,
 } from 'lucide-react';
+import { AssistantMarkdown, stripAssistantMarkup } from '@/lib/assistantMarkdown';
 import { selectActiveMessages, useAssistantStore, type ChatMessage } from '@/store';
 
 const REGENERATE_TIP = '点击将重新生成内容，此会话后的内容都将被覆盖，请谨慎操作';
@@ -24,15 +25,8 @@ function copyText(text: string) {
   void navigator.clipboard.writeText(text).catch(() => undefined);
 }
 
-/** 气泡是纯文本，去掉模型带进来的 Markdown 记号。 */
 function plainAssistant(text: string): string {
-  return text
-    .replace(/\*\*/g, '')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^\s*[-*•]\s+/gm, '')
-    .replace(/^\s*-{2,}\s*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return stripAssistantMarkup(text);
 }
 
 /** 助手回复：悬停后在下方显示删除、复制、评价、朗读、重生成、分享和更多。 */
@@ -130,8 +124,8 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
 
   return (
     <div className="group flex min-w-0 max-w-[85%] flex-col items-start">
-      <div className={`${bubbleClassName} max-w-full break-words [overflow-wrap:anywhere]`}>
-        {shown}
+      <div className={`${bubbleClassName} max-w-full overflow-hidden break-words [overflow-wrap:anywhere]`}>
+        <AssistantMarkdown text={message.content} />
         {message.streaming ? <span className="ml-0.5 animate-pulse">▋</span> : null}
       </div>
       {message.citations?.length ? (

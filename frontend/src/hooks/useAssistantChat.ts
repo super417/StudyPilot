@@ -5,7 +5,7 @@
  * regenerate SSE、普通提问走 chat SSE、错误文案一致）。复制两份迟早会漂移，
  * 而"同一个助手在两个入口给出不同行为"是最难查的那类 bug。
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useDocumentsStore } from '@/store/documentsStore';
@@ -28,6 +28,11 @@ function replyError(err: unknown, fallback: string, pushAssistant: (text: string
   }
   pushAssistant(err instanceof ApiError ? err.message : fallback);
 }
+
+/** 两个聊天外壳共用，卸载其中一个不能把正在生成的回复掐掉。 */
+const abortRef: { current: AbortController | null } = { current: null };
+const abortReasonRef: { current: 'stop' | 'pause' | null } = { current: null };
+
 export function useAssistantChat(acceptQueued = true) {
   const context = useAssistantStore((s) => s.context);
   const streaming = useAssistantStore((s) => s.streaming);
@@ -48,10 +53,6 @@ export function useAssistantChat(acceptQueued = true) {
 
   /** 用户主动按了停止，或流式被中断 —— 用于在列表底部提示"响应未完成" */
   const [interrupted, setInterrupted] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const abortReasonRef = useRef<'stop' | 'pause' | null>(null);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
 
   const pushAssistant = useCallback(
     (content: string) => {

@@ -115,6 +115,8 @@ export interface AssistantState {
   hydrated: boolean;
   /** 打开助手后由聊天窗取走并发送的一句；用完即清 */
   queuedPrompt: string | null;
+  /** 小窗和展开后的输入框共用，未发送的草稿 */
+  composerDraft: string;
 
   /** 从 repository 载入会话列表与最近一条会话的消息 */
   hydrate: () => Promise<void>;
@@ -137,6 +139,7 @@ export interface AssistantState {
   openAssistantWithContext: (ctx: AssistantContext) => void;
   /** 排队一句，等会话就绪后由聊天窗发送 */
   queuePrompt: (text: string) => void;
+  setComposerDraft: (text: string) => void;
   /** 设置上下文 */
   setContext: (ctx: AssistantContext) => void;
   /** 清除上下文 */
@@ -182,6 +185,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
   messagesByConversation: {},
   hydrated: false,
   queuedPrompt: null,
+  composerDraft: '',
 
   hydrate: () => {
     hydrating ??= (async () => {
@@ -306,6 +310,8 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
     const cleaned = text.trim();
     if (cleaned) set({ queuedPrompt: cleaned });
   },
+
+  setComposerDraft: (text) => set({ composerDraft: text }),
 
   setContext: (ctx) => set({ context: ctx }),
 
