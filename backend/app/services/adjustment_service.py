@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import copy
 import hashlib
 import json
+import re
 import uuid
 from collections.abc import Callable
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
 from app.models.entities import DailyTask, Phase, Plan, PlanAdjustment, PracticeQuestion
-from app.services import document_service, planner_service, resource_links, task_service
+from app.services import document_service, evidence_time, planner_service, resource_links, task_service
 from app.services.api_config_service import require_verified_api_config
 from app.services.planner_service import PlanGenerator, PlanGenerationError
 
@@ -23,6 +24,8 @@ from app.services.planner_service import PlanGenerator, PlanGenerationError
 # after_claim: after claim UPDATE, before plan/task writes (may block on SQLite).
 _confirm_after_fingerprint_hook: Callable[[Session, PlanAdjustment], None] | None = None
 _confirm_between_claim_and_apply: Callable[[Session, PlanAdjustment], None] | None = None
+# after the revise read is released and before the conditional UPDATE
+_revise_before_claim: Callable[[Session, PlanAdjustment], None] | None = None
 
 
 class AdjustmentNotFoundError(RuntimeError):
@@ -90,6 +93,7 @@ def basis_fingerprint(session: Session, plan: Plan) -> str:
                 "carriedFromId": str(task.carried_from_id)
                 if task.carried_from_id
                 else None,
+                "estimatedMinutes": task.estimated_minutes,
             }
             for task in tasks
         ],
@@ -148,19 +152,30 @@ def _snapshot_body(session: Session, plan: Plan) -> dict:
                 "carriedFromId": str(task.carried_from_id)
                 if task.carried_from_id
                 else None,
+                "estimatedMinutes": task.estimated_minutes,
             }
             for task in tasks
         ],
     }
 
 
+def _parse_iso_date(value: object) -> date | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
 def _exact_apply_phases(
     phases_data: list[dict], today: date, goal: date
-) -> list[dict]:
-    """Normalize phases for preview==confirm.
+) -> tuple[list[dict], dict | None]:
+    """Normalize phases without repairing illegal dates.
 
-    May slide an all-past schedule onto today (shown in the preview diff).
-    Never invents gap-fill tasks.
+    A fully valid schedule that starts before today may be shifted onto today.
+    That shift is returned so the preview can show it. Invalid or out-of-range
+    tasks stay in the preview and fail the date check instead of being dropped.
     """
     working = [dict(phase) if isinstance(phase, dict) else phase for phase in phases_data]
     for phase in working:
@@ -169,33 +184,78 @@ def _exact_apply_phases(
                 dict(task) if isinstance(task, dict) else task
                 for task in phase["daily_tasks"]
             ]
-    planner_service._anchor_schedule(working, today, goal)
-    prepared: list[dict] = []
+    parsed_ok = True
+    earliest: date | None = None
     for phase in working:
         if not isinstance(phase, dict):
             raise PlanGenerationError("阶段结构无效，无法生成预览")
-        phase_start = planner_service._coerce_date(phase.get("start_date"), today)
-        phase_end = planner_service._coerce_date(phase.get("end_date"), phase_start)
+        start = _parse_iso_date(phase.get("start_date"))
+        end = _parse_iso_date(phase.get("end_date"))
+        if start is None or end is None or start > end:
+            parsed_ok = False
+        elif earliest is None or start < earliest:
+            earliest = start
+        for task in phase.get("daily_tasks") or []:
+            if not isinstance(task, dict):
+                raise PlanGenerationError("任务结构无效，无法生成预览")
+            task_date = _parse_iso_date(task.get("task_date"))
+            if task_date is None:
+                parsed_ok = False
+            elif earliest is None or task_date < earliest:
+                earliest = task_date
+    delta = timedelta(0)
+    note: dict | None = None
+    if parsed_ok and earliest is not None and earliest < today:
+        delta = today - earliest
+        note = {"kind": "anchor_to_today", "deltaDays": delta.days}
+    prepared: list[dict] = []
+    action_index = 0
+    for phase in working:
+        if not isinstance(phase, dict):
+            raise PlanGenerationError("阶段结构无效，无法生成预览")
+        start = _parse_iso_date(phase.get("start_date"))
+        end = _parse_iso_date(phase.get("end_date"))
+        if parsed_ok and start is not None and end is not None:
+            phase_start = (start + delta).isoformat()
+            phase_end = (end + delta).isoformat()
+        else:
+            phase_start = str(phase.get("start_date") or "")
+            phase_end = str(phase.get("end_date") or "")
         tasks_out: list[dict] = []
         for task in phase.get("daily_tasks") or []:
             if not isinstance(task, dict):
                 raise PlanGenerationError("任务结构无效，无法生成预览")
-            task_date = planner_service._coerce_date(task.get("task_date"), phase_start)
-            if task_date < today:
-                continue
+            parsed_task = _parse_iso_date(task.get("task_date"))
+            if parsed_ok and parsed_task is not None:
+                task_date = (parsed_task + delta).isoformat()
+            else:
+                raw_date = task.get("task_date")
+                task_date = "" if raw_date is None else str(raw_date)
             description = str(task.get("description", "")).strip()
             if not description:
                 raise PlanGenerationError("任务描述为空，无法生成预览")
+            try:
+                if "estimated_minutes" in task or "estimatedMinutes" in task:
+                    minutes = evidence_time.parse_estimated_minutes(
+                        task.get("estimated_minutes", task.get("estimatedMinutes"))
+                    )
+                else:
+                    minutes = None
+            except ValueError as error:
+                raise PlanGenerationError("预计分钟必须是正整数") from error
             tasks_out.append(
                 {
-                    "task_date": task_date.isoformat(),
+                    "task_date": task_date,
                     "week_label": str(task.get("week_label") or ""),
                     "description": description,
                     "resource_url": resource_links.sanitize_resource_url(
                         task.get("resource_url")
                     ),
+                    "estimated_minutes": minutes,
+                    "action_id": f"a{action_index}",
                 }
             )
+            action_index += 1
         if not tasks_out:
             raise PlanGenerationError(
                 "阶段缺少可执行的每日任务，无法生成预览（不会静默补任务）"
@@ -203,12 +263,12 @@ def _exact_apply_phases(
         prepared.append(
             {
                 "name": str(phase.get("name") or "阶段"),
-                "start_date": phase_start.isoformat(),
-                "end_date": phase_end.isoformat(),
+                "start_date": phase_start,
+                "end_date": phase_end,
                 "daily_tasks": tasks_out,
             }
         )
-    return prepared
+    return prepared, note
 
 
 def _build_diff(session: Session, plan: Plan, today: date, apply_phases: list[dict]) -> dict:
@@ -223,18 +283,21 @@ def _build_diff(session: Session, plan: Plan, today: date, apply_phases: list[di
     removable = [
         {
             "id": str(task.id),
+            "actionId": f"r{index}",
             "taskDate": task.task_date.isoformat(),
             "description": task.description,
             "status": task.status,
+            "estimatedMinutes": task.estimated_minutes,
         }
-        for task in current
-        if not _kept(task)
+        for index, task in enumerate(task for task in current if not _kept(task))
     ]
     proposed = [
         {
+            "actionId": task["action_id"],
             "taskDate": task["task_date"],
             "description": task["description"],
             "status": "pending",
+            "estimatedMinutes": task.get("estimated_minutes"),
         }
         for phase in apply_phases
         for task in phase["daily_tasks"]
@@ -243,6 +306,17 @@ def _build_diff(session: Session, plan: Plan, today: date, apply_phases: list[di
         "removedOrReplaced": removable,
         "proposedPending": proposed,
         "protectedKept": sum(1 for task in current if _kept(task)),
+        "keptTasks": [
+            {
+                "id": str(task.id),
+                "taskDate": task.task_date.isoformat(),
+                "description": task.description,
+                "status": task.status,
+                "estimatedMinutes": task.estimated_minutes,
+            }
+            for task in current
+            if _kept(task)
+        ],
     }
 
 
@@ -255,14 +329,17 @@ def _diff_signature(diff: dict) -> dict:
                 item["taskDate"],
                 item["description"],
                 item["status"],
+                item.get("estimatedMinutes"),
             )
             for item in (diff.get("removedOrReplaced") or [])
         ),
         "proposed": sorted(
             (
+                item.get("actionId"),
                 item["taskDate"],
                 item["description"],
                 item.get("status") or "pending",
+                item.get("estimatedMinutes"),
             )
             for item in (diff.get("proposedPending") or [])
         ),
@@ -297,24 +374,292 @@ def _ensure_confirm_applicable(
 
 
 def _run_code_checks(
-    apply_phases: list[dict], skipped_docs: list[str]
+    apply_phases: list[dict],
+    skipped_docs: list[str],
+    *,
+    evidence_status: str,
+    duration_status: str,
+    schedule_status: str,
+    duration_days: list[dict],
+    selection_status: str = "pass",
+    date_note: dict | None = None,
 ) -> dict:
-    """Deterministic checks for this batch. Unimplemented items stay unverified."""
-    task_count = sum(len(phase["daily_tasks"]) for phase in apply_phases)
+    """Structure, evidence, duration, and date checks. Unknown is not a pass."""
+    task_count = sum(len(phase.get("daily_tasks") or []) for phase in apply_phases)
     structure_ok = len(apply_phases) >= 2 and task_count > 0
     checks = {
         "structure": "pass" if structure_ok else "fail",
         "protectedTaskRule": "pass",
-        "evidenceLocation": "unverified",
-        "duration": "unverified",
+        "selection": selection_status,
+        "evidenceLocation": evidence_status,
+        "duration": duration_status,
+        "schedule": schedule_status,
     }
-    return {
-        "ok": structure_ok,
+    ok = (
+        structure_ok
+        and selection_status == "pass"
+        and evidence_status == "pass"
+        and duration_status == "pass"
+        and schedule_status == "pass"
+    )
+    result = {
+        "ok": ok,
         "checks": checks,
         "protectedTaskRule": "keep_done_carried_past",
         "skippedDocs": skipped_docs,
-        "evidenceTimeChecks": "unverified",
+        "durationDays": duration_days,
     }
+    if date_note:
+        result["dateAdjustment"] = date_note
+    return result
+
+
+_CANONICAL_GOAL_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_GOAL_DATE_ERROR = "目标日期必须是有效的 YYYY-MM-DD，请重新生成预览"
+
+
+def _preview_goal(fields: dict, plan: Plan) -> date:
+    """Use an explicit goal date only in canonical ``YYYY-MM-DD`` form.
+
+    A missing goal keeps the current plan date. Compact ISO and other
+    spellings of the same day are rejected here, so the preview cannot show
+    a change that confirmation would ignore.
+    """
+    if "goalDate" not in fields or fields.get("goalDate") is None:
+        return plan.goal_date
+    raw = fields.get("goalDate")
+    if not isinstance(raw, str) or _CANONICAL_GOAL_DATE.fullmatch(raw) is None:
+        raise PlanGenerationError(_GOAL_DATE_ERROR)
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError as error:
+        raise PlanGenerationError(_GOAL_DATE_ERROR) from error
+    if parsed.isoformat() != raw:
+        raise PlanGenerationError(_GOAL_DATE_ERROR)
+    return parsed
+
+
+def _preview_cap(fields: dict, plan: Plan) -> int:
+    raw = fields.get("dailyMinutes", plan.daily_minutes)
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+        raise PlanGenerationError("每日分钟必须是正整数")
+    return raw
+
+
+def _kept_future_and_minutes(
+    session: Session,
+    plan: Plan,
+    today: date,
+    goal: date,
+    apply_phases: list[dict],
+) -> tuple[list[tuple[date, int | None]], list[date]]:
+    current = list(
+        session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
+    )
+    answered_ids = task_service.answered_practice_task_ids(session, plan.id)
+    dated: list[tuple[date, int | None]] = []
+    protected_future: list[date] = []
+    for task in current:
+        kept = task_service.task_is_protected(task, today) or task.id in answered_ids
+        if not kept:
+            continue
+        if task.task_date >= today:
+            protected_future.append(task.task_date)
+        if today <= task.task_date <= goal:
+            dated.append((task.task_date, task.estimated_minutes))
+    for phase in apply_phases:
+        for task in phase.get("daily_tasks") or []:
+            try:
+                task_date = date.fromisoformat(str(task["task_date"]))
+            except ValueError:
+                continue
+            dated.append((task_date, task.get("estimated_minutes")))
+    return dated, protected_future
+
+
+def _evidence_bundle(
+    instruction: str,
+    apply_phases: list[dict],
+    snapshot: list[dict],
+    citations: list[dict] | None,
+    removed: list[dict],
+) -> tuple[list[dict], str]:
+    """Check model citations against the snapshot that entered the prompt.
+
+    Chunks the model did not cite stay out of document evidence. A separate
+    retrieval list may be shown later, but it does not count as model use.
+    """
+    accepted, fabricated = evidence_time.check_model_citations(snapshot, citations)
+    allowed = {
+        (str(item.get("docId")), int(item.get("chunkIndex"))) for item in accepted
+    }
+    document_hits = [
+        hit
+        for hit in snapshot
+        if (str(hit.get("docId")), int(hit.get("chunkIndex"))) in allowed
+    ]
+    proposed_ids = [
+        str(task["action_id"])
+        for phase in apply_phases
+        for task in phase.get("daily_tasks") or []
+    ]
+    refs: list[dict] = []
+    if instruction.strip():
+        refs.append(
+            {
+                "kind": "constraint",
+                "actionIds": proposed_ids,
+                "text": instruction.strip(),
+                "source": "user_instruction",
+            }
+        )
+    for item in removed:
+        refs.append(
+            {
+                "kind": "task",
+                "actionId": item.get("actionId"),
+                "taskId": item.get("id"),
+                "taskDate": item.get("taskDate"),
+                "description": item.get("description"),
+                "status": item.get("status"),
+                "estimatedMinutes": item.get("estimatedMinutes"),
+            }
+        )
+    for hit in document_hits:
+        linked = [
+            str(task["action_id"])
+            for phase in apply_phases
+            for task in phase.get("daily_tasks") or []
+            if evidence_time.overlap_terms(
+                str(task.get("description") or ""), str(hit.get("snippet") or "")
+            )
+        ]
+        refs.append(
+            {
+                "kind": "document",
+                "actionIds": linked,
+                "docId": hit.get("docId"),
+                "chunkIndex": hit.get("chunkIndex"),
+                "filename": hit.get("filename"),
+                "snippet": hit.get("snippet"),
+                "pageStart": hit.get("pageStart"),
+                "matchedTerms": hit.get("matchedTerms") or [],
+                "contentHash": hit.get("contentHash"),
+                "literatureSupport": "suggestion",
+            }
+        )
+    if fabricated:
+        return refs, "fail"
+    covered: set[str] = set()
+    for ref in refs:
+        if ref.get("kind") == "retrieval":
+            continue
+        for action_id in ref.get("actionIds") or []:
+            covered.add(action_id)
+        if ref.get("actionId"):
+            covered.add(ref.get("actionId"))
+    if not proposed_ids or any(action_id not in covered for action_id in proposed_ids):
+        return refs, "insufficient"
+    return refs, "pass"
+
+
+def _selection_version(proposal: dict | None) -> int | None:
+    raw = (proposal or {}).get("selectionVersion")
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0:
+        return None
+    return raw
+
+
+def _stored_snapshot(proposal: dict | None) -> list[dict]:
+    raw = (proposal or {}).get("promptSnapshot") or {}
+    hits = raw.get("hits") if isinstance(raw, dict) else None
+    return [dict(item) for item in hits or []]
+
+
+def _candidate_rows(phases: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for phase in phases:
+        for task in phase.get("daily_tasks") or []:
+            rows.append(
+                {
+                    "actionId": task.get("action_id"),
+                    "taskDate": task.get("task_date"),
+                    "description": task.get("description"),
+                    "estimatedMinutes": task.get("estimated_minutes"),
+                    "phaseName": phase.get("name"),
+                }
+            )
+    return rows
+
+
+def _plan_field_changes(plan: Plan, fields: dict) -> list[dict]:
+    pairs = (
+        ("goalName", plan.goal_name, fields.get("goalName")),
+        ("goalDate", plan.goal_date.isoformat(), fields.get("goalDate")),
+        ("currentLevel", plan.current_level, fields.get("currentLevel")),
+        ("dailyMinutes", plan.daily_minutes, fields.get("dailyMinutes")),
+    )
+    changes: list[dict] = []
+    for field, before, after in pairs:
+        if after is None or str(before) == str(after):
+            continue
+        changes.append({"field": field, "before": before, "after": after})
+    return changes
+
+
+def _selection_status(phases: list[dict]) -> str:
+    if any(not (phase.get("daily_tasks") or []) for phase in phases):
+        return "fail"
+    return "pass"
+
+
+def _assess_preview(
+    session: Session,
+    user_id: uuid.UUID,
+    plan: Plan,
+    instruction: str,
+    apply_phases: list[dict],
+    snapshot: list[dict],
+    citations: list[dict] | None,
+    removed: list[dict],
+    fields: dict,
+    skipped_docs: list[str],
+    today: date,
+    date_note: dict | None = None,
+) -> tuple[dict, list[dict]]:
+    del user_id
+    goal = _preview_goal(fields, plan)
+    cap = _preview_cap(fields, plan)
+    dated, protected_future = _kept_future_and_minutes(
+        session, plan, today, goal, apply_phases
+    )
+    duration = evidence_time.duration_report(dated, cap, today, goal)
+    schedule = evidence_time.check_schedule_order(
+        apply_phases, goal, protected_future, today=today
+    )
+    refs, evidence_status = _evidence_bundle(
+        instruction, apply_phases, snapshot, citations, removed
+    )
+    validation = _run_code_checks(
+        apply_phases,
+        skipped_docs,
+        evidence_status=evidence_status,
+        duration_status=str(duration["result"]),
+        schedule_status=schedule,
+        duration_days=list(duration["days"]),
+        selection_status=_selection_status(apply_phases),
+        date_note=date_note,
+    )
+    return validation, refs
+
+
+def _sources_still_available(session: Session, user_id: uuid.UUID, refs: list[dict]) -> bool:
+    for ref in refs:
+        if ref.get("kind") != "document":
+            continue
+        if evidence_time.lookup_document_ref(session, user_id, ref) != "available":
+            return False
+    return True
 
 
 def _public_adjustment(row: PlanAdjustment) -> dict:
@@ -328,6 +673,7 @@ def _public_adjustment(row: PlanAdjustment) -> dict:
         "steps": row.steps,
         "decisionSummary": row.decision_summary,
         "evidenceRefs": row.evidence_refs,
+        "selectionVersion": int((row.proposal or {}).get("selectionVersion") or 1),
         "createdAt": row.created_at.isoformat(),
         "updatedAt": row.updated_at.isoformat(),
     }
@@ -373,12 +719,27 @@ async def create_preview(
     for key, value in (overrides or {}).items():
         if value is not None:
             fields[key] = value
+    if overrides and "goalDate" in overrides and overrides.get("goalDate") is not None:
+        _preview_goal(fields, plan)
 
     used_docs, skipped_docs = document_service.filter_ready_documents(
         session, user_id, document_ids
     )
-    context_text = document_service.retrieve_document_chunks(
-        session, user_id, used_docs
+    existing_tasks = list(
+        session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
+    )
+    query = " ".join(
+        [instruction] + [task.description for task in existing_tasks if task.description]
+    )
+    chunks = evidence_time.load_owned_chunks(session, user_id, used_docs)
+
+    def render_prompt(context: str) -> str:
+        return planner_service._build_plan_user_prompt(
+            fields, used_docs, context, instruction
+        )
+
+    context_text, snapshot = evidence_time.snapshot_for_prompt(
+        chunks, query, render_prompt
     )
     generator = planner_service._resolve_plan_generator(
         session, user_id, plan_generator
@@ -388,10 +749,27 @@ async def create_preview(
     )
     phases_data = planner_service._validate_structure(structure)
     today = local_today()
-    apply_phases = _exact_apply_phases(phases_data, today, plan.goal_date)
+    preview_goal = _preview_goal(fields, plan)
+    apply_phases, date_note = _exact_apply_phases(phases_data, today, preview_goal)
     fingerprint = basis_fingerprint(session, plan)
     diff = _build_diff(session, plan, today, apply_phases)
-    validation = _run_code_checks(apply_phases, skipped_docs)
+    diff["planChanges"] = _plan_field_changes(plan, fields)
+    diff["candidates"] = _candidate_rows(apply_phases)
+    citations = structure.get("citations") if isinstance(structure.get("citations"), list) else None
+    validation, evidence_refs = _assess_preview(
+        session,
+        user_id,
+        plan,
+        instruction,
+        apply_phases,
+        snapshot,
+        citations,
+        list(diff["removedOrReplaced"]),
+        fields,
+        skipped_docs,
+        today,
+        date_note=date_note,
+    )
     steps = [
         {"step": "collect_instruction", "result": "ok"},
         {
@@ -406,13 +784,15 @@ async def create_preview(
         },
         {"step": "await_confirm", "result": "pending"},
     ]
-    if not validation["ok"]:
+    if validation["checks"]["structure"] != "pass":
         raise PlanGenerationError("结构调整未通过校验，无法生成预览")
     summary = (
         f"预览：将替换 {len(diff['removedOrReplaced'])} 条未受保护任务，"
         f"提出 {len(diff['proposedPending'])} 条新安排，"
         f"保留 {diff['protectedKept']} 条历史任务。尚未写入规划。"
     )
+    if not validation["ok"]:
+        summary += " 时长、日期或依据未通过，不能确认。"
     row = PlanAdjustment(
         user_id=user_id,
         plan_id=plan.id,
@@ -422,14 +802,19 @@ async def create_preview(
         proposal={
             "fields": fields,
             "phases": apply_phases,
+            "candidatePhases": copy.deepcopy(apply_phases),
             "usedDocs": used_docs,
             "skippedDocs": skipped_docs,
+            "citations": citations or [],
+            "selectionVersion": 1,
+            "promptSnapshot": {"hits": snapshot},
+            "baseEvidenceRefs": evidence_refs,
         },
         diff=diff,
         validation=validation,
         steps=steps,
         decision_summary=summary,
-        evidence_refs=[],
+        evidence_refs=evidence_refs,
     )
     session.add(row)
     try:
@@ -477,9 +862,206 @@ def reject_adjustment(
     return row
 
 
+def revise_preview(
+    session: Session,
+    user_id: uuid.UUID,
+    plan_id: uuid.UUID,
+    adjustment_id: uuid.UUID,
+    keep_action_ids: list[str],
+    minute_overrides: dict[str, int] | None,
+    selection_version: int,
+) -> PlanAdjustment:
+    """Edit the pending preview only. Does not write the live plan.
+
+    The candidate set stays intact. The write is a conditional UPDATE on the
+    pending row and the version that was read, after that read is released.
+    """
+    global _revise_before_claim
+    plan = planner_service._owned_plan(session, user_id, plan_id)
+    row = get_adjustment(session, user_id, plan_id, adjustment_id)
+    if row.status != "pending":
+        raise AdjustmentConflictError("只有待确认的预览可以调整")
+    stored_version = _selection_version(row.proposal)
+    if stored_version is None or selection_version != stored_version:
+        raise AdjustmentConflictError("预览选择版本已变化，请使用最新结果")
+    proposal = dict(row.proposal or {})
+    candidates = copy.deepcopy(
+        list(proposal.get("candidatePhases") or proposal.get("phases") or [])
+    )
+    known = {
+        str(task.get("action_id"))
+        for phase in candidates
+        for task in phase.get("daily_tasks") or []
+    }
+    unknown = [item for item in keep_action_ids if item not in known]
+    if unknown:
+        raise AdjustmentConflictError("选择包含未知任务，请使用预览中的任务")
+    keep = set(keep_action_ids)
+    saved: dict[str, int] = {}
+    stored_saved = proposal.get("savedMinutes") or {}
+    if isinstance(stored_saved, dict):
+        for key, value in stored_saved.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                continue
+            saved[str(key)] = value
+    if "modelMinutes" not in proposal:
+        proposal["modelMinutes"] = {
+            str(task.get("action_id")): task.get("estimated_minutes")
+            for phase in candidates
+            for task in phase.get("daily_tasks") or []
+        }
+    for action_id, raw in (minute_overrides or {}).items():
+        try:
+            saved[str(action_id)] = evidence_time.parse_estimated_minutes(raw)
+        except ValueError as error:
+            raise AdjustmentConflictError("预计分钟必须是正整数") from error
+    for phase in candidates:
+        for task in phase.get("daily_tasks") or []:
+            action_id = str(task.get("action_id"))
+            if action_id in saved:
+                task["estimated_minutes"] = saved[action_id]
+    phases = copy.deepcopy(candidates)
+    for phase in phases:
+        phase["daily_tasks"] = [
+            task
+            for task in phase.get("daily_tasks") or []
+            if str(task.get("action_id")) in keep
+        ]
+    today = local_today()
+    previous_ids = {
+        item["id"] for item in (row.diff or {}).get("removedOrReplaced") or []
+    }
+    diff = _build_diff(session, plan, today, phases)
+    new_ids = {item["id"] for item in diff["removedOrReplaced"]}
+    if new_ids != previous_ids:
+        raise AdjustmentConflictError("待替换集合已变化，请重新生成预览")
+    fields = dict(proposal.get("fields") or {})
+    diff["planChanges"] = _plan_field_changes(plan, fields)
+    diff["candidates"] = _candidate_rows(candidates)
+    snapshot = _stored_snapshot(proposal)
+    validation, evidence_refs = _assess_preview(
+        session,
+        user_id,
+        plan,
+        row.instruction,
+        phases,
+        snapshot,
+        list(proposal.get("citations") or []) or None,
+        list(diff["removedOrReplaced"]),
+        fields,
+        list(proposal.get("skippedDocs") or []),
+        today,
+        date_note=(row.validation or {}).get("dateAdjustment"),
+    )
+    next_version = stored_version + 1
+    proposal["phases"] = phases
+    proposal["candidatePhases"] = candidates
+    proposal["savedMinutes"] = saved
+    proposal["selectionVersion"] = next_version
+    proposal["baseEvidenceRefs"] = list(proposal.get("baseEvidenceRefs") or evidence_refs)
+    steps = list(row.steps or []) + [
+        {
+            "step": "revise",
+            "result": "ok" if validation["ok"] else "fail",
+            "selectionVersion": next_version,
+        }
+    ]
+    summary = (
+        f"预览：将替换 {len(diff['removedOrReplaced'])} 条未受保护任务，"
+        f"提出 {len(diff['proposedPending'])} 条新安排，"
+        f"保留 {diff['protectedKept']} 条历史任务。尚未写入规划。"
+    )
+    if not validation["ok"]:
+        summary += " 时长、日期或依据未通过，不能确认。"
+    fingerprint = row.basis_fingerprint
+    adjustment_id_value = row.id
+    hook = _revise_before_claim
+    _revise_before_claim = None
+    try:
+        session.rollback()
+        if hook is not None:
+            hook(session, row)
+    finally:
+        _revise_before_claim = hook
+    claimed = session.execute(
+        update(PlanAdjustment)
+        .where(
+            PlanAdjustment.id == adjustment_id_value,
+            PlanAdjustment.status == "pending",
+            func.json_extract(PlanAdjustment.proposal, "$.selectionVersion")
+            == stored_version,
+        )
+        .values(
+            proposal=proposal,
+            diff=diff,
+            validation=validation,
+            evidence_refs=evidence_refs,
+            steps=steps,
+            decision_summary=summary,
+        )
+    )
+    if claimed.rowcount != 1:
+        session.rollback()
+        raise AdjustmentConflictError("预览选择版本已变化，请使用最新结果")
+    session.expire_all()
+    fresh = session.get(PlanAdjustment, adjustment_id_value)
+    if fresh is None:
+        session.rollback()
+        raise AdjustmentNotFoundError()
+    if fresh.status != "pending" or _selection_version(fresh.proposal) != next_version:
+        session.rollback()
+        raise AdjustmentConflictError("预览选择版本已变化，请使用最新结果")
+    live_plan = planner_service._owned_plan(session, user_id, plan_id)
+    if basis_fingerprint(session, live_plan) != fingerprint:
+        session.rollback()
+        raise AdjustmentConflictError("规划或任务已变化，请重新生成预览")
+    if not _sources_still_available(session, user_id, list(fresh.evidence_refs or [])):
+        checks = dict(fresh.validation.get("checks") or {})
+        checks["evidenceLocation"] = "fail"
+        fresh.validation = {**dict(fresh.validation or {}), "ok": False, "checks": checks}
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(fresh)
+    return fresh
+
+
 def _practice_is_answered(row: PracticeQuestion) -> bool:
     """User feedback uses status; ``answer`` is the reference key, not submission."""
     return task_service.practice_is_answered(row.status)
+
+
+def _recheck_pending(
+    session: Session,
+    user_id: uuid.UUID,
+    plan: Plan,
+    row: PlanAdjustment,
+    today: date,
+) -> dict:
+    """Recompute duration, dates, and whether cited sources still match."""
+    fields = dict((row.proposal or {}).get("fields") or {})
+    phases = list((row.proposal or {}).get("phases") or [])
+    validation, _refs = _assess_preview(
+        session,
+        user_id,
+        plan,
+        row.instruction,
+        phases,
+        _stored_snapshot(row.proposal),
+        list((row.proposal or {}).get("citations") or []) or None,
+        list((row.diff or {}).get("removedOrReplaced") or []),
+        fields,
+        list((row.proposal or {}).get("skippedDocs") or []),
+        today,
+        date_note=(row.validation or {}).get("dateAdjustment"),
+    )
+    if not _sources_still_available(session, user_id, list(row.evidence_refs or [])):
+        checks = dict(validation["checks"])
+        checks["evidenceLocation"] = "fail"
+        validation = {**validation, "ok": False, "checks": checks}
+    return validation
 
 
 def _mark_confirm_conflict(
@@ -536,6 +1118,7 @@ def confirm_adjustment(
     user_id: uuid.UUID,
     plan_id: uuid.UUID,
     adjustment_id: uuid.UUID,
+    expected_selection_version: int | None = None,
 ) -> PlanAdjustment:
     # Drop identity-map cache so fingerprint sees concurrent task/plan edits.
     session.expire_all()
@@ -553,8 +1136,17 @@ def confirm_adjustment(
         return row
     if row.status != "pending":
         raise AdjustmentConflictError("该预览不能确认")
+    if expected_selection_version is None:
+        raise AdjustmentConflictError("请提交已查看的选择版本后再确认，或重新生成预览")
     if not (row.validation or {}).get("ok", False):
         raise AdjustmentConflictError("预览未通过校验，不能确认")
+    stored_version = _selection_version(row.proposal)
+    if stored_version is None or expected_selection_version != stored_version:
+        raise AdjustmentConflictError("预览选择已更新，请查看重新计算后的结果再确认")
+    try:
+        _preview_goal(dict((row.proposal or {}).get("fields") or {}), plan)
+    except PlanGenerationError as error:
+        raise AdjustmentConflictError(str(error)) from error
 
     today = local_today()
     apply_phases = list((row.proposal or {}).get("phases") or [])
@@ -580,9 +1172,7 @@ def confirm_adjustment(
             "待替换或拟写入集合已变化，请重新生成预览",
         )
 
-    recheck = _run_code_checks(
-        apply_phases, list(row.proposal.get("skippedDocs") or [])
-    )
+    recheck = _recheck_pending(session, user_id, plan, row, today)
     if not recheck["ok"]:
         return _confirm_or_conflict(
             session, row, "recheck_failed", "确认前重新校验失败"
@@ -599,6 +1189,9 @@ def confirm_adjustment(
             return row
         if row.status != "pending":
             raise AdjustmentConflictError("该预览不能确认")
+        if _selection_version(row.proposal) != expected_selection_version:
+            raise AdjustmentConflictError("预览选择已更新，请查看重新计算后的结果再确认")
+        apply_phases = list((row.proposal or {}).get("phases") or [])
         current_fp = basis_fingerprint(session, plan)
         if current_fp != row.basis_fingerprint:
             return _confirm_or_conflict(
@@ -623,6 +1216,8 @@ def confirm_adjustment(
             PlanAdjustment.id == adjustment_id,
             PlanAdjustment.status == "pending",
             PlanAdjustment.basis_fingerprint == current_fp,
+            func.json_extract(PlanAdjustment.proposal, "$.selectionVersion")
+            == expected_selection_version,
         )
         .values(status="confirmed")
     )
@@ -640,11 +1235,20 @@ def confirm_adjustment(
         live_plan = planner_service._owned_plan(session, user_id, plan_id)
         live_row = session.get(PlanAdjustment, adjustment_id)
         assert live_row is not None
+        if live_row.status != "confirmed":
+            raise AdjustmentConflictError("该预览不能确认")
+        if _selection_version(live_row.proposal) != expected_selection_version:
+            raise AdjustmentConflictError("预览选择已更新，请查看重新计算后的结果再确认")
         if basis_fingerprint(session, live_plan) != live_row.basis_fingerprint:
             raise AdjustmentConflictError("规划或任务已变化，请重新生成预览")
         _ensure_confirm_applicable(
             session, live_plan, live_row, local_today(), apply_phases
         )
+        live_check = _recheck_pending(
+            session, user_id, live_plan, live_row, local_today()
+        )
+        if not live_check["ok"]:
+            raise AdjustmentConflictError("确认前重新校验失败")
 
     try:
         _revalidate_live_basis()
@@ -673,7 +1277,7 @@ def confirm_adjustment(
     plan_field_changes = {}
     for key, attr, cast in (
         ("goalName", "goal_name", str),
-        ("goalDate", "goal_date", lambda v: planner_service._coerce_date(v, plan.goal_date)),
+        ("goalDate", "goal_date", lambda v: _preview_goal({"goalDate": v}, plan)),
         ("currentLevel", "current_level", str),
         ("dailyMinutes", "daily_minutes", int),
     ):
@@ -772,6 +1376,10 @@ def _task_changed_from_expected(task: DailyTask | None, expected: dict) -> bool:
         or str(task.phase_id) != str(expected.get("phaseId") or task.phase_id)
         or (task.week_label or "") != (expected.get("weekLabel") or "")
         or actual_carried != expected_carried
+        or (
+            "estimatedMinutes" in expected
+            and task.estimated_minutes != expected.get("estimatedMinutes")
+        )
     )
 
 
@@ -879,44 +1487,33 @@ def undo_latest(
     assert plan is not None
     _assert_undo_still_safe(session, plan, row, today)
 
-    # End the read snapshot so another connection's commit is visible,
-    # then re-check before the confirmed→undone claim. This dialect rejects
-    # isolation_level=IMMEDIATE, so the fresh transaction is the reliable step.
+    # Close the read snapshot. The claim UPDATE itself reserves the write
+    # transaction; validation after that must stay in the same transaction.
     session.rollback()
-    plan = session.get(Plan, plan_id)
-    row = session.get(PlanAdjustment, adjustment_id)
-    assert plan is not None and row is not None
-    if row.status == "undone":
-        return row
-    if row.status != "confirmed" or not row.applied_record:
-        raise AdjustmentConflictError("没有可撤销的已生效调整")
-    record = row.applied_record
-    today = local_today()
-    try:
-        _assert_undo_still_safe(session, plan, row, today)
-    except AdjustmentConflictError:
-        session.rollback()
-        raise
-
     claimed = session.execute(
         update(PlanAdjustment)
         .where(
-            PlanAdjustment.id == row.id,
+            PlanAdjustment.id == adjustment_id,
             PlanAdjustment.status == "confirmed",
         )
         .values(status="undone")
     )
     if claimed.rowcount != 1:
         session.rollback()
-        fresh = session.get(PlanAdjustment, row.id)
+        fresh = session.get(PlanAdjustment, adjustment_id)
         if fresh is not None and fresh.status == "undone":
             return fresh
         raise AdjustmentConflictError("撤销未能取得该调整")
 
-    session.refresh(row)
+    session.expire_all()
+    plan = session.get(Plan, plan_id)
+    row = session.get(PlanAdjustment, adjustment_id)
+    assert plan is not None and row is not None
+    record = row.applied_record or {}
     before = record["before"]
 
     try:
+        _assert_undo_still_safe(session, plan, row, local_today())
         for task_id in record.get("created_ids") or []:
             task = session.get(DailyTask, uuid.UUID(task_id))
             if task is not None:
@@ -970,6 +1567,9 @@ def undo_latest(
                     description=task_item["description"],
                     status=task_item["status"],
                     resource_url=task_item.get("resourceUrl"),
+                    estimated_minutes=task_item["estimatedMinutes"]
+                    if "estimatedMinutes" in task_item
+                    else None,
                     carried_from_id=uuid.UUID(task_item["carriedFromId"])
                     if task_item.get("carriedFromId")
                     else None,

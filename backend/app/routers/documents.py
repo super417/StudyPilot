@@ -52,6 +52,42 @@ def list_documents(
     return {"status": "ok", "documents": documents}
 
 
+@router.get("/{doc_id}/chunks/{chunk_index}")
+def read_owned_chunk(
+    doc_id: str,
+    chunk_index: int,
+    content_hash: str | None = None,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+):
+    """Open one owned chunk. Missing or changed content stays unavailable."""
+    from sqlalchemy import select
+
+    from app.models.entities import UserDocument
+    from app.services import evidence_time
+
+    ref = {"docId": doc_id, "chunkIndex": chunk_index, "contentHash": content_hash}
+    if evidence_time.lookup_document_ref(session, user.id, ref) != "available":
+        return _json_error(404, "NOT_FOUND", "来源不可用")
+    row = session.scalar(
+        select(UserDocument).where(
+            UserDocument.user_id == user.id,
+            UserDocument.doc_id == doc_id,
+            UserDocument.chunk_index == chunk_index,
+        )
+    )
+    if row is None:
+        return _json_error(404, "NOT_FOUND", "来源不可用")
+    return {
+        "status": "ok",
+        "docId": row.doc_id,
+        "chunkIndex": row.chunk_index,
+        "filename": row.filename,
+        "pageStart": row.page_start,
+        "snippet": row.content,
+    }
+
+
 @router.delete("/{doc_id}")
 def delete_document(
     doc_id: str,

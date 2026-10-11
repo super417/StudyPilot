@@ -15,7 +15,7 @@ from app.core.crypto import get_cipher
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
-from app.models.entities import ApiConfig, DailyTask, Phase, Plan, User, UserDocument
+from app.models.entities import ApiConfig, DailyTask, Phase, Plan, PlanAdjustment, User, UserDocument
 from app.routers.plans import get_plan_generator
 from app.services.session_service import session_store
 
@@ -32,6 +32,7 @@ def _plan_structure(phase_count: int = 3) -> dict:
                         "task_date": "2025-01-01",
                         "week_label": "W01",
                         "description": f"阶段{i + 1}任务",
+                        "estimated_minutes": 20,
                     }
                 ],
             }
@@ -546,7 +547,7 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-31",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
             },
@@ -597,8 +598,17 @@ class PlanRouteTests(unittest.TestCase):
             before_task_count,
         )
 
-        confirmed = self.client.post(
+        missing = self.client.post(
             f"/api/plans/{plan_id}/adjustments/{adjustment_id}/confirm"
+        )
+        self.assertEqual(missing.status_code, 409, missing.text)
+        self.session.expire_all()
+        still_pending = self.session.get(PlanAdjustment, uuid.UUID(adjustment_id))
+        self.assertEqual(still_pending.status, "pending")
+
+        confirmed = self.client.post(
+            f"/api/plans/{plan_id}/adjustments/{adjustment_id}/confirm",
+            json={"selectionVersion": preview["selectionVersion"]},
         )
         self.assertEqual(confirmed.status_code, 200, confirmed.text)
         body = confirmed.json()
@@ -685,6 +695,46 @@ class PlanRouteTests(unittest.TestCase):
         events = _parse_sse(response.text)
         self.assertEqual([e for e, _ in events], ["error"])
         self.assertIn("NO_API_KEY", events[0][1])
+
+    def test_regenerate_rejects_explicit_bad_goal_and_writes_a_valid_one(self) -> None:
+        plan_id = self._seed_plan(phase_count=2)
+        plan = self.session.get(Plan, uuid.UUID(plan_id))
+        original = plan.goal_date
+
+        for bad in ("not-a-date", "2026-02-31", "20271231", True):
+            response = self.client.post(
+                f"/api/plans/{plan_id}/regenerate",
+                json={"message": "改目标日", "goalDate": bad},
+            )
+            self.session.expire_all()
+            self.assertEqual(self.session.get(Plan, uuid.UUID(plan_id)).goal_date, original)
+            if response.status_code == 200:
+                events = _parse_sse(response.text)
+                self.assertEqual(events[0][0], "error")
+                self.assertNotIn("preview", [name for name, _ in events])
+            else:
+                self.assertEqual(response.status_code, 422)
+
+        response = self.client.post(
+            f"/api/plans/{plan_id}/regenerate",
+            json={"message": "改目标日", "goalDate": "2027-06-01"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        events = _parse_sse(response.text)
+        self.assertEqual(events[0][0], "preview")
+        preview = json.loads(events[0][1])
+        change = next(item for item in preview["diff"]["planChanges"] if item["field"] == "goalDate")
+        self.assertEqual(change["after"], "2027-06-01")
+        confirmed = self.client.post(
+            f"/api/plans/{plan_id}/adjustments/{preview['id']}/confirm",
+            json={"selectionVersion": preview["selectionVersion"]},
+        )
+        self.assertEqual(confirmed.status_code, 200, confirmed.text)
+        self.session.expire_all()
+        self.assertEqual(
+            self.session.get(Plan, uuid.UUID(plan_id)).goal_date.isoformat(),
+            "2027-06-01",
+        )
 
     def test_regenerate_with_empty_request_emits_error(self) -> None:
         plan_id = self._seed_plan(phase_count=2)

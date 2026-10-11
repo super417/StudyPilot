@@ -42,6 +42,7 @@ def _structure(phase_count: int = 2, label: str = "新安排") -> dict:
                         "task_date": (today + timedelta(days=offset)).isoformat(),
                         "week_label": "W01",
                         "description": f"{label}P{i + 1}D{offset}",
+                        "estimated_minutes": 20,
                     }
                     for offset in range(3)
                 ],
@@ -134,6 +135,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             week_label="W01",
             description="已完成保留",
             status="done",
+            estimated_minutes=20,
         )
         self.pending = DailyTask(
             plan_id=self.plan.id,
@@ -152,6 +154,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             week_label="W01",
             description="已顺延保留",
             status="carried",
+            estimated_minutes=20,
             carried_from_id=self.past.id,
         )
         self.practice = PracticeQuestion(
@@ -234,7 +237,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(after_reject), set(before))
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
 
     async def test_confirm_applies_once_keeps_protected_and_links(self) -> None:
@@ -248,7 +251,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             self._generator("生效"),
         )
         first = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         self.assertEqual(first.status, "confirmed")
         self.session.expire_all()
@@ -287,7 +290,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
         self.session.commit()
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
         self.session.expire_all()
         self.assertEqual(
@@ -347,7 +350,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             self._generator("撤销前"),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         self.session.expire_all()
         created = list(
@@ -392,7 +395,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             self._generator("冲突前"),
         )
         confirmed2 = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview2.id
+            self.session, self.user.id, self.plan.id, preview2.id, expected_selection_version=preview2.proposal["selectionVersion"]
         )
         touched = list(
             self.session.scalars(
@@ -425,7 +428,7 @@ class PlanAdjustmentServiceTests(unittest.IsolatedAsyncioTestCase):
             self._generator("打卡不挡"),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         self.session.add(
             CheckIn(

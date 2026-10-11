@@ -73,10 +73,34 @@ def _decode_text(data: bytes) -> str:
 
 
 def _parse_pdf(data: bytes) -> str:
+    return "\n".join(text for _page, text in parse_pdf_pages(data))
+
+
+def parse_pdf_pages(data: bytes) -> list[tuple[int, str]]:
+    """Return 1-based page numbers and that page's extracted text.
+
+    Blank pages are omitted so they cannot become citations.
+    """
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(data))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+    pages: list[tuple[int, str]] = []
+    for index, page in enumerate(reader.pages, start=1):
+        text = (page.extract_text() or "").strip()
+        if text:
+            pages.append((index, text))
+    return pages
+
+
+def pages_to_stored_chunks(pages: list[tuple[int, str]]) -> list[dict]:
+    """Chunk each real page separately and keep its page number."""
+    stored: list[dict] = []
+    for page_number, text in pages:
+        if not str(text).strip():
+            continue
+        for chunk in chunk_text(text):
+            stored.append({"content": chunk, "page_start": page_number})
+    return stored
 
 
 def _parse_docx(data: bytes) -> str:
@@ -177,9 +201,19 @@ def store_document(
     if len(data) > MAX_FILE_BYTES:
         raise DocumentParseError("文件过大")
 
-    text = parse_document(file_type, data)
-    chunks = chunk_text(text)
-    if not chunks:
+    if file_type == "pdf":
+        try:
+            pieces = pages_to_stored_chunks(parse_pdf_pages(data))
+        except DocumentParseError:
+            raise
+        except Exception as error:  # noqa: BLE001
+            raise DocumentParseError() from error
+    else:
+        text = parse_document(file_type, data)
+        pieces = [
+            {"content": chunk, "page_start": None} for chunk in chunk_text(text)
+        ]
+    if not pieces:
         raise DocumentParseError()
 
     doc_id = uuid.uuid4().hex
@@ -190,16 +224,17 @@ def store_document(
             filename=filename,
             file_type=file_type,
             chunk_index=index,
-            content=chunk,
+            content=piece["content"],
+            page_start=piece["page_start"],
         )
-        for index, chunk in enumerate(chunks)
+        for index, piece in enumerate(pieces)
     )
     try:
         session.commit()
     except Exception:
         session.rollback()
         raise
-    return doc_id, len(chunks)
+    return doc_id, len(pieces)
 
 
 def delete_document(session: Session, user_id: uuid.UUID, doc_id: str) -> int:

@@ -7,13 +7,13 @@ Card-level phase tweaking lives in ``app.routers.phases`` (a plain REST PATCH,
 requirement 10.3).
 """
 
-from typing import AsyncIterator
+from typing import Annotated, AsyncIterator
 import json
 import uuid
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
@@ -124,6 +124,29 @@ class RegeneratePayload(BaseModel):
     daily_minutes: int | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
+
+
+def _strict_positive_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("必须是正整数")
+    return value
+
+
+StrictPositiveInt = Annotated[int, BeforeValidator(_strict_positive_int)]
+
+
+class ConfirmAdjustmentPayload(BaseModel):
+    selection_version: StrictPositiveInt | None = None
+
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+
+class ReviseAdjustmentPayload(BaseModel):
+    selection_version: StrictPositiveInt
+    keep_action_ids: list[str]
+    minute_overrides: dict[str, StrictPositiveInt] | None = None
+
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
 
 def get_plan_generator() -> PlanGenerator | None:
@@ -629,6 +652,7 @@ def undo_adjustment_route(
 def confirm_adjustment_route(
     plan_id: str,
     adjustment_id: str,
+    payload: ConfirmAdjustmentPayload | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> JSONResponse:
@@ -636,7 +660,13 @@ def confirm_adjustment_route(
         parsed_plan = uuid.UUID(plan_id)
         parsed_adj = uuid.UUID(adjustment_id)
         row = adjustment_service.confirm_adjustment(
-            session, user.id, parsed_plan, parsed_adj
+            session,
+            user.id,
+            parsed_plan,
+            parsed_adj,
+            expected_selection_version=None
+            if payload is None
+            else payload.selection_version,
         )
     except (ValueError, AttributeError, TypeError, PlanNotFoundError):
         return JSONResponse(
@@ -668,6 +698,59 @@ def confirm_adjustment_route(
     except PlanGenerationError as error:
         return JSONResponse(
             status_code=400,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
+
+
+@router.post("/{plan_id}/adjustments/{adjustment_id}/revise")
+def revise_adjustment_route(
+    plan_id: str,
+    adjustment_id: str,
+    payload: ReviseAdjustmentPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        parsed_adj = uuid.UUID(adjustment_id)
+        row = adjustment_service.revise_preview(
+            session,
+            user.id,
+            parsed_plan,
+            parsed_adj,
+            keep_action_ids=payload.keep_action_ids,
+            minute_overrides=payload.minute_overrides,
+            selection_version=payload.selection_version,
+        )
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
             content={
                 "status": "error",
                 "code": error.code,

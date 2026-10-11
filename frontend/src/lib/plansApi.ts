@@ -32,16 +32,54 @@ export interface PlanPreviewEvent {
 export interface PlanAdjustmentDiff {
   removedOrReplaced: Array<{
     id: string;
+    actionId?: string;
     taskDate: string;
     description: string;
     status: string;
+    estimatedMinutes?: number | null;
   }>;
   proposedPending: Array<{
+    actionId?: string;
     taskDate: string;
     description: string;
     status: string;
+    estimatedMinutes?: number | null;
   }>;
   protectedKept: number;
+  candidates?: Array<{
+    actionId?: string;
+    taskDate: string;
+    description: string;
+    status?: string;
+    estimatedMinutes?: number | null;
+    phaseName?: string;
+  }>;
+  planChanges?: Array<{ field: string; before: unknown; after: unknown }>;
+  keptTasks?: Array<{
+    id: string;
+    taskDate: string;
+    description: string;
+    status: string;
+    estimatedMinutes?: number | null;
+  }>;
+}
+
+export interface EvidenceRef {
+  kind?: string;
+  actionId?: string;
+  actionIds?: string[];
+  docId?: string;
+  chunkIndex?: number;
+  filename?: string;
+  snippet?: string;
+  pageStart?: number | null;
+  matchedTerms?: string[];
+  contentHash?: string;
+  literatureSupport?: string;
+  text?: string;
+  source?: string;
+  description?: string;
+  estimatedMinutes?: number | null;
 }
 
 export interface PlanAdjustmentPreview {
@@ -53,10 +91,11 @@ export interface PlanAdjustmentPreview {
   validation: Record<string, unknown>;
   steps: Array<Record<string, unknown>>;
   decisionSummary: string;
-  evidenceRefs: unknown[];
+  evidenceRefs: EvidenceRef[];
   summary: string;
   phases: number;
   usedDocs: string[];
+  selectionVersion?: number;
 }
 
 export interface PlanDoneEvent {
@@ -137,16 +176,29 @@ function dispatch(event: string, data: SseData, handlers: PlanStreamHandlers) {
               ? (diff.proposedPending as PlanAdjustmentDiff['proposedPending'])
               : [],
             protectedKept: Number(diff.protectedKept ?? 0),
+            candidates: Array.isArray(diff.candidates)
+              ? (diff.candidates as PlanAdjustmentDiff['candidates'])
+              : undefined,
+            planChanges: Array.isArray(diff.planChanges)
+              ? (diff.planChanges as PlanAdjustmentDiff['planChanges'])
+              : undefined,
+            keptTasks: Array.isArray(diff.keptTasks)
+              ? (diff.keptTasks as PlanAdjustmentDiff['keptTasks'])
+              : undefined,
           },
           validation: (data.validation as Record<string, unknown>) ?? {},
           steps: Array.isArray(data.steps)
             ? (data.steps as Array<Record<string, unknown>>)
             : [],
           decisionSummary: String(data.decisionSummary ?? data.summary ?? ''),
-          evidenceRefs: Array.isArray(data.evidenceRefs) ? data.evidenceRefs : [],
+          evidenceRefs: Array.isArray(data.evidenceRefs)
+            ? (data.evidenceRefs as PlanAdjustmentPreview['evidenceRefs'])
+            : [],
           summary: String(data.summary ?? data.decisionSummary ?? ''),
           phases: Number(data.phases ?? 0),
           usedDocs: Array.isArray(data.usedDocs) ? data.usedDocs.map(String) : [],
+          selectionVersion:
+            data.selectionVersion == null ? undefined : Number(data.selectionVersion),
         });
       } else {
         handlers.onPreview?.({
@@ -220,11 +272,55 @@ export function streamPlanRegenerate(
   });
 }
 
-export function confirmPlanAdjustment(planId: string, adjustmentId: string) {
+export function confirmPlanAdjustment(
+  planId: string,
+  adjustmentId: string,
+  selectionVersion?: number,
+) {
   return apiRequest<{ status: string; adjustment: { decisionSummary?: string; status: string } }>(
     `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/confirm`,
-    { method: 'POST' },
+    {
+      method: 'POST',
+      body:
+        selectionVersion == null
+          ? undefined
+          : JSON.stringify({ selectionVersion }),
+    },
   ).then((body) => body.adjustment);
+}
+
+export function revisePlanAdjustment(
+  planId: string,
+  adjustmentId: string,
+  body: {
+    selectionVersion: number;
+    keepActionIds: string[];
+    minuteOverrides?: Record<string, number>;
+  },
+) {
+  return apiRequest<{ status: string; adjustment: PlanAdjustmentPreview }>(
+    `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/revise`,
+    { method: 'POST', body: JSON.stringify(body) },
+  ).then((payload) => payload.adjustment);
+}
+
+export function openOwnedChunk(
+  docId: string,
+  chunkIndex: number,
+  contentHash?: string,
+) {
+  const query = contentHash
+    ? `?content_hash=${encodeURIComponent(contentHash)}`
+    : '';
+  return apiRequest<{
+    status: string;
+    filename: string;
+    snippet: string;
+    pageStart?: number | null;
+    chunkIndex: number;
+  }>(
+    `/api/documents/${encodeURIComponent(docId)}/chunks/${chunkIndex}${query}`,
+  );
 }
 
 export function rejectPlanAdjustment(planId: string, adjustmentId: string) {

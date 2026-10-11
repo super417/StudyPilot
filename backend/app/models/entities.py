@@ -197,6 +197,10 @@ class DailyTask(Base):
             "status IN ('pending', 'done', 'carried')",
             name="ck_daily_tasks_status_values",
         ),
+        CheckConstraint(
+            "estimated_minutes IS NULL OR estimated_minutes > 0",
+            name="ck_daily_tasks_estimated_minutes_positive",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -219,6 +223,7 @@ class DailyTask(Base):
     # host-whitelisted addresses are ever written here — see
     # ``services/resource_links.py``. ``NULL`` means the task has no resource.
     resource_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    estimated_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class PracticeQuestion(Base):
@@ -534,6 +539,7 @@ class UserDocument(Base):
     file_type: Mapped[str] = mapped_column(String(16), nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )

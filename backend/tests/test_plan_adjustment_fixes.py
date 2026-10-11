@@ -48,6 +48,7 @@ def _today_structure(phase_count: int = 2, empty_tasks: bool = False) -> dict:
                         "task_date": (today + timedelta(days=d)).isoformat(),
                         "week_label": "W01",
                         "description": f"明确任务P{i + 1}D{d}",
+                        "estimated_minutes": 20,
                     }
                     for d in range(1)
                 ],
@@ -132,6 +133,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             week_label="W01",
             description="将来可替换",
             status="pending",
+            estimated_minutes=20,
         )
         self.session.add(self.pending)
         self.session.commit()
@@ -228,7 +230,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(preview.diff["proposedPending"]), 2)
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         created = list(
             self.session.scalars(
@@ -252,7 +254,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         self.session.expire_all()
         plan = self.session.get(Plan, self.plan.id)
@@ -273,7 +275,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         created_id = uuid.UUID(confirmed.applied_record["created_ids"][0])
         # Reference key present but still pending → not answered.
@@ -304,7 +306,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed2 = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview2.id
+            self.session, self.user.id, self.plan.id, preview2.id, expected_selection_version=preview2.proposal["selectionVersion"]
         )
         created2 = uuid.UUID(confirmed2.applied_record["created_ids"][0])
         self.session.add(
@@ -333,7 +335,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         pending_id = self.pending.id
         undone = adjustment_service.undo_latest(
@@ -364,12 +366,13 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
         self.session.commit()
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
         self.assertEqual(
             self.session.get(DailyTask, self.pending.id).description, "将来可替换"
         )
-        self.assertIn("unverified", preview.validation.get("checks", {}).values())
+        self.assertIn("duration", preview.validation.get("checks", {}))
+        self.assertNotIn("unverified", preview.validation.get("checks", {}).values())
 
     async def test_r7_interleaved_reject_and_task_edit_with_second_session(self) -> None:
         preview = await adjustment_service.create_preview(
@@ -390,7 +393,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             other.close()
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
 
         preview2 = await adjustment_service.create_preview(
@@ -411,7 +414,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             editor.close()
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview2.id
+                self.session, self.user.id, self.plan.id, preview2.id, expected_selection_version=preview2.proposal["selectionVersion"]
             )
 
     async def test_c1_cross_day_confirm_rejects_without_partial_write(self) -> None:
@@ -434,7 +437,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.services.adjustment_service.local_today", return_value=tomorrow):
             with self.assertRaises(adjustment_service.AdjustmentConflictError):
                 adjustment_service.confirm_adjustment(
-                    self.session, self.user.id, self.plan.id, preview.id
+                    self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
                 )
         self.session.expire_all()
         row = self.session.get(PlanAdjustment, preview.id)
@@ -469,7 +472,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         created_phase_id = uuid.UUID(confirmed.applied_record["created_phase_ids"][0])
         phase = self.session.get(Phase, created_phase_id)
@@ -511,7 +514,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
         removable_ids = {item["id"] for item in preview.diff["removedOrReplaced"]}
         self.assertNotIn(str(old_task_id), removable_ids)
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         self.assertEqual(confirmed.status, "confirmed")
         self.session.expire_all()
@@ -532,7 +535,7 @@ class AdjustmentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         created_ids = list(confirmed.applied_record["created_ids"])
         created_phase_ids = list(confirmed.applied_record["created_phase_ids"])
@@ -642,6 +645,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             week_label="W01",
             description="将来可替换",
             status="pending",
+            estimated_minutes=20,
         )
         self.session.add(self.pending)
         self.session.commit()
@@ -682,7 +686,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
         adjustment_service._confirm_after_fingerprint_hook = mutate_after_fingerprint
         with self.assertRaises(adjustment_service.AdjustmentConflictError):
             adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
         self.session.expire_all()
         row = self.session.get(PlanAdjustment, preview.id)
@@ -718,7 +722,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
                 barrier.wait(timeout=5)
                 try:
                     row = adjustment_service.confirm_adjustment(
-                        sess, self.user.id, self.plan.id, preview.id
+                        sess, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
                     )
                     with lock:
                         outcomes.append(("ok", row.status, len(row.applied_record.get("created_ids") or [])))
@@ -791,7 +795,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             other = self.session_factory()
             try:
                 winner = adjustment_service.confirm_adjustment(
-                    other, self.user.id, self.plan.id, preview.id
+                    other, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
                 )
                 state["winner_ids"] = list(winner.applied_record["created_ids"])
                 self.assertEqual(winner.status, "confirmed")
@@ -803,7 +807,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             "app.services.adjustment_service.basis_fingerprint", side_effect=wrapped
         ):
             resumed = adjustment_service.confirm_adjustment(
-                self.session, self.user.id, self.plan.id, preview.id
+                self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
             )
         self.assertEqual(resumed.status, "confirmed")
         self.assertEqual(
@@ -860,7 +864,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview2.id
+            self.session, self.user.id, self.plan.id, preview2.id, expected_selection_version=preview2.proposal["selectionVersion"]
         )
         adjustment_service.undo_latest(self.session, self.user.id, self.plan.id)
         undone = self.session.get(PlanAdjustment, preview2.id)
@@ -885,7 +889,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             self._gen(),
         )
         confirmed = adjustment_service.confirm_adjustment(
-            self.session, self.user.id, self.plan.id, preview.id
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
         )
         created_task_id = uuid.UUID(confirmed.applied_record["created_ids"][0])
         real_check = adjustment_service._assert_undo_still_safe
@@ -935,6 +939,153 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
             ),
             2,
         )
+
+    async def test_d2_task_completed_after_last_preclaim_check(self) -> None:
+        """B commits done after the last pre-claim check and before the status UPDATE."""
+        preview = await adjustment_service.create_preview(
+            self.session,
+            self.user.id,
+            self.plan.id,
+            "最后窗口",
+            None,
+            [],
+            self._gen(),
+        )
+        confirmed = adjustment_service.confirm_adjustment(
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
+        )
+        created_ids = [uuid.UUID(item) for item in confirmed.applied_record["created_ids"]]
+        target_id = created_ids[0]
+        practice = PracticeQuestion(
+            user_id=self.user.id,
+            source="generated",
+            question="关联",
+            answer="",
+            explanation="",
+            status="pending",
+            source_task_id=target_id,
+        )
+        self.session.add(practice)
+        self.session.commit()
+        practice_id = practice.id
+        phase_id = self.session.get(DailyTask, target_id).phase_id
+        interleaved = {"n": 0}
+
+        def before_status_update(state) -> None:
+            if not state.is_update:
+                return
+            compiled = state.statement.compile(compile_kwargs={"render_postcompile": True})
+            params = dict(compiled.params)
+            if params.get("status") != "undone":
+                return
+            interleaved["n"] += 1
+            if interleaved["n"] != 1:
+                return
+            other = self.session_factory()
+            try:
+                task_service.set_task_status(other, self.user.id, target_id, "done")
+            finally:
+                other.close()
+
+        event.listen(self.session, "do_orm_execute", before_status_update)
+        caught = None
+        try:
+            adjustment_service.undo_latest(self.session, self.user.id, self.plan.id)
+        except adjustment_service.AdjustmentConflictError as exc:
+            caught = exc
+        finally:
+            event.remove(self.session, "do_orm_execute", before_status_update)
+        self.assertEqual(interleaved["n"], 1)
+        self.assertIsNotNone(caught)
+        self.assertEqual(interleaved["n"], 1)
+        self.session.expire_all()
+        stored = self.session.get(PlanAdjustment, confirmed.id)
+        self.assertEqual(stored.status, "confirmed")
+        self.assertFalse(
+            any(
+                isinstance(step, dict) and step.get("step") == "undo" and step.get("result") == "ok"
+                for step in (stored.steps or [])
+            )
+        )
+        done_task = self.session.get(DailyTask, target_id)
+        self.assertIsNotNone(done_task)
+        self.assertEqual(done_task.status, "done")
+        self.assertEqual(done_task.phase_id, phase_id)
+        phase = self.session.get(Phase, phase_id)
+        self.assertIsNotNone(phase)
+        self.assertGreater(phase.progress_percent, 0)
+        linked = self.session.get(PracticeQuestion, practice_id)
+        self.assertEqual(linked.source_task_id, target_id)
+        remaining = list(
+            self.session.scalars(
+                select(DailyTask).where(
+                    DailyTask.plan_id == self.plan.id,
+                    DailyTask.description.like("明确任务%"),
+                )
+            )
+        )
+        self.assertEqual(len(remaining), len(created_ids))
+        self.assertIsNone(self.session.get(DailyTask, self.pending.id))
+
+    async def test_d2_other_writer_cannot_commit_while_undo_holds_lock(self) -> None:
+        preview = await adjustment_service.create_preview(
+            self.session,
+            self.user.id,
+            self.plan.id,
+            "写入权",
+            None,
+            [],
+            self._gen(),
+        )
+        confirmed = adjustment_service.confirm_adjustment(
+            self.session, self.user.id, self.plan.id, preview.id, expected_selection_version=preview.proposal["selectionVersion"]
+        )
+        target_id = uuid.UUID(confirmed.applied_record["created_ids"][0])
+        busy_engine = create_engine(
+            f"sqlite:///{self._db_path.as_posix()}",
+            connect_args={"check_same_thread": False, "timeout": 0.05},
+        )
+        busy_factory = sessionmaker(bind=busy_engine, class_=Session, expire_on_commit=False)
+        probe = {"attempts": 0, "committed": False, "error": None, "status_during": None}
+
+        def during_claim(conn, cursor, statement, parameters, context, executemany) -> None:  # noqa: ANN001
+            sql = str(statement).lstrip().lower()
+            blob = str(parameters).lower()
+            if probe["attempts"] or not sql.startswith("update") or "plan_adjustment" not in sql:
+                return
+            if "undone" not in blob:
+                return
+            probe["attempts"] += 1
+            other = busy_factory()
+            try:
+                task_service.set_task_status(other, self.user.id, target_id, "done")
+                probe["committed"] = True
+            except Exception as exc:  # noqa: BLE001 — lock failure is the expected evidence
+                probe["error"] = type(exc).__name__
+            finally:
+                other.close()
+            checker = self.session_factory()
+            try:
+                task = checker.get(DailyTask, target_id)
+                probe["status_during"] = None if task is None else task.status
+            finally:
+                checker.close()
+
+        event.listen(self.engine, "after_cursor_execute", during_claim)
+        try:
+            undone = adjustment_service.undo_latest(
+                self.session, self.user.id, self.plan.id
+            )
+        finally:
+            event.remove(self.engine, "after_cursor_execute", during_claim)
+            busy_engine.dispose()
+        self.assertEqual(probe["attempts"], 1)
+        self.assertFalse(probe["committed"], probe)
+        self.assertIsNotNone(probe["error"], probe)
+        self.assertEqual(probe["status_during"], "pending")
+        self.assertEqual(undone.status, "undone")
+        self.session.expire_all()
+        self.assertIsNone(self.session.get(DailyTask, target_id))
 
 
 if __name__ == "__main__":
