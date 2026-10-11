@@ -292,8 +292,10 @@ def settle_overdue_tasks(
 def get_phase_tasks(
     session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
 ) -> list[DailyTask]:
-    """Every daily task of one phase, oldest date first. Missing phase is 404."""
-    settle_overdue_tasks(session, user_id, local_today())
+    """Every daily task of one phase, oldest date first. Missing phase is 404.
+
+    Reading does not carry overdue tasks. A confirmed remedy is the write path.
+    """
     phase = session.scalar(
         select(Phase)
         .join(Plan, Plan.id == Phase.plan_id)
@@ -318,9 +320,8 @@ def get_daily_tasks(
     ``Daily_Task`` has no ``user_id``; ownership is enforced by joining through
     ``Plan.user_id``, so another user's tasks are never returned. Ordering is
     stable: by owning phase index, then task date, then id.
-    Overdue pending tasks are carried onto today before the read.
+    Overdue pending tasks stay on their dates until a confirmed remedy.
     """
-    settle_overdue_tasks(session, user_id, local_today())
     statement = (
         select(DailyTask)
         .join(Plan, Plan.id == DailyTask.plan_id)

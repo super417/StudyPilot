@@ -7,13 +7,29 @@ import type { EvidenceRef, PlanAdjustmentPreview } from '@/lib/plansApi';
 export type NoticeFn = (text: string) => void;
 
 const BLOCKED = new Set(['fail', 'unknown', 'insufficient', 'unverified']);
+const ORDINARY_CONFIRM_KEYS = ['evidenceLocation', 'duration', 'schedule'] as const;
+
+export function isRemedyConfirmContract(
+  validation: { ok?: unknown; checks?: Record<string, unknown>; contract?: unknown } | null | undefined,
+): boolean {
+  if (!validation) return false;
+  if (validation.contract === 'remedy') return true;
+  const checks = validation.checks ?? {};
+  return (
+    checks.capacity != null &&
+    ORDINARY_CONFIRM_KEYS.every((key) => checks[key] == null)
+  );
+}
 
 export function adjustmentCanConfirm(
-  validation: { ok?: unknown; checks?: Record<string, unknown> } | null | undefined,
+  validation: { ok?: unknown; checks?: Record<string, unknown>; contract?: unknown } | null | undefined,
 ): boolean {
   if (!validation || validation.ok !== true) return false;
   const checks = validation.checks ?? {};
-  for (const key of ['evidenceLocation', 'duration', 'schedule']) {
+  const keys = isRemedyConfirmContract(validation)
+    ? (['capacity', 'selection'] as const)
+    : ORDINARY_CONFIRM_KEYS;
+  for (const key of keys) {
     const value = checks[key];
     if (value == null || BLOCKED.has(String(value))) return false;
   }
@@ -219,6 +235,7 @@ export async function handleReviseAdjustment(opts: {
   pending: PlanAdjustmentPreview;
   keepActionIds: string[];
   minuteOverrides: Record<string, number>;
+  optionId?: string;
   reviseApi: (
     planId: string,
     adjustmentId: string,
@@ -226,6 +243,7 @@ export async function handleReviseAdjustment(opts: {
       selectionVersion: number;
       keepActionIds: string[];
       minuteOverrides?: Record<string, number>;
+      optionId?: string;
     },
   ) => Promise<PlanAdjustmentPreview>;
   setPending: (preview: PlanAdjustmentPreview) => void;
@@ -237,6 +255,7 @@ export async function handleReviseAdjustment(opts: {
       selectionVersion,
       keepActionIds: opts.keepActionIds,
       minuteOverrides: opts.minuteOverrides,
+      optionId: opts.optionId,
     });
     opts.setPending({
       ...opts.pending,

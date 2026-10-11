@@ -63,6 +63,30 @@ export interface PlanAdjustmentDiff {
     status: string;
     estimatedMinutes?: number | null;
   }>;
+  remedy?: {
+    selectedOption: string;
+    options: Array<{ id: string; label: string; ok: boolean; goalDate?: string; reason?: string }>;
+    arranged: Array<{
+      sourceId: string;
+      taskDate: string;
+      description: string;
+      estimatedMinutes?: number | null;
+      phaseEnd?: string | null;
+    }>;
+    notArranged: Array<{ sourceId: string; description: string; reason: string }>;
+    candidates: Array<{
+      sourceId: string;
+      description: string;
+      taskDate: string;
+      estimatedMinutes?: number | null;
+    }>;
+    doneCount: number;
+    dailyMinutes?: number;
+    recordedMinutes: number | null;
+    todayAvailable: number | null;
+    overLimit: boolean;
+    phaseHistoryUnchanged: boolean;
+  };
 }
 
 export interface EvidenceRef {
@@ -81,6 +105,13 @@ export interface EvidenceRef {
   source?: string;
   description?: string;
   estimatedMinutes?: number | null;
+  note?: string;
+  difficulty?: number;
+  energy?: number;
+  checkDate?: string;
+  durationMinutes?: number | null;
+  taskDate?: string;
+  checkInId?: string;
 }
 
 export interface PlanAdjustmentPreview {
@@ -293,11 +324,12 @@ export function confirmPlanAdjustment(
 export function revisePlanAdjustment(
   planId: string,
   adjustmentId: string,
-  body: {
-    selectionVersion: number;
-    keepActionIds: string[];
-    minuteOverrides?: Record<string, number>;
-  },
+    body: {
+      selectionVersion: number;
+      keepActionIds: string[];
+      minuteOverrides?: Record<string, number>;
+      optionId?: string;
+    },
 ) {
   return apiRequest<{ status: string; adjustment: PlanAdjustmentPreview }>(
     `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/revise`,
@@ -322,6 +354,23 @@ export function openOwnedChunk(
   }>(
     `/api/documents/${encodeURIComponent(docId)}/chunks/${chunkIndex}${query}`,
   );
+}
+
+export function createRemedyPreview(planId: string) {
+  return apiRequest<{ status: string; adjustment: PlanAdjustmentPreview }>(
+    `/api/plans/${encodeURIComponent(planId)}/remedy-preview`,
+    { method: 'POST' },
+  ).then((payload) => {
+    const row = payload.adjustment;
+    return {
+      ...row,
+      summary: row.summary || row.decisionSummary || '',
+      phases: row.phases ?? 0,
+      usedDocs: row.usedDocs ?? [],
+      evidenceRefs: row.evidenceRefs ?? [],
+      steps: row.steps ?? [],
+    };
+  });
 }
 
 export function rejectPlanAdjustment(planId: string, adjustmentId: string) {

@@ -5,6 +5,7 @@ import type { EvidenceRef, PlanAdjustmentPreview } from '@/lib/plansApi';
 import {
   adjustmentCanConfirm,
   effectivePreviewTasks,
+  isRemedyConfirmContract,
   localSelectionDirty,
   minuteDraftState,
   minuteInputValue,
@@ -33,6 +34,9 @@ export interface AdjustmentPreviewViewProps {
   onMinutes?: (actionId: string, raw: string) => void;
   onRevise?: () => void;
   onOpenSource?: (ref: EvidenceRef) => void;
+  remedyOption?: string;
+  onRemedyOption?: (optionId: string) => void;
+  extraDirty?: boolean;
 }
 
 function durationDays(pending: PlanAdjustmentPreview): Array<Record<string, unknown>> {
@@ -53,24 +57,39 @@ export function AdjustmentPreviewView({
   onMinutes,
   onRevise,
   onOpenSource,
+  remedyOption,
+  onRemedyOption,
+  extraDirty = false,
 }: AdjustmentPreviewViewProps) {
   if (!pending && !showUndo) return null;
 
   const checks = (pending?.validation?.checks ?? {}) as Record<string, unknown>;
   const proposed = pending?.diff.proposedPending ?? [];
   const rows = pending ? effectivePreviewTasks(pending) : [];
-  const serverIds = proposed
-    .map((item) => item.actionId)
-    .filter((id): id is string => Boolean(id));
+  const remedy = pending?.diff.remedy;
+  const serverIds = remedy
+    ? remedy.candidates
+        .map((item) => item.sourceId)
+        .filter(
+          (id) =>
+            !remedy.notArranged.some(
+              (item) => item.sourceId === id && item.reason === '本次不补做',
+            ),
+        )
+    : proposed
+        .map((item) => item.actionId)
+        .filter((id): id is string => Boolean(id));
   const minuteState = minuteDraftState(minuteTexts);
   const selectionDirty =
     pending != null &&
     keptActionIds != null &&
     (localSelectionDirty(serverIds, keptActionIds, minuteTexts) ||
-      minuteState.invalidIds.length > 0);
+      minuteState.invalidIds.length > 0 ||
+      extraDirty);
   const canConfirm = pending
     ? adjustmentCanConfirm(pending.validation) && !selectionDirty
     : false;
+  const remedyContract = pending ? isRemedyConfirmContract(pending.validation) : false;
   const days = pending ? durationDays(pending) : [];
   const refs = pending?.evidenceRefs ?? [];
   const planChanges = pending?.diff.planChanges ?? [];
@@ -85,6 +104,118 @@ export function AdjustmentPreviewView({
         <>
           <p className="font-medium">调整预览（尚未写入）· 计划 {pending.planId.slice(0, 8)}…</p>
           <p className="whitespace-pre-wrap text-brandDark/80">{pending.decisionSummary}</p>
+          {pending.diff.remedy ? (
+            <div className="space-y-1 rounded-lg bg-brandFaint/40 p-2">
+              <p>
+                已完成 {pending.diff.remedy.doneCount} 条 · 今日已记录投入{' '}
+                {pending.diff.remedy.recordedMinutes == null
+                  ? '未记录'
+                  : `${pending.diff.remedy.recordedMinutes} 分钟`}
+                {pending.diff.remedy.todayAvailable == null
+                  ? ' · 实际剩余未知'
+                  : ` · 今日可用 ${pending.diff.remedy.todayAvailable} 分钟`}
+                {pending.diff.remedy.overLimit ? ' · 今日已超限' : ''}
+              </p>
+              {pending.diff.remedy.phaseHistoryUnchanged ? (
+                <p>阶段历史结束日未改。新补做可以排在该日期之后。</p>
+              ) : null}
+              {pending.diff.remedy.dailyMinutes != null ? (
+                <p>每日上限 {pending.diff.remedy.dailyMinutes} 分钟。这是用户容量约束。</p>
+              ) : null}
+              {refs
+                .filter((ref) => ref.kind === 'checkin')
+                .map((ref, index) => (
+                  <p key={ref.checkInId ?? `checkin-${index}`}>
+                    日级打卡 {ref.checkDate ?? ''} · 已记录 {ref.durationMinutes ?? ''} 分钟 · 难度{' '}
+                    {ref.difficulty ?? ''} · 精力 {ref.energy ?? ''}
+                    {ref.note ? ` · 备注 ${ref.note}` : ''}
+                    。这是当天记录，不分配到某条任务，也不作为排程原因。
+                  </p>
+                ))}
+              {refs
+                .filter((ref) => ref.kind === 'practice')
+                .map((ref, index) => (
+                  <p key={`practice-${index}`}>
+                    补充练习 {ref.text ?? ''}。不参与容量，不单独改期。
+                  </p>
+                ))}
+              <div className="flex flex-wrap gap-1">
+                {pending.diff.remedy.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className="rounded border border-brand/40 px-2 py-1"
+                    aria-pressed={
+                      (remedyOption ?? pending.diff.remedy?.selectedOption) === option.id
+                    }
+                    onClick={() => onRemedyOption?.(option.id)}
+                  >
+                    {option.label}
+                    {option.ok ? '' : '（当前放不下）'}
+                  </button>
+                ))}
+              </div>
+              <p>本次安排 {pending.diff.remedy.arranged.length} 条</p>
+              {pending.diff.remedy.arranged.map((item) => (
+                <p key={item.sourceId}>
+                  {item.taskDate} · {item.description}
+                  {item.phaseEnd ? ` · 阶段历史结束日 ${item.phaseEnd}` : ''}
+                </p>
+              ))}
+              <p>未安排 {pending.diff.remedy.notArranged.length} 条。取消勾选是本次不补做，原任务仍待补，不增加完成数。</p>
+              {pending.diff.remedy.candidates.map((item) => {
+                const kept = !keptActionIds || keptActionIds.includes(item.sourceId);
+                const minuteText = minuteInputValue(
+                  minuteTexts,
+                  item.sourceId,
+                  item.estimatedMinutes,
+                );
+                const minuteInvalid = minuteState.invalidIds.includes(item.sourceId);
+                const linked = refs.filter(
+                  (ref) =>
+                    ref.actionId === item.sourceId ||
+                    (ref.actionIds ?? []).includes(item.sourceId),
+                );
+                return (
+                  <div key={item.sourceId} className="space-y-1">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={kept}
+                      aria-label={`本次安排 ${item.description}`}
+                      onChange={(event) =>
+                        onToggleAction?.(item.sourceId, event.target.checked)
+                      }
+                    />
+                    <span>
+                      {item.taskDate} · {item.description}
+                      {item.estimatedMinutes == null ? ' · 预计未知' : ` · 预计 ${item.estimatedMinutes} 分钟`}
+                    </span>
+                    <input
+                      className="w-16 rounded border border-brand/30 px-1 py-0.5"
+                      inputMode="numeric"
+                      aria-label={`${item.description} 预计分钟`}
+                      aria-invalid={minuteInvalid}
+                      placeholder="分钟"
+                      value={minuteText}
+                      onChange={(event) => onMinutes?.(item.sourceId, event.target.value)}
+                    />
+                  </label>
+                  {linked.map((ref, refIndex) => (
+                    <p key={`${item.sourceId}-fact-${refIndex}`}>
+                      本任务事实：{ref.taskDate ?? ''} {ref.description ?? ''}
+                    </p>
+                  ))}
+                  </div>
+                );
+              })}
+              {pending.diff.remedy.notArranged.map((item) => (
+                <p key={`${item.sourceId}-${item.reason}`}>
+                  {item.description} · {item.reason}
+                </p>
+              ))}
+            </div>
+          ) : null}
 
           <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-brandFaint/40 p-2">
             <p className="font-medium text-brandDark/90">将替换的任务</p>
@@ -229,11 +360,17 @@ export function AdjustmentPreviewView({
               </p>
             ))}
             <p className="pt-1 font-medium text-brandDark/90">规则结果</p>
-            <p>结构：{checkLabel(checks.structure)}</p>
-            <p>历史保护：{checkLabel(checks.protectedTaskRule)}</p>
-            <p>证据定位：{checkLabel(checks.evidenceLocation)}</p>
-            <p>时长校验：{checkLabel(checks.duration)}</p>
-            <p>日期约束：{checkLabel(checks.schedule)}</p>
+            {remedyContract ? (
+              <p>容量：{checkLabel(checks.capacity)}</p>
+            ) : (
+              <>
+                <p>结构：{checkLabel(checks.structure)}</p>
+                <p>历史保护：{checkLabel(checks.protectedTaskRule)}</p>
+                <p>证据定位：{checkLabel(checks.evidenceLocation)}</p>
+                <p>时长校验：{checkLabel(checks.duration)}</p>
+                <p>日期约束：{checkLabel(checks.schedule)}</p>
+              </>
+            )}
             <p>选择：{checkLabel(checks.selection)}</p>
           </div>
 

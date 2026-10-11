@@ -351,6 +351,241 @@ describe('AdjustmentPreviewView R8', () => {
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>确认写入<\/button>/);
   });
 
+  it('shows remedy choices and blocks confirm while the option is dirty', () => {
+    const pending: PlanAdjustmentPreview = {
+      ...samplePending,
+      decisionSummary: '补救方案，未调用模型',
+      validation: { ok: true, checks: { capacity: 'pass', selection: 'pass' } },
+      diff: {
+        removedOrReplaced: [],
+        proposedPending: [
+          {
+            actionId: 'src-1',
+            taskDate: '2026-10-13',
+            description: '待补的过期任务',
+            status: 'pending',
+            estimatedMinutes: 30,
+          },
+        ],
+        protectedKept: 1,
+        remedy: {
+          selectedOption: 'spread',
+          options: [
+            { id: 'spread', label: '分散补做', ok: false },
+            { id: 'reduce', label: '本次不补做', ok: true },
+            { id: 'extend', label: '延后截止', ok: true, goalDate: '2026-10-13' },
+          ],
+          arranged: [
+            {
+              sourceId: 'src-1',
+              taskDate: '2026-10-13',
+              description: '待补的过期任务',
+              estimatedMinutes: 30,
+              phaseEnd: '2026-10-10',
+            },
+          ],
+          notArranged: [],
+          candidates: [
+            {
+              sourceId: 'src-1',
+              description: '待补的过期任务',
+              taskDate: '2026-10-10',
+              estimatedMinutes: 30,
+            },
+          ],
+          doneCount: 1,
+          recordedMinutes: null,
+          todayAvailable: null,
+          overLimit: false,
+          phaseHistoryUnchanged: true,
+        },
+      },
+    };
+    const markup = renderToStaticMarkup(
+      createElement(AdjustmentPreviewView, {
+        pending,
+        showUndo: false,
+        keptActionIds: ['src-1'],
+        remedyOption: 'extend',
+        extraDirty: true,
+        onConfirm: () => undefined,
+        onReject: () => undefined,
+        onUndo: () => undefined,
+      }),
+    );
+    expect(markup).toContain('延后截止');
+    expect(markup).toContain('本次不补做');
+    expect(markup).toContain('未记录');
+    expect(markup).toContain('实际剩余未知');
+    expect(markup).toContain('阶段历史结束日未改');
+    expect(markup).toContain('已完成 1 条');
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>确认写入<\/button>/);
+  });
+
+  it('confirms a synced remedy preview and edits unknown minutes', () => {
+    const base: PlanAdjustmentPreview = {
+      ...samplePending,
+      decisionSummary: '补救方案，未调用模型',
+      validation: {
+        ok: true,
+        contract: 'remedy',
+        checks: { capacity: 'pass', selection: 'pass' },
+        durationDays: [
+          { date: '2026-10-13', knownMinutes: 30, unknownCount: 0, cap: 60, result: 'pass' },
+        ],
+      },
+      evidenceRefs: [
+        {
+          kind: 'task',
+          actionId: 'src-1',
+          taskDate: '2026-10-10',
+          description: '待补的过期任务',
+        },
+        {
+          kind: 'checkin',
+          checkInId: 'ci-1',
+          checkDate: '2026-10-11',
+          durationMinutes: 15,
+          difficulty: 4,
+          energy: 2,
+          note: 'review-difficulty-note',
+        },
+      ],
+      diff: {
+        removedOrReplaced: [],
+        proposedPending: [
+          {
+            actionId: 'src-1',
+            taskDate: '2026-10-13',
+            description: '待补的过期任务',
+            status: 'pending',
+            estimatedMinutes: 30,
+          },
+        ],
+        protectedKept: 0,
+        remedy: {
+          selectedOption: 'spread',
+          options: [
+            { id: 'spread', label: '分散补做', ok: true },
+            { id: 'reduce', label: '本次不补做', ok: true },
+            { id: 'extend', label: '延后截止', ok: true },
+          ],
+          arranged: [
+            {
+              sourceId: 'src-1',
+              taskDate: '2026-10-13',
+              description: '待补的过期任务',
+              estimatedMinutes: 30,
+            },
+          ],
+          notArranged: [],
+          candidates: [
+            {
+              sourceId: 'src-1',
+              description: '待补的过期任务',
+              taskDate: '2026-10-10',
+              estimatedMinutes: 30,
+            },
+          ],
+          doneCount: 1,
+          dailyMinutes: 60,
+          recordedMinutes: 15,
+          todayAvailable: 45,
+          overLimit: false,
+          phaseHistoryUnchanged: true,
+        },
+      },
+    };
+    const ready = renderToStaticMarkup(
+      createElement(AdjustmentPreviewView, {
+        pending: base,
+        showUndo: false,
+        keptActionIds: ['src-1'],
+        remedyOption: 'spread',
+        extraDirty: false,
+        onConfirm: () => undefined,
+        onReject: () => undefined,
+        onUndo: () => undefined,
+      }),
+    );
+    expect(ready).toContain('容量：通过');
+    expect(ready).toContain('review-difficulty-note');
+    expect(ready).toContain('本任务事实');
+    expect(ready).toContain('每日上限 60 分钟');
+    expect(ready).toContain('已知 30 分钟');
+    expect(ready).not.toMatch(/<button[^>]*disabled=""[^>]*>确认写入<\/button>/);
+
+    const unknown: PlanAdjustmentPreview = {
+      ...base,
+      validation: { ok: false, contract: 'remedy', checks: { capacity: 'unknown', selection: 'pass' } },
+      diff: {
+        ...base.diff,
+        proposedPending: [],
+        remedy: {
+          ...base.diff.remedy!,
+          arranged: [],
+          candidates: [
+            {
+              sourceId: 'src-1',
+              description: '分钟未知',
+              taskDate: '2026-10-10',
+              estimatedMinutes: null,
+            },
+          ],
+        },
+      },
+    };
+    const beforeSave = renderToStaticMarkup(
+      createElement(AdjustmentPreviewView, {
+        pending: unknown,
+        showUndo: false,
+        keptActionIds: ['src-1'],
+        minuteTexts: { 'src-1': '25' },
+        onConfirm: () => undefined,
+        onReject: () => undefined,
+        onUndo: () => undefined,
+      }),
+    );
+    expect(beforeSave).toMatch(/inputmode="numeric"/i);
+    expect(beforeSave).toContain('value="25"');
+    expect(beforeSave).toMatch(/<button[^>]*disabled=""[^>]*>确认写入<\/button>/);
+
+    const saved: PlanAdjustmentPreview = {
+      ...unknown,
+      selectionVersion: 2,
+      validation: { ok: true, contract: 'remedy', checks: { capacity: 'pass', selection: 'pass' } },
+      diff: {
+        ...unknown.diff,
+        remedy: {
+          ...unknown.diff.remedy!,
+          candidates: [
+            {
+              sourceId: 'src-1',
+              description: '分钟未知',
+              taskDate: '2026-10-10',
+              estimatedMinutes: 25,
+            },
+          ],
+        },
+      },
+    };
+    const afterSave = renderToStaticMarkup(
+      createElement(AdjustmentPreviewView, {
+        pending: saved,
+        showUndo: false,
+        keptActionIds: ['src-1'],
+        minuteTexts: {},
+        extraDirty: false,
+        onConfirm: () => undefined,
+        onReject: () => undefined,
+        onUndo: () => undefined,
+      }),
+    );
+    expect(afterSave).toContain('预计 25 分钟');
+    expect(afterSave).toContain('value="25"');
+    expect(afterSave).not.toContain('预计未知');
+  });
+
   it('checkLabel maps unverified distinctly from pass', () => {
     expect(checkLabel('pass')).toBe('通过');
     expect(checkLabel('unverified')).toBe('未验证');

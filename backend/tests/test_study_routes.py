@@ -235,9 +235,8 @@ class StudyRouteTests(unittest.TestCase):
         self.assertEqual(body["status"], "ok")
         self.assertEqual(len(body["tasks"]), 1)
         self.assertEqual(body["tasks"][0]["id"], str(task.id))
-        # 查询日早于今天时，读取前会把仍 pending 的任务标成 carried。
-        expected = "carried" if date(2025, 2, 10) < date.today() else "pending"
-        self.assertEqual(body["tasks"][0]["status"], expected)
+        # 读取任务不写顺延。过期且未标记完成的任务保持 pending。
+        self.assertEqual(body["tasks"][0]["status"], "pending")
         self.assertEqual(body["tasks"][0]["weekLabel"], "W01")
 
     def test_daily_tasks_missing_date_returns_400(self) -> None:

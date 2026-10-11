@@ -3,7 +3,7 @@
  */
 import { useEffect, useState } from 'react';
 import { usePlanSessionStore } from '@/store/planSessionStore';
-import { resolvePlanTargetId } from '@/lib/planTarget';
+import { resolvePlanTargetId, resolveUndoPlanId } from '@/lib/planTarget';
 import {
   handleConfirmAdjustment,
   handleOpenSource,
@@ -35,11 +35,34 @@ function proposedActionIds(
     .filter((id): id is string => Boolean(id));
 }
 
+function remedyKeepIds(
+  pending: {
+    diff: {
+      remedy?: {
+        candidates: Array<{ sourceId: string }>;
+        notArranged: Array<{ sourceId: string; reason: string }>;
+      };
+    };
+  } | null,
+): string[] | null {
+  const remedy = pending?.diff.remedy;
+  if (!remedy) return null;
+  const skipped = new Set(
+    remedy.notArranged
+      .filter((item) => item.reason === '本次不补做')
+      .map((item) => item.sourceId),
+  );
+  return remedy.candidates
+    .map((item) => item.sourceId)
+    .filter((id) => !skipped.has(id));
+}
+
 function AdjustmentPreviewBar({ onNotice }: Props) {
   const pending = usePlanSessionStore((s) => s.pendingAdjustment);
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const targetPlanId = resolvePlanTargetId(activePlanId, lastPlanId);
+  const undoPlanId = resolveUndoPlanId(pending?.planId, activePlanId, lastPlanId);
   const clearPending = usePlanSessionStore((s) => s.clearPendingAdjustment);
   const setPending = usePlanSessionStore((s) => s.setPendingAdjustment);
   const bumpPlanData = usePlanSessionStore((s) => s.bumpPlanDataEpoch);
@@ -48,18 +71,24 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
     proposedActionIds(pending),
   );
   const [minuteTexts, setMinuteTexts] = useState<Record<string, string>>({});
+  const [remedyOption, setRemedyOption] = useState('');
 
   useEffect(() => {
-    const ids = proposedActionIds(pending ?? null);
+    const ids = remedyKeepIds(pending ?? null) ?? proposedActionIds(pending ?? null);
     setKeptActionIds(ids);
     setMinuteTexts({});
+    setRemedyOption(pending?.diff.remedy?.selectedOption ?? '');
   }, [pending?.id, pending?.selectionVersion]);
 
-  const serverActionIds = proposedActionIds(pending);
+  const serverActionIds = remedyKeepIds(pending ?? null) ?? proposedActionIds(pending);
   const minuteState = minuteDraftState(minuteTexts);
+  const optionDirty = Boolean(
+    pending?.diff.remedy && remedyOption !== pending.diff.remedy.selectedOption,
+  );
   const localDirty =
     pending != null &&
-    (localSelectionDirty(serverActionIds, keptActionIds, minuteTexts) ||
+    (optionDirty ||
+      localSelectionDirty(serverActionIds, keptActionIds, minuteTexts) ||
       minuteState.invalidIds.length > 0);
 
   if (!pending && !targetPlanId) return null;
@@ -77,7 +106,7 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
   return (
     <AdjustmentPreviewView
       pending={pending}
-      showUndo={Boolean(targetPlanId)}
+      showUndo={Boolean(undoPlanId)}
       busy={busy}
       keptActionIds={keptActionIds}
       minuteTexts={minuteTexts}
@@ -87,6 +116,9 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
       onMinutes={(actionId, raw) =>
         setMinuteTexts((current) => ({ ...current, [actionId]: raw }))
       }
+      remedyOption={remedyOption}
+      extraDirty={optionDirty}
+      onRemedyOption={setRemedyOption}
       onRevise={() =>
         void run(async () => {
           if (!pending) {
@@ -101,6 +133,7 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
             pending,
             keepActionIds: keptActionIds,
             minuteOverrides: minuteState.overrides,
+            optionId: pending.diff.remedy ? remedyOption : undefined,
             reviseApi: revisePlanAdjustment,
             setPending,
             onNotice,
@@ -152,12 +185,12 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
       }
       onUndo={() =>
         void run(async () => {
-          if (!targetPlanId) {
+          if (!undoPlanId) {
             onNotice('未选定计划');
             return;
           }
           await handleUndoAdjustment({
-            planId: targetPlanId,
+            planId: undoPlanId,
             undoApi: undoPlanAdjustment,
             bumpPlanData,
             onNotice,

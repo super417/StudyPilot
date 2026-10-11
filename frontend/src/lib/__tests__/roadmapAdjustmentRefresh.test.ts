@@ -12,6 +12,20 @@ describe('Roadmap adjustment refresh wiring', () => {
     expect(source).toContain('latest.plan?.id');
   });
 
+  it('overview reloads on planDataEpoch and undo uses the preview plan', () => {
+    const overview = readFileSync(
+      new URL('../../pages/OverviewPage.tsx', import.meta.url),
+      'utf8',
+    );
+    const bar = readFileSync(
+      new URL('../../components/assistant/AdjustmentPreviewBar.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(overview).toContain('planDataEpoch');
+    expect(overview).toMatch(/\[reload, lastPlanId, planDataEpoch\]/);
+    expect(bar).toContain('resolveUndoPlanId(pending?.planId');
+  });
+
   it('assistant regenerate uses resolvePlanTargetId not lastPlanId alone', () => {
     const source = readFileSync(
       new URL('../../hooks/useAssistantChat.ts', import.meta.url),

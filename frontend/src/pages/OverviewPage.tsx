@@ -21,7 +21,7 @@ import {
   setDailyTaskStatus,
   toMetrics,
 } from '@/lib/studyApi';
-import { fetchLatestPlan } from '@/lib/plansApi';
+import { createRemedyPreview, fetchLatestPlan } from '@/lib/plansApi';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 import {
   dueFirst,
@@ -64,6 +64,9 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const planDataEpoch = usePlanSessionStore((s) => s.planDataEpoch);
+  const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
+  const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
   const go = (tab: TabKey) => onNavigate?.(tab);
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -162,7 +165,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
 
   useEffect(() => {
     void reload();
-  }, [reload, lastPlanId]);
+  }, [reload, lastPlanId, planDataEpoch]);
 
   const handleToggleTask = async (task: DailyTask) => {
     const next = task.status === 'done' ? 'pending' : 'done';
@@ -175,6 +178,20 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
       await reload();
     } catch (e) {
       setCheckInMsg(e instanceof ApiError ? e.message : '更新任务状态失败');
+    }
+  };
+
+  const handleArrangeBacklog = async () => {
+    if (!plan) return;
+    setCheckInMsg(null);
+    try {
+      const preview = await createRemedyPreview(plan.id);
+      if (plan.id !== 'derived-latest') setActivePlanId(plan.id);
+      setPendingAdjustment(preview);
+      openAssistantWithContext({ type: 'free', hint: '查看补救预览' });
+      setCheckInMsg('已生成补救预览，确认前不会改正式计划');
+    } catch (e) {
+      setCheckInMsg(e instanceof ApiError ? e.message : '没有可安排的待补任务');
     }
   };
 
@@ -270,7 +287,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
                     onClick={() =>
                       openAssistantWithContext({
                         type: 'plan',
-                        hint: '制定考研复习规划',
+                        hint: '制定学习规划',
                       })
                     }
                   >
@@ -313,13 +330,24 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
           <h2 className="font-display text-2xl font-bold text-brandDark sm:text-3xl">
             你的路线，正在跟着你变化
           </h2>
-          <button
-            type="button"
-            onClick={() => go('roadmap')}
-            className="text-sm font-medium text-brandDark/70 transition hover:text-brandDark"
-          >
-            展开完整路线 →
-          </button>
+          <div className="flex flex-wrap gap-3">
+            {plan ? (
+              <button
+                type="button"
+                onClick={() => void handleArrangeBacklog()}
+                className="text-sm font-medium text-brandDark underline-offset-2 hover:underline"
+              >
+                安排未完成的任务
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => go('roadmap')}
+              className="text-sm font-medium text-brandDark/70 transition hover:text-brandDark"
+            >
+              展开完整路线 →
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <FadeIn delay={0.05} y={24}>

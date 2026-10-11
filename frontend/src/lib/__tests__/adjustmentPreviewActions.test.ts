@@ -118,6 +118,35 @@ describe('adjustmentPreviewActions C6', () => {
     expect(notices.join('\n')).not.toContain('写入成功');
   });
 
+  it('confirms a clean remedy contract and still blocks an ordinary preview missing checks', async () => {
+    const confirmApi = vi.fn(async () => ({ status: 'confirmed', decisionSummary: '已确认补救' }));
+    const remedy = await handleConfirmAdjustment({
+      planId: 'plan-viewed',
+      adjustmentId: 'adj-remedy',
+      selectionVersion: 1,
+      localDirty: false,
+      validation: { ok: true, contract: 'remedy', checks: { capacity: 'pass', selection: 'pass' } },
+      confirmApi,
+      clearPending: vi.fn(),
+      bumpPlanData: vi.fn(),
+      onNotice: () => undefined,
+    });
+    expect(remedy).toBe('success');
+    expect(confirmApi).toHaveBeenCalledTimes(1);
+
+    const ordinary = await handleConfirmAdjustment({
+      planId: 'plan-viewed',
+      adjustmentId: 'adj-ordinary',
+      localDirty: false,
+      validation: { ok: true, checks: { structure: 'pass', selection: 'pass' } },
+      confirmApi: vi.fn(),
+      clearPending: vi.fn(),
+      bumpPlanData: vi.fn(),
+      onNotice: () => undefined,
+    });
+    expect(ordinary).toBe('blocked');
+  });
+
   it('blocks confirm when duration or evidence is unknown or failed', async () => {
     const confirmApi = vi.fn();
     const notices: string[] = [];

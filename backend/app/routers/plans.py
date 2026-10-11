@@ -20,7 +20,7 @@ from app.core.clock import local_today
 from app.core.database import get_db
 from app.models.entities import PlanRevision, User
 from app.routers.dependencies import get_current_user
-from app.services import adjustment_service, document_service, planner_service
+from app.services import adjustment_service, document_service, planner_service, remedy_service
 from app.services.adjustment_service import (
     AdjustmentConflictError,
     AdjustmentNotFoundError,
@@ -155,6 +155,7 @@ class ReviseAdjustmentPayload(BaseModel):
     selection_version: StrictPositiveInt
     keep_action_ids: list[str]
     minute_overrides: dict[str, StrictPositiveInt] | None = None
+    option_id: str | None = None
 
     model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
@@ -779,6 +780,39 @@ def confirm_adjustment_route(
     )
 
 
+@router.post("/{plan_id}/remedy-preview")
+def create_remedy_preview_route(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        row = remedy_service.create_remedy_preview(session, user.id, parsed_plan)
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
+
+
 @router.post("/{plan_id}/adjustments/{adjustment_id}/revise")
 def revise_adjustment_route(
     plan_id: str,
@@ -790,15 +824,30 @@ def revise_adjustment_route(
     try:
         parsed_plan = uuid.UUID(plan_id)
         parsed_adj = uuid.UUID(adjustment_id)
-        row = adjustment_service.revise_preview(
-            session,
-            user.id,
-            parsed_plan,
-            parsed_adj,
-            keep_action_ids=payload.keep_action_ids,
-            minute_overrides=payload.minute_overrides,
-            selection_version=payload.selection_version,
+        existing = adjustment_service.get_adjustment(
+            session, user.id, parsed_plan, parsed_adj
         )
+        if (existing.proposal or {}).get("kind") == "remedy":
+            row = remedy_service.revise_remedy(
+                session,
+                user.id,
+                parsed_plan,
+                parsed_adj,
+                option_id=payload.option_id or str((existing.proposal or {}).get("selectedOption") or ""),
+                keep_source_ids=payload.keep_action_ids,
+                minute_overrides=payload.minute_overrides,
+                selection_version=payload.selection_version,
+            )
+        else:
+            row = adjustment_service.revise_preview(
+                session,
+                user.id,
+                parsed_plan,
+                parsed_adj,
+                keep_action_ids=payload.keep_action_ids,
+                minute_overrides=payload.minute_overrides,
+                selection_version=payload.selection_version,
+            )
     except (ValueError, AttributeError, TypeError, PlanNotFoundError):
         return JSONResponse(
             status_code=404,
