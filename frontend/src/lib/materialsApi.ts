@@ -71,3 +71,50 @@ export function selectMaterial(
     { method: 'POST', body: JSON.stringify(body) },
   );
 }
+
+export interface MaterialTaskPreviewResponse {
+  previewId: string;
+  previewVersion: number;
+  confirmOpen: boolean;
+  comparisonId: string;
+  selectedCandidateId: string;
+  planId: string | null;
+  displayName: string;
+  basis: {
+    kind: 'document' | 'link';
+    docId?: string;
+    url?: string;
+    chunks?: Array<{ chunkIndex: number; pageStart: number | null }>;
+    coverage?: string;
+  };
+  emptyDates: string[];
+  validation: { ok: boolean; checks: Record<string, string> };
+  phases: Array<{
+    name: string;
+    startDate: string;
+    endDate: string;
+    tasks: Array<{
+      actionId: string;
+      taskDate: string;
+      description: string;
+      estimatedMinutes: number | null;
+    }>;
+  }>;
+}
+
+export function previewMaterialTasks(
+  comparisonId: string,
+  body: {
+    goalName: string;
+    goalDate: string;
+    currentLevel: string;
+    dailyMinutes: number;
+    completionCriterion: string;
+    planId: string | null;
+  },
+): Promise<MaterialTaskPreviewResponse> {
+  return apiRequest<MaterialTaskPreviewResponse>(
+    `/api/materials/comparisons/${encodeURIComponent(comparisonId)}/task-preview`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}

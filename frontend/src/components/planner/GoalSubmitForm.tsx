@@ -13,7 +13,7 @@ import {
 import { ApiError } from '@/lib/httpClient';
 import { validateGoalDraft } from '@/lib/goalDraft';
 import { resolvePlanTargetId } from '@/lib/planTarget';
-import type { MaterialComparisonResponse } from '@/lib/materialsApi';
+import type { MaterialComparisonResponse, MaterialTaskPreviewResponse } from '@/lib/materialsApi';
 
 export interface PlanGeneratePayload {
   goalName: string;
@@ -63,9 +63,20 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const materialOp = useRef(0);
   const planSeen = useRef<string | null | undefined>(undefined);
   const selectableComparisonId = useRef<string | null>(null);
+  const previewOp = useRef(0);
+  const [materialFlow, setMaterialFlow] = useState(false);
+  const [materialBusy, setMaterialBusy] = useState(false);
+  const [materialPreview, setMaterialPreview] = useState<MaterialTaskPreviewResponse | null>(null);
+  const liveSelection = useRef<{ comparisonId: string | null; candidateId: string | null }>({
+    comparisonId: null,
+    candidateId: null,
+  });
+  const selectionPending = useRef(false);
   const currentPlanId = resolvePlanTargetId(activePlanId, lastPlanId);
   if (planSeen.current !== undefined && planSeen.current !== currentPlanId) {
     materialOp.current += 1;
+    previewOp.current += 1;
+    setMaterialPreview(null);
     if (materialComparison && (materialComparison.planId ?? null) !== currentPlanId) {
       selectableComparisonId.current = null;
       setMaterialComparison(null);
@@ -93,8 +104,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
 
   const forgetComparison = () => {
     materialOp.current += 1;
+    previewOp.current += 1;
     selectableComparisonId.current = null;
     setMaterialComparison(null);
+    setMaterialPreview(null);
   };
 
   const shownComparison =
@@ -102,12 +115,25 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       ? materialComparison
       : null;
   selectableComparisonId.current = shownComparison?.comparisonId ?? null;
+  liveSelection.current = selectionPending.current
+    ? { comparisonId: shownComparison?.comparisonId ?? null, candidateId: null }
+    : {
+        comparisonId: shownComparison?.comparisonId ?? null,
+        candidateId: shownComparison?.selectedCandidateId ?? null,
+      };
 
   const handleCompare = async () => {
     const ticket = ++materialOp.current;
     const planId = currentPlanId;
     selectableComparisonId.current = null;
     setMaterialComparison(null);
+    previewOp.current += 1;
+    setMaterialPreview(null);
+    setMaterialFlow(true);
+    setMaterialBusy(true);
+    clearClarify();
+    usePlanSessionStore.getState().blockLegacyDraft?.();
+    try {
     let minutes = Number(dailyMinutes);
     if (!planId) {
       const today = new Date();
@@ -147,6 +173,9 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       setMaterialComparison(null);
       setMaterialHint(err instanceof ApiError ? err.message : '比较失败');
     }
+    } finally {
+      if (ticket === materialOp.current) setMaterialBusy(false);
+    }
   };
 
   const handleSelectMaterial = async (candidateId: string) => {
@@ -155,6 +184,11 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     if (selectableComparisonId.current !== comparisonId) return;
     const ticket = ++materialOp.current;
     const planId = currentPlanId;
+    selectionPending.current = true;
+    setMaterialBusy(true);
+    previewOp.current += 1;
+    setMaterialPreview(null);
+    liveSelection.current = { comparisonId, candidateId: null };
     const { selectMaterial } = await import('@/lib/materialsApi');
     try {
       const result = await selectMaterial(comparisonId, {
@@ -167,16 +201,68 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       });
       if (ticket !== materialOp.current || planSeen.current !== planId) return;
       setMaterialComparison(result);
+      setMaterialPreview(null);
+      previewOp.current += 1;
     } catch (err) {
       if (ticket !== materialOp.current || planSeen.current !== planId) return;
       setMaterialComparison(null);
+      setMaterialPreview(null);
+      previewOp.current += 1;
       setMaterialHint(err instanceof ApiError ? err.message : '这次选择已失效，请重新比较');
+    } finally {
+      if (ticket === materialOp.current) {
+        selectionPending.current = false;
+        setMaterialBusy(false);
+      }
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleMaterialPreview = async () => {
+    if (materialBusy || selectionPending.current) {
+      setMaterialHint(selectionPending.current ? '正在选择资料，还不能生成任务' : '正在比较，还不能生成任务');
+      return;
+    }
+    const selected = shownComparison?.candidates.find(
+      (item) => item.candidateId === shownComparison.selectedCandidateId,
+    );
+    if (!shownComparison || !selected || selected.usableSource === false || selected.readStatus !== 'read') {
+      setMaterialHint('请选择一份有正文的资料，或重新比较');
+      return;
+    }
+    const ticket = ++previewOp.current;
+    const planId = currentPlanId;
+    const comparisonId = shownComparison.comparisonId;
+    const selectedId = shownComparison.selectedCandidateId;
+    setMaterialPreview(null);
+    setMaterialHint(null);
+    try {
+      const { previewMaterialTasks } = await import('@/lib/materialsApi');
+      const result = await previewMaterialTasks(comparisonId, {
+        goalName: goalName.trim(),
+        goalDate: goalDate.trim(),
+        currentLevel: currentLevel.trim(),
+        dailyMinutes: Number(dailyMinutes),
+        completionCriterion: completionCriterion.trim(),
+        planId,
+      });
+      if (ticket !== previewOp.current || planSeen.current !== planId) return;
+      if (liveSelection.current.comparisonId !== comparisonId) return;
+      if (liveSelection.current.candidateId !== selectedId) return;
+      setMaterialPreview(result);
+    } catch (err) {
+      if (ticket !== previewOp.current || planSeen.current !== planId) return;
+      setMaterialPreview(null);
+      setMaterialHint(err instanceof ApiError ? err.message : '预览没有生成');
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent, legacy = false) => {
     e.preventDefault();
     if (streaming) return;
+    if (materialFlow && !legacy) {
+      await handleMaterialPreview();
+      return;
+    }
 
     const today = new Date();
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -434,13 +520,60 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
           ))}
         </div>
       ) : null}
+      {materialPreview ? (
+        <div className="space-y-1 rounded-lg bg-white/80 p-2 text-[11px]">
+          <p>{materialPreview.confirmOpen ? '可以确认写入' : '还不能确认写入'}</p>
+          <p>
+            资料范围：
+            {materialPreview.basis.kind === 'document'
+              ? `${materialPreview.basis.docId}，片段 ${materialPreview.basis.chunks?.map((chunk) => chunk.chunkIndex).join('、') || '无'}`
+              : materialPreview.basis.url}
+            。名称只用于显示：{materialPreview.displayName}
+          </p>
+          {materialPreview.phases.map((phase) => (
+            <div key={`${phase.name}-${phase.startDate}`}>
+              {phase.tasks.map((task) => (
+                <p key={task.actionId}>
+                  {task.description}
+                  {task.estimatedMinutes == null ? '，预计未知' : `，预计 ${task.estimatedMinutes} 分钟`}
+                </p>
+              ))}
+            </div>
+          ))}
+          {materialPreview.emptyDates.length > 0 ? (
+            <p>这些日期没有安排，不会补任务：{materialPreview.emptyDates.join('、')}</p>
+          ) : null}
+          <p>{materialPreview.validation.ok ? '规则通过，这一步仍不能确认。' : '规则未通过，不能确认。'}</p>
+        </div>
+      ) : null}
       <button
         type="submit"
-        disabled={streaming}
+        disabled={streaming || materialBusy || selectionPending.current}
         className="w-full rounded-full bg-brandDark py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-60"
       >
-        {streaming ? '规划生成中…' : draftId ? '提交补充并继续' : '生成学习规划'}
+        {streaming
+          ? '规划生成中…'
+          : materialFlow
+            ? materialBusy
+              ? '正在比较'
+              : '生成资料任务预览'
+            : draftId
+              ? '提交补充并继续'
+              : '生成学习规划'}
       </button>
+      {materialFlow ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            usePlanSessionStore.getState().releaseLegacyDraft?.();
+            setMaterialFlow(false);
+            void handleSubmit(event, true);
+          }}
+          className="w-full rounded-full border border-brandDark py-1.5 text-xs font-medium text-brandDark"
+        >
+          不使用这次资料比较，按原来的方式生成
+        </button>
+      ) : null}
     </form>
   );
 }

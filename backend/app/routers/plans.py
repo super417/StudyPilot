@@ -398,6 +398,9 @@ async def _no_file_frames(
         )
         return
     if draft.pending and is_plan_confirm(text) and not missing:
+        if draft.confirm_blocked:
+            yield _error_frame("DRAFT_CLOSED", "已经开始资料比较，这份旧草稿不能确认")
+            return
         result = confirm_draft_plan(
             session, user_id, draft.fields, draft.pending, draft.used_docs
         )
@@ -523,6 +526,9 @@ async def clarify_plan_route(
     async def stream() -> AsyncIterator[str]:
         if draft is None:
             yield _error_frame(_DRAFT_NOT_FOUND_CODE, _DRAFT_NOT_FOUND_MESSAGE)
+            return
+        if draft.confirm_blocked:
+            yield _error_frame("DRAFT_CLOSED", "已经开始资料比较，这份旧草稿不能确认")
             return
 
         if draft.document_ids == [] and not payload.document_ids:

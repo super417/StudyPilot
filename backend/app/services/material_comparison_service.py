@@ -11,6 +11,7 @@ from app.models.entities import Plan
 from app.services import planner_service
 from app.services.evidence_time import content_hash, load_owned_chunks
 from app.services.material_comparison_store import MaterialComparison, material_comparison_store
+from app.services.plan_draft_store import plan_draft_store
 
 INCLUDED_CHARS = 1000
 COMPARISON_TTL = timedelta(minutes=30)
@@ -335,6 +336,7 @@ async def compare_materials(
 ) -> dict:
     comparison_id = secrets.token_urlsafe(18)
     material_comparison_store.claim(user_id, comparison_id)
+    plan_draft_store.block_confirm(user_id)
     if plan_id:
         plan = _owned_plan(session, user_id, plan_id)
         goal = _snapshot_from_plan(plan)

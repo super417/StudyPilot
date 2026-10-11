@@ -17,6 +17,7 @@ from app.services.material_comparison_service import (
     default_material_advisor,
     select_material,
 )
+from app.services.material_task_service import preview_material_tasks
 from app.services.video_link import fetch_link
 
 router = APIRouter(prefix="/api/materials", tags=["materials"])
@@ -69,6 +70,11 @@ class SelectPayload(BaseModel):
 
 def get_link_reader():
     return fetch_link
+
+
+def get_material_task_model():
+    """None uses the isolated preview prompt and the existing chat transport."""
+    return None
 
 
 def get_material_advisor(
@@ -147,3 +153,41 @@ def select_route(
         )
     except MaterialComparisonError as error:
         return _error(error)
+
+
+class TaskPreviewPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    goal_name: str
+    goal_date: str
+    current_level: str
+    daily_minutes: StrictPositiveInt
+    completion_criterion: str | None = None
+    plan_id: str | None = None
+
+
+@router.post("/comparisons/{comparison_id}/task-preview")
+async def task_preview_route(
+    comparison_id: str,
+    payload: TaskPreviewPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+    model=Depends(get_material_task_model),
+):
+    try:
+        return await preview_material_tasks(
+            session,
+            user.id,
+            comparison_id,
+            _goal_from(payload),
+            payload.plan_id,
+            model,
+        )
+    except MaterialComparisonError as error:
+        return _error(error)
+
+
+@router.post("/task-previews/{preview_id}/confirm")
+def confirm_task_preview_route(preview_id: str, user: User = Depends(get_current_user)):
+    del preview_id, user
+    return _error(MaterialComparisonError(409, "CONFIRM_NOT_OPEN", "这一步还不能确认资料任务"))

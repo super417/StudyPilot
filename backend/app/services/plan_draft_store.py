@@ -36,6 +36,7 @@ class PlanDraft:
     pending: dict | None = None
     pending_basis: tuple | None = None
     used_docs: list[str] = field(default_factory=list)
+    confirm_blocked: bool = False
 
 
 class PlanDraftStore:
@@ -77,6 +78,12 @@ class PlanDraftStore:
         """Drop a draft; used once a plan is generated (or on cleanup)."""
         if draft_id:
             self._drafts.pop(draft_id, None)
+
+    def block_confirm(self, user_id: uuid.UUID) -> None:
+        """Stop leftover drafts for this user from being confirmed into a plan."""
+        for draft in self._drafts.values():
+            if draft.user_id == user_id:
+                draft.confirm_blocked = True
 
     def clear(self) -> None:
         """Remove every draft; primarily a test hook."""

@@ -128,7 +128,15 @@ export function useAssistantChat(acceptQueued = true) {
         return;
       }
 
-      const draftId = usePlanSessionStore.getState().draftId;
+      const sessionNow = usePlanSessionStore.getState();
+      if (
+        sessionNow.legacyDraftBlocked &&
+        /^(?:确定|确认|可以|同步|就这样|就按这个|ok|okay|yes)[。.!！]?$/i.test(text)
+      ) {
+        pushAssistant('已经开始资料比较，这份旧草稿不能确认。');
+        return;
+      }
+      const draftId = sessionNow.legacyDraftBlocked ? null : sessionNow.draftId;
       if (draftId) {
         const ac = new AbortController();
         abortRef.current = ac;

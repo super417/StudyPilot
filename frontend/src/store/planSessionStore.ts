@@ -15,9 +15,13 @@ interface PlanSessionState {
   pendingAdjustment: PlanAdjustmentPreview | null;
   /** 确认/撤销写入后递增，驱动 Roadmap 等同计划刷新 */
   planDataEpoch: number;
+  /** 进入资料比较后，遗留的旧无资料草稿不能再由聊天确认。 */
+  legacyDraftBlocked: boolean;
   setClarify: (draftId: string, question: string) => void;
   setPreview: (draftId: string) => void;
   clearClarify: () => void;
+  blockLegacyDraft: () => void;
+  releaseLegacyDraft: () => void;
   setLastPlanId: (planId: string) => void;
   setActivePlanId: (planId: string | null) => void;
   askForStart: () => void;
@@ -35,12 +39,21 @@ export const usePlanSessionStore = create<PlanSessionState>((set) => ({
   activePlanId: null,
   pendingAdjustment: null,
   planDataEpoch: 0,
+  legacyDraftBlocked: false,
   setClarify: (draftId, question) =>
     set({ draftId, clarifyQuestion: question, awaitingConfirm: false }),
   setPreview: (draftId) =>
     set({ draftId, clarifyQuestion: null, awaitingConfirm: true }),
   clearClarify: () =>
     set({ draftId: null, clarifyQuestion: null, awaitingConfirm: false }),
+  blockLegacyDraft: () =>
+    set({
+      legacyDraftBlocked: true,
+      draftId: null,
+      clarifyQuestion: null,
+      awaitingConfirm: false,
+    }),
+  releaseLegacyDraft: () => set({ legacyDraftBlocked: false }),
   setLastPlanId: (planId) => set({ lastPlanId: planId }),
   setActivePlanId: (planId) => set({ activePlanId: planId }),
   askForStart: () => set({ awaitingStart: true, draftId: null, clarifyQuestion: null }),
