@@ -104,7 +104,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
                 }
                 setContext({ type: 'plan', hint: '制定或调整考研复习规划' });
               }}
-              aria-label={showPlanForm ? '收起考研目标表单' : '提交考研学习目标'}
+              aria-label={showPlanForm ? '收起学习目标表单' : '提交学习目标'}
               title={showPlanForm ? '收起目标表单（聊天继续）' : '提交考研学习目标'}
               aria-pressed={showPlanForm}
               className={`rounded-full p-1.5 transition-colors hover:bg-white/70 ${

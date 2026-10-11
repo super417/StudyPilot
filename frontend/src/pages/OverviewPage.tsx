@@ -49,7 +49,7 @@ function planFromMetrics(metrics: Metrics, today: string): Plan | null {
   const remaining = metrics.remainingDays;
   return {
     id: 'derived-latest',
-    goalName: '当前考研规划',
+    goalName: '当前学习规划',
     subtitle: `剩余 ${remaining} 天 · 阶段 ${metrics.phaseProgress.completed}/${metrics.phaseProgress.total}`,
     startDate: addDaysISO(today, -Math.max(1, 30 - Math.min(remaining, 30))),
     goalDate: addDaysISO(today, remaining),
@@ -128,6 +128,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
           goalDate: latestPlan.plan.goalDate,
           currentLevel: latestPlan.plan.currentLevel,
           dailyMinutes: latestPlan.plan.dailyMinutes,
+          completionCriterion: latestPlan.plan.completionCriterion ?? null,
           totalPhases: latestPlan.plan.totalPhases,
           updatedAt: latestPlan.plan.updatedAt.slice(0, 10),
         });
@@ -258,10 +259,10 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
                 <section className="card p-8">
                   <p className="text-sm text-gray-500">当前目标</p>
                   <h2 className="mt-2 font-display text-2xl font-bold text-brandDark">
-                    尚未生成考研规划
+                    尚未生成学习规划
                   </h2>
                   <p className="mt-2 text-sm text-gray-500">
-                    在学习助手中提交目标与资料，生成复习阶段与每日任务后，这里会显示备考进度。
+                    在学习助手中提交学习内容和完成标准后，这里会显示目标与进度。
                   </p>
                   <button
                     type="button"

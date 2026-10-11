@@ -69,6 +69,7 @@ def basis_fingerprint(session: Session, plan: Plan) -> str:
             "startDate": plan.start_date.isoformat(),
             "currentLevel": plan.current_level,
             "dailyMinutes": plan.daily_minutes,
+            "completionCriterion": plan.completion_criterion,
             "totalPhases": plan.total_phases,
         },
         "phases": [
@@ -125,6 +126,7 @@ def _snapshot_body(session: Session, plan: Plan) -> dict:
             "startDate": plan.start_date.isoformat(),
             "currentLevel": plan.current_level,
             "dailyMinutes": plan.daily_minutes,
+            "completionCriterion": plan.completion_criterion,
             "totalPhases": plan.total_phases,
         },
         "phases": [
@@ -436,7 +438,18 @@ def _preview_goal(fields: dict, plan: Plan) -> date:
         raise PlanGenerationError(_GOAL_DATE_ERROR) from error
     if parsed.isoformat() != raw:
         raise PlanGenerationError(_GOAL_DATE_ERROR)
+    if parsed != plan.goal_date and parsed < plan.start_date:
+        raise PlanGenerationError("新的期限不能早于规划开始日")
     return parsed
+
+
+def _stored_criterion(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise PlanGenerationError("完成标准必须是文本")
+    text = value.strip()
+    return text or None
 
 
 def _preview_cap(fields: dict, plan: Plan) -> int:
@@ -599,6 +612,14 @@ def _plan_field_changes(plan: Plan, fields: dict) -> list[dict]:
         ("currentLevel", plan.current_level, fields.get("currentLevel")),
         ("dailyMinutes", plan.daily_minutes, fields.get("dailyMinutes")),
     )
+    if "completionCriterion" in fields:
+        pairs = pairs + (
+            (
+                "completionCriterion",
+                plan.completion_criterion,
+                fields.get("completionCriterion"),
+            ),
+        )
     changes: list[dict] = []
     for field, before, after in pairs:
         if after is None or str(before) == str(after):
@@ -715,6 +736,7 @@ async def create_preview(
         "goalDate": plan.goal_date.isoformat(),
         "currentLevel": plan.current_level,
         "dailyMinutes": plan.daily_minutes,
+        "completionCriterion": plan.completion_criterion,
     }
     for key, value in (overrides or {}).items():
         if value is not None:
@@ -1280,6 +1302,7 @@ def confirm_adjustment(
         ("goalDate", "goal_date", lambda v: _preview_goal({"goalDate": v}, plan)),
         ("currentLevel", "current_level", str),
         ("dailyMinutes", "daily_minutes", int),
+        ("completionCriterion", "completion_criterion", _stored_criterion),
     ):
         if key not in fields:
             continue
@@ -1415,6 +1438,9 @@ def _assert_undo_still_safe(
         raise AdjustmentConflictError("计划约束已被后续修改，不能撤销")
     if "startDate" in plan_after and plan.start_date.isoformat() != plan_after["startDate"]:
         raise AdjustmentConflictError("计划约束已被后续修改，不能撤销")
+    if "completionCriterion" in plan_after:
+        if (plan.completion_criterion or None) != (plan_after.get("completionCriterion") or None):
+            raise AdjustmentConflictError("计划约束已被后续修改，不能撤销")
 
     for task_id, expected in (record.get("after_created") or {}).items():
         task = session.get(DailyTask, uuid.UUID(task_id))

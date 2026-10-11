@@ -168,6 +168,7 @@ def _goal_payload() -> dict:
         "goalDate": (_today() + timedelta(days=400)).isoformat(),
         "currentLevel": "零基础",
         "dailyMinutes": 120,
+        "completionCriterion": "能独立做出指定范围内的题目",
     }
 
 

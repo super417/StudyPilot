@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion';
 import type { Plan } from '@/mocks/types';
+import { completionCriterionLabel } from '@/lib/goalDraft';
 import { computeDayNumber, computeElapsedPercent, MS_PER_DAY } from '@/lib/goalProgress';
 
 /**
@@ -95,6 +96,9 @@ function GoalCard({ plan, today }: GoalCardProps) {
             {plan.goalName}
           </h2>
           <p className="mt-3 text-base text-gray-500">{plan.subtitle}</p>
+          <p className="mt-2 text-sm text-gray-500">
+            完成标准：{completionCriterionLabel(plan.completionCriterion)}
+          </p>
         </div>
 
         {/* 右侧：环形进度（备考时间流逝百分比），spring 弹性入场 */}

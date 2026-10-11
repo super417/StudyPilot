@@ -25,6 +25,7 @@ describe('isPlanEditIntent', () => {
   it('认改规划的说法', () => {
     expect(isPlanEditIntent('把每天时间改成 3 小时')).toBe(true);
     expect(isPlanEditIntent('调整一下路线图')).toBe(true);
+    expect(isPlanEditIntent('改一下完成标准')).toBe(true);
     expect(isPlanEditIntent('极限怎么算')).toBe(false);
   });
 });

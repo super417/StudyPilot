@@ -49,14 +49,21 @@ from app.services.plan_draft_store import MAX_CLARIFY_ROUNDS, PlanDraft
 
 # Required goal fields, in the stable order used for missing-field reporting
 # and clarify questions (requirement 9.2).
-REQUIRED_FIELDS = ("goalName", "goalDate", "currentLevel", "dailyMinutes")
+REQUIRED_FIELDS = (
+    "goalName",
+    "goalDate",
+    "currentLevel",
+    "dailyMinutes",
+    "completionCriterion",
+)
 
 # Human-readable clarify prompts per missing field (requirement 9.2/9.4).
 _FIELD_PROMPTS = {
-    "goalName": "目标名称",
+    "goalName": "学习内容",
     "goalDate": "目标日期",
-    "currentLevel": "当前水平",
+    "currentLevel": "当前基础",
     "dailyMinutes": "每日可用学习时长",
+    "completionCriterion": "完成标准",
 }
 
 # Requirement 9.1: a generated plan must contain 2 to 12 phases.
@@ -78,12 +85,25 @@ _PLAN_SSE_EVENTS = (
 )
 
 _VAGUE_FOCUS = re.compile(r"^(?:考研|学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$")
+_CANONICAL_GOAL_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_MINUTES_SHAPED = re.compile(
+    r"^(?:每天|每日)?\s*(-?\d+(?:\.\d+)?)\s*(?:分钟|min|mins|minutes)?$",
+    re.IGNORECASE,
+)
+_DATE_SHAPED = re.compile(r"^(?:\d{4}-\d{1,2}-\d{1,2}|\d{8})$")
+_LABELED_REPLY = re.compile(
+    r"^(?P<label>把规划的完成标准改为|把完成标准改为|完成标准|当前基础|当前水平|学习内容|期限)"
+    r"\s*[:：]\s*(?P<value>.*)$"
+)
+_GOAL_CHANGE = re.compile(r"^(?:改学|改为学习|改为|改成|学习对象改为|目标改为)\s*(.+)$")
+_CRITERION_LABELS = {"完成标准", "把规划的完成标准改为", "把完成标准改为"}
+_LEVEL_LABELS = {"当前基础", "当前水平"}
 _CONFIRM = re.compile(
     r"^(?:确定|确认|可以|同步|就这样|就按这个|ok|okay|yes)[。.!！]?$",
     re.IGNORECASE,
 )
-FOCUS_QUESTION = "还没有学习资料。直接说书名、科目，或要一起学的几门课，我来拆成周计划。"
-FOCUS_AGAIN = "我还没抓住要学什么。可以说一本书、一门课，或数学、英语、政治一起学。"
+FOCUS_QUESTION = "还没有学习资料。直接说你要学的内容，我来拆成阶段计划。"
+FOCUS_AGAIN = "我还没抓住要学什么。可以说一本书、一门课，或要一起学的几项内容。"
 
 
 class PlanGenerationError(RuntimeError):
@@ -138,12 +158,16 @@ PlanGenerator = Callable[
 ]
 
 
-def _is_valid_goal_date(value: object) -> bool:
-    if not isinstance(value, str):
+def _is_valid_goal_date(value: object, *, not_before: date | None = None) -> bool:
+    if not isinstance(value, str) or _CANONICAL_GOAL_DATE.fullmatch(value) is None:
         return False
     try:
-        date.fromisoformat(value)
+        parsed = date.fromisoformat(value)
     except ValueError:
+        return False
+    if parsed.isoformat() != value:
+        return False
+    if not_before is not None and parsed < not_before:
         return False
     return True
 
@@ -161,12 +185,16 @@ def _is_present(field: str, value: object) -> bool:
     if value is None:
         return False
     if field == "goalDate":
-        return _is_valid_goal_date(value)
+        return _is_valid_goal_date(value, not_before=_today_local())
     if field == "dailyMinutes":
         return _is_valid_daily_minutes(value)
-    # goalName / currentLevel: any non-empty string.
+    if field == "goalName":
+        return focus_is_clear(value)
     if isinstance(value, str):
-        return bool(value.strip())
+        text = value.strip()
+        if field == "completionCriterion":
+            return focus_is_clear(text)
+        return bool(text)
     return False
 
 
@@ -255,6 +283,7 @@ class ClarifyOutcome:
     missing: list[str]
     question: str
     forced: bool = False
+    stopped: bool = False
 
 
 @dataclass(frozen=True)
@@ -270,13 +299,13 @@ def advance_state(
 ) -> ClarifyOutcome | GenerateOutcome:
     """Advance the clarify state machine for a reply to an existing draft.
 
-    Merges the user's supplied fields, then decides (requirements 9.3-9.5):
+    Merges the user's supplied fields, then decides:
     - If information is now complete -> ``GenerateOutcome``.
-    - Else if the round cap has been reached -> forced ``GenerateOutcome``.
+    - Else if the round cap has been reached -> stopped ``ClarifyOutcome``.
+      Incomplete information is not generated or written.
     - Else -> increment the round and return a ``ClarifyOutcome``.
 
-    The round counter is strictly bounded by ``MAX_CLARIFY_ROUNDS``, so the
-    machine always terminates (no infinite clarify loop).
+    The round counter never exceeds ``MAX_CLARIFY_ROUNDS``.
     """
     fields = draft.fields
     for key, value in updates.items():
@@ -287,9 +316,13 @@ def advance_state(
     if not missing:
         return GenerateOutcome(fields=dict(fields))
 
-    # Round cap reached: stop asking and generate from what we have (9.5).
     if draft.round >= MAX_CLARIFY_ROUNDS:
-        return GenerateOutcome(fields=dict(fields), forced=True)
+        return ClarifyOutcome(
+            round=draft.round,
+            missing=missing,
+            question=clarify_question(missing) + "。已达到追问上限，信息仍不完整，不会生成规划。",
+            stopped=True,
+        )
 
     draft.round += 1
     return ClarifyOutcome(
@@ -297,6 +330,115 @@ def advance_state(
         missing=missing,
         question=clarify_question(missing),
     )
+
+
+def criterion_override_from_message(message: str) -> str | None:
+    """Read one explicit completion-criterion sentence. Other wording returns none."""
+    labeled = _LABELED_REPLY.fullmatch(message.strip())
+    if labeled is None or labeled.group("label") not in _CRITERION_LABELS:
+        return None
+    value = labeled.group("value").strip()
+    if not focus_is_clear(value):
+        return None
+    return value
+
+
+def mentions_unparsed_criterion(message: str) -> bool:
+    text = message.strip()
+    return "完成标准" in text and criterion_override_from_message(text) is None
+
+
+def _date_reply_problem(value: str) -> str | None:
+    """None means the date can be stored. A string is the reason it cannot."""
+    if _is_valid_goal_date(value, not_before=_today_local()):
+        return None
+    if not value:
+        return "期限没有写内容。"
+    if _is_valid_goal_date(value):
+        return "期限不能早于今天。"
+    return "日期格式不对，请用 YYYY-MM-DD。"
+
+
+def _apply_labeled_reply(fields: dict[str, object], label: str, value: str) -> str | None:
+    """Store a recognized label only when its value passes the existing check."""
+    if label in _CRITERION_LABELS:
+        if focus_is_clear(value):
+            fields["completionCriterion"] = value
+            return None
+        if not value:
+            return f"{label}没有写内容。"
+        return f"{label}没有写清楚。"
+    if label in _LEVEL_LABELS:
+        if value:
+            fields["currentLevel"] = value
+            return None
+        return f"{label}没有写内容。"
+    if label == "学习内容":
+        if focus_is_clear(value):
+            fields["goalName"] = value
+            fields["studyFocus"] = value
+            return None
+        if not value:
+            return "学习内容没有写内容。"
+        return "学习内容没有写清楚。"
+    if label == "期限":
+        problem = _date_reply_problem(value)
+        if problem is None:
+            fields["goalDate"] = value
+        return problem
+    return None
+
+
+def absorb_goal_reply(fields: dict[str, object], message: str) -> str | None:
+    """Fill one reply. A returned sentence means the reply was recognized but rejected.
+
+    Recognizing a field, date, or minute comes before checking the value. An empty
+    or illegal value stays out of every field, including the learning subject.
+    """
+    text = message.strip()
+    if not text or is_plan_confirm(text):
+        return None
+    labeled = _LABELED_REPLY.fullmatch(text)
+    if labeled is not None:
+        return _apply_labeled_reply(
+            fields, labeled.group("label"), labeled.group("value").strip()
+        )
+    if _DATE_SHAPED.fullmatch(text):
+        problem = _date_reply_problem(text)
+        if problem is None:
+            fields["goalDate"] = text
+        return problem
+    minutes = _MINUTES_SHAPED.fullmatch(text)
+    if minutes is not None:
+        raw = minutes.group(1)
+        if raw.isdigit() and int(raw) > 0:
+            fields["dailyMinutes"] = int(raw)
+            return None
+        return "每日分钟需要是正整数。"
+    change = _GOAL_CHANGE.fullmatch(text)
+    if change is not None:
+        name = change.group(1).strip()
+        if focus_is_clear(name):
+            fields["goalName"] = name
+            fields["studyFocus"] = name
+        return None
+    if not focus_is_clear(fields.get("goalName")):
+        if focus_is_clear(text):
+            fields["goalName"] = text
+            fields["studyFocus"] = text
+        return None
+    missing_level = not _is_present("currentLevel", fields.get("currentLevel"))
+    missing_criterion = not _is_present(
+        "completionCriterion", fields.get("completionCriterion")
+    )
+    if missing_level and missing_criterion:
+        return None
+    if missing_criterion and focus_is_clear(text):
+        fields["completionCriterion"] = text
+        return None
+    if missing_level and text:
+        fields["currentLevel"] = text
+    return None
 
 
 def _today_local() -> date:
@@ -325,10 +467,11 @@ async def _run_generator(
     return result  # type: ignore[return-value]
 
 
-_PLAN_SYSTEM_PROMPT = """你是 StudyPilot 考研学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
+_PLAN_SYSTEM_PROMPT = """你是 StudyPilot 学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
 JSON 形状必须为：
 {"phases":[{"name":"阶段名","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","daily_tasks":[{"task_date":"YYYY-MM-DD","week_label":"W01","description":"任务描述","estimated_minutes":30,"resource_url":"可选，公开学习链接"}]}],"citations":[{"docId":"就绪文档 id","chunkIndex":0}]}
-约束：phases 长度 2～12；面向考研（数学/英语/政治/专业课/复试/科研阅读）；日期合理递增，且不得早于用户给出的今天，不得晚于目标日期。阶段可以并行，不要为了并行而删掉已有历史任务。
+约束：phases 长度 2～12；按用户写明的学习内容安排，不要改写成别的学科，也不要限定必须是某一类考试。日期合理递增，且不得早于用户给出的今天，不得晚于目标日期。阶段可以并行，不要为了并行而删掉已有历史任务。
+用户完成标准是用户自己写下的范围、动作或产出，不是系统判断的掌握度。不要把它改写成测验分数。
 daily_tasks 必须覆盖该阶段每一天（从 start_date 到 end_date，含首尾），每天至少 1 条，task_date 连续无空缺。
 每条任务的 estimated_minutes 是正整数预计分钟。不知道就省略该字段，不要填 0，也不要把打卡时长当成预计分钟。
 citations 只能引用本次资料摘录里真实出现的 docId 与 chunkIndex。没有对应片段就给空数组。不要编造文献或页码。
@@ -357,11 +500,13 @@ def _build_plan_user_prompt(
     instruction: str,
 ) -> str:
     parts = [
-        "请根据以下考研目标生成复习规划 JSON：",
-        f"- 目标名称：{fields.get('goalName')}",
+        "请根据以下学习目标生成规划 JSON：",
+        f"- 学习内容：{fields.get('goalName')}",
         f"- 目标日期：{fields.get('goalDate')}",
-        f"- 当前水平：{fields.get('currentLevel')}",
+        f"- 当前基础：{fields.get('currentLevel')}",
         f"- 每日可用分钟：{fields.get('dailyMinutes')}",
+        "- 用户完成标准（这是用户写下的标准，不是系统判断）："
+        f"{fields.get('completionCriterion')}",
         f"- 今天是 {_today_local().isoformat()}。阶段和每日任务都从今天排到目标日期，不要写今天之前的日期。",
         f"- 就绪文档 id：{', '.join(used_docs) if used_docs else '无'}",
         "- 必须为每个阶段输出逐日任务，日期连续。",
@@ -912,8 +1057,11 @@ def _persist_plan(
     skipped_docs: list[str],
 ) -> GeneratedPlan:
     today = _today_local()
+    if missing_fields(fields):
+        raise PlanGenerationError("学习目标还不完整，没有写入规划")
     goal_date = _coerce_date(fields.get("goalDate"), today)
     daily_minutes = int(fields["dailyMinutes"])  # validated present by caller
+    criterion = str(fields.get("completionCriterion") or "").strip()
 
     plan = Plan(
         user_id=user_id,
@@ -923,6 +1071,7 @@ def _persist_plan(
         current_level=str(fields.get("currentLevel", "")),
         daily_minutes=daily_minutes,
         total_phases=len(phases_data),
+        completion_criterion=criterion,
     )
     session.add(plan)
     session.flush()  # assign plan.id before wiring phases/tasks
@@ -1097,6 +1246,7 @@ async def regenerate_plan(
         "goalDate": plan.goal_date.isoformat(),
         "currentLevel": plan.current_level,
         "dailyMinutes": plan.daily_minutes,
+        "completionCriterion": plan.completion_criterion,
     }
     for key, value in (overrides or {}).items():
         if value is not None:
@@ -1120,6 +1270,9 @@ async def regenerate_plan(
     plan.goal_date = _coerce_date(fields.get("goalDate"), plan.goal_date)
     plan.current_level = str(fields.get("currentLevel", plan.current_level))
     plan.daily_minutes = int(fields.get("dailyMinutes", plan.daily_minutes))
+    if "completionCriterion" in (overrides or {}):
+        supplied = (overrides or {}).get("completionCriterion")
+        plan.completion_criterion = str(supplied).strip() if isinstance(supplied, str) else None
     session.flush()
 
     _write_plan_structure(session, plan, phases_data, today, reason="regenerate")

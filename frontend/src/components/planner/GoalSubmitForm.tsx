@@ -11,12 +11,14 @@ import {
   type PlanGoalFields,
 } from '@/lib/plansApi';
 import { ApiError } from '@/lib/httpClient';
+import { validateGoalDraft } from '@/lib/goalDraft';
 
 export interface PlanGeneratePayload {
   goalName: string;
   goalDate: string;
   currentLevel: string;
   dailyMinutes: number;
+  completionCriterion: string;
   documentIds: string[];
 }
 
@@ -35,6 +37,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const clearClarify = usePlanSessionStore((s) => s.clearClarify);
   const setLastPlanId = usePlanSessionStore((s) => s.setLastPlanId);
   const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
+  const setPreview = usePlanSessionStore((s) => s.setPreview);
 
   const addMessage = useAssistantStore((s) => s.addMessage);
   const appendStreamChunk = useAssistantStore((s) => s.appendStreamChunk);
@@ -46,6 +49,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const [goalDate, setGoalDate] = useState('');
   const [currentLevel, setCurrentLevel] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState('120');
+  const [completionCriterion, setCompletionCriterion] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -71,19 +75,23 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     e.preventDefault();
     if (streaming) return;
 
-    const name = goalName.trim();
-    const level = currentLevel.trim();
-    const minutes = Number(dailyMinutes);
-    if (!name || !goalDate || !level || !Number.isFinite(minutes) || minutes <= 0) {
-      setHint('请填写考研目标名称、考试日期、当前水平与每日学习分钟（正整数）。');
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const checked = validateGoalDraft({
+      goalName,
+      goalDate,
+      currentLevel,
+      dailyMinutes,
+      completionCriterion,
+      today: todayIso,
+    });
+    if (!checked.ok) {
+      setHint(checked.hint);
       return;
     }
 
     const payload: PlanGeneratePayload = {
-      goalName: name,
-      goalDate,
-      currentLevel: level,
-      dailyMinutes: Math.round(minutes),
+      ...checked.value,
       documentIds: getSelectedDocumentIds(),
     };
 
@@ -100,7 +108,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     addMessage({
       id: `u-plan-${Date.now()}`,
       role: 'user',
-      content: `【考研规划】${payload.goalName}｜考日 ${payload.goalDate}｜水平 ${payload.currentLevel}｜每日 ${payload.dailyMinutes} 分钟｜${docs}`,
+      content: `【学习目标】${payload.goalName}｜期限 ${payload.goalDate}｜基础 ${payload.currentLevel}｜每日 ${payload.dailyMinutes} 分钟｜完成标准 ${payload.completionCriterion}｜${docs}`,
     });
 
     const fields: PlanGoalFields = { ...payload };
@@ -129,6 +137,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       onNotice: (data: { message?: string; skippedDocs?: string[] }) => {
         if (data.skippedDocs?.length) markSkipped(data.skippedDocs);
         if (data.message) pushAssistant(`提示：${data.message}`);
+      },
+      onPreview: (data: { draftId: string; summary: string }) => {
+        setPreview(data.draftId);
+        pushAssistant(data.summary);
       },
       onDone: (data: { planId: string; phases: number; usedDocs: string[] }) => {
         clearClarify();
@@ -176,7 +188,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-brandDark">
-          {draftId ? '补充考研目标信息（追问中）' : '提交考研学习目标'}
+          {draftId ? '补充学习目标（追问中）' : '提交学习目标'}
         </p>
         {onDismiss ? (
           <button
@@ -198,8 +210,8 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       <input
         type="text"
         value={goalName}
-        onChange={(e) => setGoalName(e.target.value)}
-        placeholder="目标名称，如：2027 考研 · 数学二"
+          onChange={(e) => setGoalName(e.target.value)}
+        placeholder="要学的内容，如：线性代数证明入门"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
       <div className="grid grid-cols-2 gap-2">
@@ -208,7 +220,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
           value={goalDate}
           onChange={(e) => setGoalDate(e.target.value)}
           className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none focus:border-brand"
-          aria-label="考试目标日期"
+          aria-label="目标期限"
         />
         <input
           type="number"
@@ -224,8 +236,16 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         type="text"
         value={currentLevel}
         onChange={(e) => setCurrentLevel(e.target.value)}
-        placeholder="当前水平，如：高等数学薄弱、英语四级"
+        placeholder="当前基础，如：学过矩阵运算"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
+      />
+      <input
+        type="text"
+        value={completionCriterion}
+        onChange={(e) => setCompletionCriterion(e.target.value)}
+        placeholder="完成标准，如：能独立证明秩不等式"
+        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
+        aria-label="完成标准"
       />
       <div>
         <p className="mb-1 text-[11px] text-gray-500">规划依据资料（可多选）</p>
@@ -237,7 +257,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         disabled={streaming}
         className="w-full rounded-full bg-brandDark py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-60"
       >
-        {streaming ? '规划生成中…' : draftId ? '提交补充并继续生成' : '生成考研规划（SSE）'}
+        {streaming ? '规划生成中…' : draftId ? '提交补充并继续' : '生成学习规划'}
       </button>
     </form>
   );

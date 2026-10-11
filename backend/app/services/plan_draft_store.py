@@ -15,8 +15,8 @@ from datetime import datetime, timezone
 import secrets
 import uuid
 
-# Requirement 9.3/9.5: the clarify loop is bounded to at most 3 rounds. After
-# the 3rd round the planner generates from whatever information it has.
+# The clarify loop is bounded to at most 3 rounds. Reaching the cap with any
+# required field still missing stops; it does not generate from incomplete input.
 MAX_CLARIFY_ROUNDS = 3
 
 
@@ -34,6 +34,7 @@ class PlanDraft:
     created_at: datetime = field(default_factory=_utc_now)
     document_ids: list[str] | None = None
     pending: dict | None = None
+    pending_basis: tuple | None = None
     used_docs: list[str] = field(default_factory=list)
 
 

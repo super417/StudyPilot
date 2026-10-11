@@ -35,6 +35,8 @@ export interface Plan {
   currentLevel: string;
   /** 每日可用学习时长（分钟） */
   dailyMinutes: number;
+  /** 用户写下的完成标准；空表示未设置 */
+  completionCriterion?: string | null;
   /** 阶段总数 */
   totalPhases: number;
   /** 最近更新时间戳，ISO */

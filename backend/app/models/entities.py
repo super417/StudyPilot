@@ -94,6 +94,7 @@ class Plan(Base):
     goal_date: Mapped[date] = mapped_column(Date, nullable=False)
     current_level: Mapped[str] = mapped_column(String(255), nullable=False)
     daily_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    completion_criterion: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_phases: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False

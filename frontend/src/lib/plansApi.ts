@@ -7,6 +7,7 @@ export interface PlanGoalFields {
   goalDate?: string;
   currentLevel?: string;
   dailyMinutes?: number;
+  completionCriterion?: string;
   documentIds?: string[];
   reasoningStrength?: string;
   message?: string;
@@ -373,6 +374,7 @@ export interface LatestPlanResponse {
     goalDate: string;
     currentLevel: string;
     dailyMinutes: number;
+    completionCriterion?: string | null;
     totalPhases: number;
     updatedAt: string;
   } | null;

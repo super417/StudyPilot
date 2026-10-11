@@ -30,24 +30,24 @@ from app.services.api_config_service import (
     NoVerifiedApiConfigError,
     has_verified_api_config,
 )
-from app.services.plan_draft_store import plan_draft_store
+from app.services.plan_draft_store import MAX_CLARIFY_ROUNDS, plan_draft_store
 from app.services.video_link import parse_start_date
 from app.services.planner_service import (
-    FOCUS_AGAIN,
-    FOCUS_QUESTION,
     ClarifyOutcome,
     GenerateOutcome,
     PlanGenerationError,
     PlanGenerator,
     PlanNotFoundError,
+    absorb_goal_reply,
     brief_route,
+    criterion_override_from_message,
+    mentions_unparsed_criterion,
     compose_unpersisted,
     confirm_draft_plan,
     focus_is_clear,
     format_plan_sse,
     is_plan_confirm,
     missing_fields,
-    resolved_focus,
 )
 
 router = APIRouter(prefix="/api/plans", tags=["plans"])
@@ -74,6 +74,22 @@ def _to_camel(field_name: str) -> str:
     return head + "".join(part.title() for part in tail)
 
 
+def _strict_positive_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError("必须是正整数")
+    return value
+
+
+def _optional_positive_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return _strict_positive_int(value)
+
+
+StrictPositiveInt = Annotated[int, BeforeValidator(_strict_positive_int)]
+OptionalPositiveInt = Annotated[int | None, BeforeValidator(_optional_positive_int)]
+
+
 class StartPayload(BaseModel):
     """The user's answer to「希望从哪天开始」."""
 
@@ -88,7 +104,8 @@ class GeneratePayload(BaseModel):
     goal_name: str | None = None
     goal_date: str | None = None
     current_level: str | None = None
-    daily_minutes: int | None = None
+    daily_minutes: OptionalPositiveInt = None
+    completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
 
@@ -101,7 +118,8 @@ class ClarifyPayload(BaseModel):
     goal_name: str | None = None
     goal_date: str | None = None
     current_level: str | None = None
-    daily_minutes: int | None = None
+    daily_minutes: OptionalPositiveInt = None
+    completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
     message: str | None = None
@@ -121,18 +139,10 @@ class RegeneratePayload(BaseModel):
     goal_name: str | None = None
     goal_date: str | None = None
     current_level: str | None = None
-    daily_minutes: int | None = None
+    daily_minutes: OptionalPositiveInt = None
+    completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
-
-
-def _strict_positive_int(value: object) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise ValueError("必须是正整数")
-    return value
-
-
-StrictPositiveInt = Annotated[int, BeforeValidator(_strict_positive_int)]
 
 
 class ConfirmAdjustmentPayload(BaseModel):
@@ -195,6 +205,7 @@ def latest_plan_route(
                 "goalDate": plan.goal_date.isoformat(),
                 "currentLevel": plan.current_level,
                 "dailyMinutes": plan.daily_minutes,
+                "completionCriterion": plan.completion_criterion,
                 "totalPhases": plan.total_phases,
                 "updatedAt": plan.updated_at.isoformat(),
             },
@@ -257,6 +268,7 @@ def _fields_from(
         "goalDate": payload.goal_date,
         "currentLevel": payload.current_level,
         "dailyMinutes": payload.daily_minutes,
+        "completionCriterion": payload.completion_criterion,
     }
     if payload.reasoning_strength:
         fields["reasoningStrength"] = payload.reasoning_strength
@@ -343,10 +355,48 @@ async def _no_file_frames(
     for key, value in (updates or {}).items():
         if value is None or (isinstance(value, str) and not value.strip()):
             continue
+        if key == "goalName" and not focus_is_clear(value):
+            continue
         draft.fields[key] = value
+    rejected = absorb_goal_reply(draft.fields, message)
+    basis = tuple(
+        draft.fields.get(key)
+        for key in (
+            "goalName",
+            "goalDate",
+            "currentLevel",
+            "dailyMinutes",
+            "completionCriterion",
+        )
+    )
+    if draft.pending is not None and draft.pending_basis != basis:
+        draft.pending = None
+        draft.pending_basis = None
+        draft.used_docs = []
 
     text = message.strip()
-    if draft.pending and is_plan_confirm(text):
+    missing = missing_fields(draft.fields)
+    if rejected:
+        stopped = draft.round >= MAX_CLARIFY_ROUNDS
+        question = rejected
+        if missing:
+            question += planner_service.clarify_question(missing)
+        if stopped:
+            question += "。已达到追问上限，信息仍不完整，不会生成规划。"
+        else:
+            draft.round += 1
+        yield format_plan_sse(
+            planner_service.PLAN_SSE_CLARIFY_EVENT,
+            {
+                "draftId": draft_id,
+                "round": draft.round,
+                "missing": missing,
+                "question": question,
+                "stopped": stopped,
+            },
+        )
+        return
+    if draft.pending and is_plan_confirm(text) and not missing:
         result = confirm_draft_plan(
             session, user_id, draft.fields, draft.pending, draft.used_docs
         )
@@ -361,45 +411,40 @@ async def _no_file_frames(
         )
         return
 
-    if draft.pending and text:
-        draft.fields["studyFocus"] = text
-        structure, used = await compose_unpersisted(
-            session, user_id, draft.fields, [], plan_generator, text
-        )
-        draft.pending = structure
-        draft.used_docs = used
-        focus = str(draft.fields.get("studyFocus") or draft.fields.get("goalName") or "这次学习")
-        yield format_plan_sse(
-            planner_service.PLAN_SSE_PREVIEW_EVENT,
-            {
-                "draftId": draft_id,
-                "summary": brief_route(focus, structure["phases"]),
-            },
-        )
-        return
-
-    focus = resolved_focus(draft.fields, text)
-    if text and not is_plan_confirm(text):
-        draft.fields["studyFocus"] = text
-    if not focus_is_clear(focus):
-        draft.round += 1
-        question = FOCUS_AGAIN if draft.round > 1 else FOCUS_QUESTION
+    if missing:
+        stopped = draft.round >= MAX_CLARIFY_ROUNDS
+        question = planner_service.clarify_question(missing)
+        if stopped:
+            question += "。已达到追问上限，信息仍不完整，不会生成规划。"
+        else:
+            draft.round += 1
         yield format_plan_sse(
             planner_service.PLAN_SSE_CLARIFY_EVENT,
             {
                 "draftId": draft_id,
                 "round": draft.round,
-                "missing": [],
+                "missing": missing,
                 "question": question,
+                "stopped": stopped,
             },
         )
         return
 
+    focus = str(draft.fields.get("goalName") or "").strip()
     draft.fields["studyFocus"] = focus
-    structure, used = await compose_unpersisted(
-        session, user_id, draft.fields, [], plan_generator, ""
-    )
+    draft.pending = None
+    draft.pending_basis = None
+    try:
+        structure, used = await compose_unpersisted(
+            session, user_id, draft.fields, [], plan_generator, ""
+        )
+    except Exception:
+        draft.pending = None
+        draft.pending_basis = None
+        draft.used_docs = []
+        raise
     draft.pending = structure
+    draft.pending_basis = basis
     draft.used_docs = used
     yield format_plan_sse(
         planner_service.PLAN_SSE_PREVIEW_EVENT,
@@ -419,20 +464,6 @@ async def generate_plan_route(
     missing = missing_fields(fields)
 
     async def stream() -> AsyncIterator[str]:
-        if missing:
-            # Not enough info: open a draft at round 1 and ask (9.2).
-            draft_id = plan_draft_store.create(user.id, fields)
-            yield format_plan_sse(
-                planner_service.PLAN_SSE_CLARIFY_EVENT,
-                {
-                    "draftId": draft_id,
-                    "round": 1,
-                    "missing": missing,
-                    "question": planner_service.clarify_question(missing),
-                },
-            )
-            return
-
         if document_ids is not None and len(document_ids) == 0:
             draft_id = plan_draft_store.create(user.id, fields)
             draft = plan_draft_store.get(draft_id, user.id)
@@ -451,6 +482,21 @@ async def generate_plan_route(
                 yield _error_frame(PlanGenerationError.code, str(error))
             except Exception:
                 yield _error_frame(PlanGenerationError.code, "规划生成失败，请稍后重试")
+            return
+
+        if missing:
+            # Not enough info: open a draft at round 1 and ask (9.2).
+            draft_id = plan_draft_store.create(user.id, fields)
+            yield format_plan_sse(
+                planner_service.PLAN_SSE_CLARIFY_EVENT,
+                {
+                    "draftId": draft_id,
+                    "round": 1,
+                    "missing": missing,
+                    "question": planner_service.clarify_question(missing),
+                    "stopped": False,
+                },
+            )
             return
 
         async for frame in _generate_frames(
@@ -498,7 +544,20 @@ async def clarify_plan_route(
                 yield _error_frame(PlanGenerationError.code, "规划生成失败，请稍后重试")
             return
 
+        rejected = absorb_goal_reply(draft.fields, payload.message or "")
         outcome = planner_service.advance_state(draft, updates)
+        if rejected and not isinstance(outcome, ClarifyOutcome):
+            yield format_plan_sse(
+                planner_service.PLAN_SSE_CLARIFY_EVENT,
+                {
+                    "draftId": draft_id,
+                    "round": draft.round,
+                    "missing": missing_fields(draft.fields),
+                    "question": rejected,
+                    "stopped": False,
+                },
+            )
+            return
         if isinstance(outcome, ClarifyOutcome):
             yield format_plan_sse(
                 planner_service.PLAN_SSE_CLARIFY_EVENT,
@@ -506,7 +565,8 @@ async def clarify_plan_route(
                     "draftId": draft_id,
                     "round": outcome.round,
                     "missing": outcome.missing,
-                    "question": outcome.question,
+                    "question": f"{rejected}{outcome.question}" if rejected else outcome.question,
+                    "stopped": outcome.stopped,
                 },
             )
             return
@@ -545,12 +605,21 @@ async def regenerate_plan_route(
         for key, value in _fields_from(payload).items()
         if value is not None
     }
+    stated_criterion = criterion_override_from_message(instruction)
+    if stated_criterion is not None:
+        overrides["completionCriterion"] = stated_criterion
     document_ids = payload.document_ids
 
     async def stream() -> AsyncIterator[str]:
         if not instruction and not overrides:
             yield _error_frame(
                 PlanGenerationError.code, _EMPTY_INSTRUCTION_MESSAGE
+            )
+            return
+        if mentions_unparsed_criterion(instruction) and "completionCriterion" not in overrides:
+            yield _error_frame(
+                PlanGenerationError.code,
+                "请用「完成标准：你的标准」写明要改成的内容。这次没有修改规划。",
             )
             return
 

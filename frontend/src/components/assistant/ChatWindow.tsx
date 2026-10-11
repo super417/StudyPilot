@@ -222,7 +222,7 @@ function ChatWindow() {
               </button>
               <button
                 type="button"
-                aria-label={showPlanForm ? '收起考研目标表单' : '提交考研学习目标'}
+                aria-label={showPlanForm ? '收起学习目标表单' : '提交学习目标'}
                 title={showPlanForm ? '收起目标表单（聊天继续）' : '提交考研学习目标'}
                 aria-pressed={showPlanForm}
                 onClick={() => {

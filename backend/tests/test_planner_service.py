@@ -40,9 +40,10 @@ from app.services.planner_service import (
 def _complete_payload() -> dict:
     return {
         "goalName": "考研数学",
-        "goalDate": "2025-12-21",
+        "goalDate": "2027-12-21",
         "currentLevel": "零基础",
         "dailyMinutes": 120,
+        "completionCriterion": "能独立做出指定范围内的题目",
     }
 
 
@@ -85,7 +86,7 @@ class MissingFieldsTests(unittest.TestCase):
     def test_multiple_missing_returned_in_stable_order(self) -> None:
         self.assertEqual(
             missing_fields({"currentLevel": "中级"}),
-            ["goalName", "goalDate", "dailyMinutes"],
+            ["goalName", "goalDate", "dailyMinutes", "completionCriterion"],
         )
         self.assertEqual(missing_fields({}), list(planner_service.REQUIRED_FIELDS))
 
@@ -105,33 +106,33 @@ class MissingFieldsTests(unittest.TestCase):
 
 
 class ClarifyStateMachineTests(unittest.TestCase):
-    def test_round_never_exceeds_cap_and_forces_generation(self) -> None:
+    def test_round_never_exceeds_cap_and_stops_when_still_incomplete(self) -> None:
         # Draft starts at round 1 with no useful fields; every reply stays empty.
         draft = PlanDraft(user_id=uuid.uuid4(), fields={}, round=1)
         rounds_seen = []
-        forced = False
+        stopped = False
         for _ in range(10):  # far more replies than the cap allows
             outcome = advance_state(draft, {})
-            if isinstance(outcome, ClarifyOutcome):
-                rounds_seen.append(outcome.round)
-                self.assertLessEqual(outcome.round, MAX_CLARIFY_ROUNDS)
-            else:
-                self.assertIsInstance(outcome, GenerateOutcome)
-                forced = outcome.forced
+            self.assertNotIsInstance(outcome, GenerateOutcome)
+            self.assertIsInstance(outcome, ClarifyOutcome)
+            rounds_seen.append(outcome.round)
+            self.assertLessEqual(outcome.round, MAX_CLARIFY_ROUNDS)
+            if outcome.stopped:
+                stopped = True
                 break
 
-        self.assertTrue(forced, "state machine must force generation at the cap")
-        # Rounds advanced 2, 3 then forced generate at round 3 (cap == 3).
-        self.assertEqual(rounds_seen, [2, 3])
+        self.assertTrue(stopped, "state machine must stop instead of generating")
+        self.assertEqual(rounds_seen, [2, 3, 3])
 
     def test_completing_information_yields_generate(self) -> None:
         draft = PlanDraft(user_id=uuid.uuid4(), fields={"goalName": "考研数学"}, round=1)
         outcome = advance_state(
             draft,
             {
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertIsInstance(outcome, GenerateOutcome)
@@ -143,9 +144,10 @@ class ClarifyStateMachineTests(unittest.TestCase):
         outcome = advance_state(draft, {"goalName": "考研数学", "dailyMinutes": 90})
         self.assertIsInstance(outcome, ClarifyOutcome)
         self.assertEqual(outcome.round, 2)
-        self.assertEqual(outcome.missing, ["goalDate", "currentLevel"])
+        self.assertEqual(outcome.missing, ["goalDate", "currentLevel", "completionCriterion"])
         self.assertIn("目标日期", outcome.question)
-        self.assertIn("当前水平", outcome.question)
+        self.assertIn("当前基础", outcome.question)
+        self.assertIn("完成标准", outcome.question)
 
 
 class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
@@ -607,7 +609,7 @@ class RegeneratePlanTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(refreshed.daily_minutes, 300)
         # Unspecified fields survive a vague edit request.
         self.assertEqual(refreshed.goal_name, "考研数学")
-        self.assertEqual(refreshed.goal_date, date(2025, 12, 21))
+        self.assertEqual(refreshed.goal_date, date(2027, 12, 21))
         self.assertEqual(refreshed.current_level, "零基础")
 
         new_phases = list(

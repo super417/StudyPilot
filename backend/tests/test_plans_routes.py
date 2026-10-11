@@ -216,9 +216,10 @@ class PlanRouteTests(unittest.TestCase):
         requests = {
             "/api/plans/generate": {
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
             f"/api/plans/{uuid.uuid4()}/regenerate": {"message": "每天改成 3 小时"},
         }
@@ -256,9 +257,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": ["doc_a"],
             },
         )
@@ -292,9 +294,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -317,9 +320,10 @@ class PlanRouteTests(unittest.TestCase):
         response = self.client.post(
             f"/api/plans/{draft_id}/clarify",
             json={
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -347,9 +351,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": ["doc_ready", "doc_missing"],
             },
         )
@@ -371,9 +376,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": ["doc_x", "doc_y"],
             },
         )
@@ -395,9 +401,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -412,9 +419,10 @@ class PlanRouteTests(unittest.TestCase):
         self._override_generator(phase_count=2)
         goal = {
             "goalName": "考研",
-            "goalDate": "2025-12-21",
+            "goalDate": "2027-12-21",
             "currentLevel": "零基础",
             "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             "documentIds": [],
         }
         opened = self.client.post("/api/plans/generate", json=goal)
@@ -473,6 +481,7 @@ class PlanRouteTests(unittest.TestCase):
                 "goalDate": "2026-12-31",
                 "currentLevel": "一年前学过",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": [],
             },
         )
@@ -490,6 +499,7 @@ class PlanRouteTests(unittest.TestCase):
                 "goalDate": "2026-12-31",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": [],
             },
         )
@@ -504,6 +514,7 @@ class PlanRouteTests(unittest.TestCase):
                 "goalDate": "2026-12-31",
                 "currentLevel": "一年前学过",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
                 "documentIds": [],
             },
         )
@@ -516,6 +527,7 @@ class PlanRouteTests(unittest.TestCase):
                 "goalDate": "2026-12-31",
                 "currentLevel": "一年前学过",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         filled_events = _parse_sse(filled.text)
@@ -529,9 +541,10 @@ class PlanRouteTests(unittest.TestCase):
             "/api/plans/generate",
             json={
                 "goalName": "考研数学",
-                "goalDate": "2025-12-21",
+                "goalDate": "2027-12-21",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertEqual(response.status_code, 401)
@@ -550,6 +563,7 @@ class PlanRouteTests(unittest.TestCase):
                 "goalDate": "2027-12-31",
                 "currentLevel": "零基础",
                 "dailyMinutes": 120,
+                "completionCriterion": "能独立做出指定范围内的题目",
             },
         )
         self.assertEqual(response.status_code, 200, response.text)

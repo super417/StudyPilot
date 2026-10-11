@@ -339,22 +339,20 @@ class PropertyTests(unittest.TestCase):
         # Every observed round counter respects the cap.
         self.assertTrue(all(r <= MAX_CLARIFY_ROUNDS for r in clarify_rounds))
 
-        # If the machine generated, it did so either once the information was
-        # complete or at the round cap — never by looping past it.
+        # Incomplete replies never generate. A stopped clarify is the cap.
         if terminal is not None:
-            self.assertTrue(terminal.forced or missing_fields(terminal.fields) == [])
+            self.assertTrue(missing_fields(terminal.fields) == [])
             self.assertLessEqual(draft.round, MAX_CLARIFY_ROUNDS)
 
-        # Termination guarantee: replaying the same always-incomplete replies
-        # until the machine gives up always reaches a FORCED generation within
-        # MAX_CLARIFY_ROUNDS rounds — the loop is bounded, never infinite.
+        # Termination guarantee: incomplete replies stay inside the cap and
+        # stop instead of generating.
         probe = PlanDraft(user_id=uuid.uuid4(), fields={}, round=1)
         for _ in range(MAX_CLARIFY_ROUNDS + 1):
             outcome = advance_state(probe, {})
-            if isinstance(outcome, GenerateOutcome):
+            if isinstance(outcome, ClarifyOutcome) and outcome.stopped:
                 break
-        self.assertIsInstance(outcome, GenerateOutcome)
-        self.assertTrue(outcome.forced)
+        self.assertIsInstance(outcome, ClarifyOutcome)
+        self.assertTrue(outcome.stopped)
         self.assertLessEqual(probe.round, MAX_CLARIFY_ROUNDS)
 
     # --- Property 22 --------------------------------------------------------
@@ -396,6 +394,7 @@ class PropertyTests(unittest.TestCase):
                     "goalDate": _VALID_GOAL_DATE,
                     "currentLevel": "零基础",
                     "dailyMinutes": 120,
+                    "completionCriterion": "能独立做出指定范围内的题目",
                 },
                 selected,
                 generator,
@@ -452,6 +451,7 @@ class PropertyTests(unittest.TestCase):
                     "goalDate": _VALID_GOAL_DATE,
                     "currentLevel": "零基础",
                     "dailyMinutes": 120,
+                    "completionCriterion": "能独立做出指定范围内的题目",
                 },
                 [],
                 generator,
