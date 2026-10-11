@@ -12,6 +12,8 @@ import {
 } from '@/lib/plansApi';
 import { ApiError } from '@/lib/httpClient';
 import { validateGoalDraft } from '@/lib/goalDraft';
+import { resolvePlanTargetId } from '@/lib/planTarget';
+import type { MaterialComparisonResponse } from '@/lib/materialsApi';
 
 export interface PlanGeneratePayload {
   goalName: string;
@@ -38,6 +40,9 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const setLastPlanId = usePlanSessionStore((s) => s.setLastPlanId);
   const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
   const setPreview = usePlanSessionStore((s) => s.setPreview);
+  const activePlanId = usePlanSessionStore((s) => s.activePlanId);
+  const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const selectedDocumentIds = useDocumentsStore((s) => s.selectedIds);
 
   const addMessage = useAssistantStore((s) => s.addMessage);
   const appendStreamChunk = useAssistantStore((s) => s.appendStreamChunk);
@@ -51,7 +56,22 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const [dailyMinutes, setDailyMinutes] = useState('120');
   const [completionCriterion, setCompletionCriterion] = useState('');
   const [hint, setHint] = useState<string | null>(null);
+  const [materialLink, setMaterialLink] = useState('');
+  const [materialComparison, setMaterialComparison] = useState<MaterialComparisonResponse | null>(null);
+  const [materialHint, setMaterialHint] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const materialOp = useRef(0);
+  const planSeen = useRef<string | null | undefined>(undefined);
+  const selectableComparisonId = useRef<string | null>(null);
+  const currentPlanId = resolvePlanTargetId(activePlanId, lastPlanId);
+  if (planSeen.current !== undefined && planSeen.current !== currentPlanId) {
+    materialOp.current += 1;
+    if (materialComparison && (materialComparison.planId ?? null) !== currentPlanId) {
+      selectableComparisonId.current = null;
+      setMaterialComparison(null);
+    }
+  }
+  planSeen.current = currentPlanId;
 
   const pushAssistant = (content: string) => {
     addMessage({
@@ -69,6 +89,89 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       await new Promise((r) => setTimeout(r, 12));
     }
     stopStreaming();
+  };
+
+  const forgetComparison = () => {
+    materialOp.current += 1;
+    selectableComparisonId.current = null;
+    setMaterialComparison(null);
+  };
+
+  const shownComparison =
+    materialComparison && (materialComparison.planId ?? null) === currentPlanId
+      ? materialComparison
+      : null;
+  selectableComparisonId.current = shownComparison?.comparisonId ?? null;
+
+  const handleCompare = async () => {
+    const ticket = ++materialOp.current;
+    const planId = currentPlanId;
+    selectableComparisonId.current = null;
+    setMaterialComparison(null);
+    let minutes = Number(dailyMinutes);
+    if (!planId) {
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const checked = validateGoalDraft({
+        goalName,
+        goalDate,
+        currentLevel,
+        dailyMinutes,
+        completionCriterion,
+        today: todayIso,
+      });
+      if (!checked.ok) {
+        setMaterialHint(checked.hint);
+        return;
+      }
+      minutes = checked.value.dailyMinutes;
+    }
+    setMaterialHint(null);
+    const link = materialLink.trim();
+    const { compareMaterials } = await import('@/lib/materialsApi');
+    try {
+      const result = await compareMaterials({
+        goalName: goalName.trim(),
+        goalDate: goalDate.trim(),
+        currentLevel: currentLevel.trim(),
+        dailyMinutes: minutes,
+        completionCriterion: completionCriterion.trim(),
+        planId,
+        documentIds: selectedDocumentIds ?? [],
+        links: link ? [link] : [],
+      });
+      if (ticket !== materialOp.current || planSeen.current !== planId) return;
+      setMaterialComparison(result);
+    } catch (err) {
+      if (ticket !== materialOp.current || planSeen.current !== planId) return;
+      setMaterialComparison(null);
+      setMaterialHint(err instanceof ApiError ? err.message : '比较失败');
+    }
+  };
+
+  const handleSelectMaterial = async (candidateId: string) => {
+    if (!shownComparison) return;
+    const comparisonId = shownComparison.comparisonId;
+    if (selectableComparisonId.current !== comparisonId) return;
+    const ticket = ++materialOp.current;
+    const planId = currentPlanId;
+    const { selectMaterial } = await import('@/lib/materialsApi');
+    try {
+      const result = await selectMaterial(comparisonId, {
+        candidateId,
+        goalName: goalName.trim(),
+        goalDate: goalDate.trim(),
+        currentLevel: currentLevel.trim(),
+        dailyMinutes: Number(dailyMinutes),
+        completionCriterion: completionCriterion.trim(),
+      });
+      if (ticket !== materialOp.current || planSeen.current !== planId) return;
+      setMaterialComparison(result);
+    } catch (err) {
+      if (ticket !== materialOp.current || planSeen.current !== planId) return;
+      setMaterialComparison(null);
+      setMaterialHint(err instanceof ApiError ? err.message : '这次选择已失效，请重新比较');
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -210,7 +313,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       <input
         type="text"
         value={goalName}
-          onChange={(e) => setGoalName(e.target.value)}
+          onChange={(e) => {
+            setGoalName(e.target.value);
+            forgetComparison();
+          }}
         placeholder="要学的内容，如：线性代数证明入门"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
@@ -218,7 +324,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         <input
           type="date"
           value={goalDate}
-          onChange={(e) => setGoalDate(e.target.value)}
+          onChange={(e) => {
+            setGoalDate(e.target.value);
+            forgetComparison();
+          }}
           className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none focus:border-brand"
           aria-label="目标期限"
         />
@@ -226,7 +335,10 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
           type="number"
           min={1}
           value={dailyMinutes}
-          onChange={(e) => setDailyMinutes(e.target.value)}
+          onChange={(e) => {
+            setDailyMinutes(e.target.value);
+            forgetComparison();
+          }}
           placeholder="每日分钟"
           className="rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
           aria-label="每日学习分钟"
@@ -235,14 +347,20 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       <input
         type="text"
         value={currentLevel}
-        onChange={(e) => setCurrentLevel(e.target.value)}
+        onChange={(e) => {
+          setCurrentLevel(e.target.value);
+          forgetComparison();
+        }}
         placeholder="当前基础，如：学过矩阵运算"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
       <input
         type="text"
         value={completionCriterion}
-        onChange={(e) => setCompletionCriterion(e.target.value)}
+        onChange={(e) => {
+          setCompletionCriterion(e.target.value);
+          forgetComparison();
+        }}
         placeholder="完成标准，如：能独立证明秩不等式"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
         aria-label="完成标准"
@@ -252,6 +370,70 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         <DocumentPicker />
       </div>
       {hint ? <p className="text-[11px] text-dangerText">{hint}</p> : null}
+      <input
+        type="url"
+        value={materialLink}
+        onChange={(e) => setMaterialLink(e.target.value)}
+        placeholder="要比较的链接，可与已选文档一起比较"
+        aria-label="比较链接"
+        className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
+      />
+      <button
+        type="button"
+        onClick={() => handleCompare()}
+        className="w-full rounded-full border border-brandDark py-1.5 text-xs font-medium text-brandDark"
+      >
+        比较资料
+      </button>
+      {materialHint ? <p className="text-[11px] text-dangerText">{materialHint}</p> : null}
+      {shownComparison ? (
+        <div className="space-y-2 rounded-lg bg-white/80 p-2 text-[11px]">
+          <p>
+            这次比较使用的目标：{shownComparison.goal.goalName}，期限 {shownComparison.goal.goalDate}，基础 {shownComparison.goal.currentLevel}，每日 {shownComparison.goal.dailyMinutes} 分钟，完成标准 {shownComparison.goal.completionCriterionLabel}。
+            {shownComparison.planId ? `这是规划 ${shownComparison.planId} 上的目标。` : '这是尚未提交的学习目标。'}
+            刷新后需要重新比较。
+          </p>
+          <p>
+            {shownComparison.suggestion.status === 'suggested'
+              ? `建议：${shownComparison.suggestion.text}`
+              : shownComparison.suggestion.status === 'failed'
+                ? '模型建议没有生成。'
+                : '没有调用模型，下面只显示读到的事实。'}
+          </p>
+          {shownComparison.candidates.map((item) => (
+            <div key={item.candidateId} className="rounded border border-brandFaint p-2">
+              <p>
+                {item.displayName}（{item.readStatus === 'read' ? '已读取' : item.readStatus === 'title_only' ? '仅标题' : '失败'}）
+              </p>
+              <p>来源：{item.source.url ?? item.source.docId}</p>
+              <p>先修：{item.facts.prerequisite}</p>
+              <p>覆盖：{item.facts.coverage}</p>
+              {item.facts.excerpts.map((excerpt) => (
+                <p key={`${item.candidateId}-${excerpt.chunkIndex}`}>
+                  片段 {excerpt.chunkIndex}
+                  {excerpt.pageStart != null ? `，第 ${excerpt.pageStart} 页` : ''}
+                </p>
+              ))}
+              <p>
+                时长：{item.facts.duration.status}
+                {item.facts.duration.playSeconds != null ? `，${item.facts.duration.playSeconds} 秒` : ''}
+                。{item.facts.duration.note}
+              </p>
+              {item.facts.unreadNote ? <p>{item.facts.unreadNote}</p> : null}
+              {item.facts.basisNote ? <p>{item.facts.basisNote}</p> : null}
+              {item.readStatus === 'failed' ? null : (
+                <button
+                  type="button"
+                  onClick={() => handleSelectMaterial(item.candidateId)}
+                  className="mt-1 rounded-full bg-brandDark px-2 py-1 text-white"
+                >
+                  {shownComparison.selectedCandidateId === item.candidateId ? '已选择这份' : '选择这份'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <button
         type="submit"
         disabled={streaming}

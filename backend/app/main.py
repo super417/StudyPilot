@@ -9,6 +9,7 @@ from app.routers.courses import router as courses_router
 from app.routers.dependencies import AuthenticationRequiredError
 from app.routers.documents import router as documents_router
 from app.routers.health import router as health_router
+from app.routers.materials import router as materials_router
 from app.routers.mistakes import router as mistakes_router
 from app.routers.notes import router as notes_router
 from app.routers.phases import router as phases_router
@@ -25,6 +26,7 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(api_config_router)
 app.include_router(documents_router)
+app.include_router(materials_router)
 app.include_router(plans_router)
 app.include_router(practice_router)
 app.include_router(phases_router)
