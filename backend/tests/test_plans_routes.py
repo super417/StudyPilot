@@ -3,13 +3,14 @@ import json
 import os
 import unittest
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.clock import local_today
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.core.database import get_db
@@ -894,6 +895,62 @@ class PlanRouteTests(unittest.TestCase):
         self.client.cookies.clear()
         response = self.client.patch(f"/api/phases/{phase.id}", json={"name": "x"})
         self.assertEqual(response.status_code, 401)
+
+    def test_start_date_follows_the_named_plan_and_rejects_others(self) -> None:
+        older = Plan(
+            user_id=self.user.id,
+            goal_name="旧规划",
+            start_date=date(2026, 1, 1),
+            goal_date=date(2027, 12, 31),
+            current_level="入门",
+            daily_minutes=30,
+            total_phases=2,
+            updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+        newer = Plan(
+            user_id=self.user.id,
+            goal_name="新规划",
+            start_date=date(2026, 3, 1),
+            goal_date=date(2027, 12, 31),
+            current_level="入门",
+            daily_minutes=45,
+            total_phases=2,
+            updated_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )
+        foreign = Plan(
+            user_id=uuid.uuid4(),
+            goal_name="别人的规划",
+            start_date=date(2026, 4, 1),
+            goal_date=date(2027, 12, 31),
+            current_level="入门",
+            daily_minutes=20,
+            total_phases=2,
+        )
+        self.session.add_all([older, newer, foreign])
+        self.session.commit()
+
+        missing = self.client.post("/api/plans/start", json={"message": "今天"})
+        self.assertEqual(missing.status_code, 400, missing.text)
+        self.session.refresh(newer)
+        self.assertEqual(newer.start_date, date(2026, 3, 1))
+
+        foreign_response = self.client.post(
+            "/api/plans/start",
+            json={"message": "今天", "planId": str(foreign.id)},
+        )
+        self.assertEqual(foreign_response.status_code, 404, foreign_response.text)
+        self.session.refresh(newer)
+        self.assertEqual(newer.start_date, date(2026, 3, 1))
+
+        named = self.client.post(
+            "/api/plans/start",
+            json={"message": "今天", "planId": str(older.id)},
+        )
+        self.assertEqual(named.status_code, 200, named.text)
+        self.session.refresh(older)
+        self.session.refresh(newer)
+        self.assertEqual(older.start_date, local_today())
+        self.assertEqual(newer.start_date, date(2026, 3, 1))
 
 
 if __name__ == "__main__":

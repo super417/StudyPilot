@@ -403,11 +403,11 @@ export function planStartQuestion(today = new Date()): string {
   ].join('\n');
 }
 
-/** 把最新规划的第一天改成用户刚说的那天。 */
-export function setPlanStart(message: string) {
+/** 把指定规划的第一天改成用户刚说的那天。 */
+export function setPlanStart(message: string, planId: string) {
   return apiRequest<{ status: string; startDate: string }>('/api/plans/start', {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, planId }),
   });
 }
 

@@ -14,11 +14,12 @@ import uuid
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, BeforeValidator, ConfigDict
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
 from app.core.database import get_db
-from app.models.entities import PlanRevision, User
+from app.models.entities import Plan, PlanRevision, User
 from app.routers.dependencies import get_current_user
 from app.services import adjustment_service, document_service, planner_service, remedy_service
 from app.services.adjustment_service import (
@@ -91,9 +92,12 @@ OptionalPositiveInt = Annotated[int | None, BeforeValidator(_optional_positive_i
 
 
 class StartPayload(BaseModel):
-    """The user's answer to「希望从哪天开始」."""
+    """The user's answer to「希望从哪天开始」, bound to one owned plan."""
 
-    message: str
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    message: str = ""
+    plan_id: str | None = None
 
 
 class GeneratePayload(BaseModel):
@@ -221,12 +225,31 @@ def set_plan_start_route(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ) -> JSONResponse:
-    """Move the latest plan so it starts on the day the user just named."""
-    plan = planner_service.get_latest_plan(session, user.id)
+    """Move one owned plan so it starts on the day the user just named."""
+    raw_id = (payload.plan_id or "").strip()
+    if not raw_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "code": "VALIDATION",
+                "message": "要说明是哪一份规划。这次没有改开始日。",
+            },
+        )
+    try:
+        parsed_id = uuid.UUID(raw_id)
+    except (ValueError, AttributeError, TypeError):
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "code": "NOT_FOUND", "message": "还没有这份规划"},
+        )
+    plan = session.scalar(
+        select(Plan).where(Plan.id == parsed_id, Plan.user_id == user.id)
+    )
     if plan is None:
         return JSONResponse(
             status_code=404,
-            content={"status": "error", "code": "NOT_FOUND", "message": "还没有规划"},
+            content={"status": "error", "code": "NOT_FOUND", "message": "还没有这份规划"},
         )
     chosen = parse_start_date(payload.message or "", local_today())
     if chosen is None:

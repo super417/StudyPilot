@@ -1,28 +1,25 @@
 /**
- * 助手消息分类：这一句该走「重排规划」还是走「纯聊天」。
- *
- * 重排整份规划代价高（阶段与每日任务会整体重建，只留一份快照），所以这里
- * 刻意保守：只有用户明确说要动路线图，或明确在要具体学习资源时才命中。
- * 判断与 UI 无关，抽出来单独测（同 `pauseRequest.ts`）。
+ * 助手消息分类。是否重排由 `decideChatRoute` 决定。
+ * 这里只识别「明确在改当前计划」。单独出现规划、每天，或只是要资料，都不算。
  */
 
-/** 改规划意图：用户直接说要动路线图 / 阶段 / 节奏。 */
-const PLAN_EDIT_INTENT = /规划|阶段|每天|复习计划|路线图|完成标准/;
+const PLAN_NOUN = /规划|计划|阶段|每天|每日|路线图|完成标准/;
+const PLAN_CHANGE = /改成|改为|调成|调整|改一下|修改/;
+const NOT_AN_EDIT = /[?？]|吗|为什么|怎么|是否|是不是|解释|说明一下|什么意思|不要|别改|不改|不用改|先不/;
 
 /**
- * 资源意图：用户在要「具体学什么 / 去哪学」。
- *
- * 只认「动词 + 名词」成对出现，避免把「我上传了哪些资料」这种查询也当成重排请求。
- * 命中后走 regenerate，让资源落成每日任务上的 `resourceUrl`。
+ * 资源说法仍可识别，但不再单独打开重排。要不要改计划看 `isPlanEditIntent`。
  */
 const RESOURCE_REQUEST =
   /(找|推荐|有没有|想要|需要)[^。！？]{0,8}(课程|网课|视频|教材|讲义|资料|资源|网站|平台|公开课|慕课|题库|书单)|(课程|网课|教材|讲义|网站|平台|公开课|慕课)[^。！？]{0,8}(推荐|在哪|去哪里)|学习路径|学习路线|备考路线/;
 
-/** 资源请求通常是短句；长段落多半在讲别的问题，重排整份规划代价太高。 */
+/** 长段落不再标成资源请求。这个结果本身不会打开重排。 */
 const RESOURCE_REQUEST_MAX_CHARS = 60;
 
 export function isPlanEditIntent(text: string): boolean {
-  return PLAN_EDIT_INTENT.test(text.trim());
+  const trimmed = text.trim();
+  if (NOT_AN_EDIT.test(trimmed)) return false;
+  return PLAN_NOUN.test(trimmed) && PLAN_CHANGE.test(trimmed);
 }
 
 export function isResourceRequest(text: string): boolean {

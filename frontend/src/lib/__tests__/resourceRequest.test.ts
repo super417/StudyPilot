@@ -26,6 +26,13 @@ describe('isPlanEditIntent', () => {
     expect(isPlanEditIntent('把每天时间改成 3 小时')).toBe(true);
     expect(isPlanEditIntent('调整一下路线图')).toBe(true);
     expect(isPlanEditIntent('改一下完成标准')).toBe(true);
+    expect(isPlanEditIntent('把当前计划每天改成30分钟')).toBe(true);
     expect(isPlanEditIntent('极限怎么算')).toBe(false);
+    expect(isPlanEditIntent('我是一个小白，想学王道数据结构，你帮我推荐规划')).toBe(false);
+    expect(isPlanEditIntent('每天背单词有什么技巧')).toBe(false);
+    expect(isPlanEditIntent('不要把当前计划每天改成30分钟')).toBe(false);
+    expect(isPlanEditIntent('为什么要把每天改成30分钟')).toBe(false);
+    expect(isPlanEditIntent('把当前计划每天改成30分钟吗')).toBe(false);
+    expect(isPlanEditIntent('解释一下把计划每天改成30分钟')).toBe(false);
   });
 });

@@ -23,6 +23,7 @@ function RoadmapPage() {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const activePlanId = usePlanSessionStore((s) => s.activePlanId);
   const planDataEpoch = usePlanSessionStore((s) => s.planDataEpoch);
   const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
 
@@ -220,9 +221,13 @@ function RoadmapPage() {
               event.preventDefault();
               const message = startReply.trim();
               if (!message || savingStart) return;
+              if (!activePlanId) {
+                setStatusMsg('还没有可设置开始日的规划');
+                return;
+              }
               setSavingStart(true);
               setStatusMsg(null);
-              void setPlanStart(message)
+              void setPlanStart(message, activePlanId)
                 .then((saved) => {
                   setStartReply('');
                   setStatusMsg(`已从 ${saved.startDate} 开始排。`);

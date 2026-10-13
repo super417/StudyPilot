@@ -328,14 +328,14 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         if (data.message) pushAssistant(`提示：${data.message}`);
       },
       onPreview: (data: { draftId: string; summary: string }) => {
-        setPreview(data.draftId);
+        setPreview(data.draftId, data.summary);
         pushAssistant(data.summary);
       },
       onDone: (data: { planId: string; phases: number; usedDocs: string[] }) => {
         clearClarify();
         setLastPlanId(data.planId);
         setActivePlanId(data.planId);
-        usePlanSessionStore.getState().askForStart();
+        usePlanSessionStore.getState().askForStart(data.planId);
         const used =
           data.usedDocs.length > 0
             ? `已参考 ${data.usedDocs.length} 份资料`

@@ -11,8 +11,8 @@ import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useDocumentsStore } from '@/store/documentsStore';
 import { planStartQuestion, setPlanStart, streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
 import { streamAssistantChat } from '@/lib/assistantApi';
+import { decideChatRoute, draftRestateText, summaryForDraft } from '@/lib/chatRoute';
 import { isPauseRequest } from '@/lib/pauseRequest';
-import { isPlanEditIntent, isResourceRequest } from '@/lib/resourceRequest';
 import { resolvePlanTargetId } from '@/lib/planTarget';
 import { ApiError } from '@/lib/httpClient';
 import { useAuthStore } from '@/store/authStore';
@@ -108,15 +108,33 @@ export function useAssistantChat(acceptQueued = true) {
         content: text,
       });
 
-      if (usePlanSessionStore.getState().awaitingStart) {
+      const sessionNow = usePlanSessionStore.getState();
+      const activeConversationId = useAssistantStore.getState().activeId;
+      const decision = decideChatRoute({
+        text,
+        targetPlanId,
+        contextType: context?.type ?? null,
+        awaitingStart: sessionNow.awaitingStart,
+        draftId: sessionNow.draftId,
+        legacyDraftBlocked: sessionNow.legacyDraftBlocked,
+        draftConfirmHeld: sessionNow.draftConfirmHeld,
+        activeConversationId,
+        boundConversationId: sessionNow.boundConversationId,
+        clarifyQuestion: sessionNow.clarifyQuestion,
+        startPlanId: sessionNow.startPlanId,
+      });
+      if (decision.holdDraft) usePlanSessionStore.getState().holdDraftConfirm();
+
+      if (decision.kind === 'start' && sessionNow.startPlanId) {
+        const planId = sessionNow.startPlanId;
         const ac = new AbortController();
         abortRef.current = ac;
         setStreaming(true);
         void (async () => {
           try {
-            const saved = await setPlanStart(text);
+            const saved = await setPlanStart(text, planId);
             if (ac.signal.aborted) return;
-            usePlanSessionStore.setState({ awaitingStart: false });
+            usePlanSessionStore.setState({ awaitingStart: false, startPlanId: null });
             pushAssistant(`好，整个规划从 ${saved.startDate} 开始。路线图已按这个日期重排。`);
           } catch (err) {
             if (ac.signal.aborted) return;
@@ -128,16 +146,30 @@ export function useAssistantChat(acceptQueued = true) {
         return;
       }
 
-      const sessionNow = usePlanSessionStore.getState();
-      if (
-        sessionNow.legacyDraftBlocked &&
-        /^(?:确定|确认|可以|同步|就这样|就按这个|ok|okay|yes)[。.!！]?$/i.test(text)
-      ) {
+      if (decision.kind === 'legacy-blocked') {
         pushAssistant('已经开始资料比较，这份旧草稿不能确认。');
         return;
       }
-      const draftId = sessionNow.legacyDraftBlocked ? null : sessionNow.draftId;
+
+      if (decision.kind === 'restate-draft' && sessionNow.draftId) {
+        pushAssistant(
+          draftRestateText(
+            sessionNow.draftId,
+            sessionNow.clarifyQuestion,
+            summaryForDraft(
+              sessionNow.draftId,
+              sessionNow.previewDraftId,
+              sessionNow.previewSummary,
+            ),
+          ),
+        );
+        usePlanSessionStore.getState().releaseDraftConfirm();
+        return;
+      }
+
+      const draftId = decision.kind === 'clarify' ? sessionNow.draftId : null;
       if (draftId) {
+        usePlanSessionStore.getState().releaseDraftConfirm();
         const ac = new AbortController();
         abortRef.current = ac;
         setStreaming(true);
@@ -154,7 +186,7 @@ export function useAssistantChat(acceptQueued = true) {
                 },
                 onPreview: (data) => {
                   if (ac.signal.aborted) return;
-                  setPreview(data.draftId);
+                  setPreview(data.draftId, data.summary);
                   pushAssistant(data.summary);
                 },
                 onDone: (data) => {
@@ -162,7 +194,7 @@ export function useAssistantChat(acceptQueued = true) {
                   clearClarify();
                   setLastPlanId(data.planId);
                   setActivePlanId(data.planId);
-                  usePlanSessionStore.getState().askForStart();
+                  usePlanSessionStore.getState().askForStart(data.planId);
                   pushAssistant(`已写入规划，共 ${data.phases} 个阶段。\n${planStartQuestion()}`);
                 },
                 onError: (data) => {
@@ -184,13 +216,8 @@ export function useAssistantChat(acceptQueued = true) {
         return;
       }
 
-      // 已有规划且用户在改规划、或在要具体学习资源：走 regenerate → 持久化预览
-      if (
-        targetPlanId &&
-        (context?.type === 'plan' ||
-          isPlanEditIntent(text) ||
-          isResourceRequest(text))
-      ) {
+      // 明确修改当前计划才走 regenerate → 持久化预览
+      if (decision.kind === 'regenerate' && targetPlanId) {
         const ac = new AbortController();
         abortRef.current = ac;
         setStreaming(true);
