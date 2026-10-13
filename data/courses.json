@@ -1,0 +1,561 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "collected_at": "2026-10-13",
+    "collector": "StudyPilot 竞赛版（人工整理）",
+    "disclaimer": "只收录课程元数据（名称、机构、章节标题、链接），不收录任何正文内容。章节信息整理自课程公开大纲或配套教材目录。verified 字段说明该条目章节信息的可靠度，请勿把 partial / pending 当作已核实。",
+    "sources": [
+      { "name": "国家高等教育智慧教育平台", "url": "https://higher.smartedu.cn/" },
+      { "name": "中国大学MOOC（爱课程）", "url": "https://www.icourse163.org/" },
+      { "name": "智慧树", "url": "https://www.zhihuishu.com/" }
+    ],
+    "verification_levels": {
+      "outline_published": "平台公开的课程大纲，章节标题逐条可查",
+      "textbook_toc": "来自该课程配套教材的公开目录，与线上章节可能不完全一致",
+      "partial": "只拿到模块级标题，未拿到节级",
+      "pending": "未核实，不得用于演示"
+    }
+  },
+
+  "directions": [
+    {
+      "id": "ai-finance",
+      "name": "AI+财务数据分析",
+      "description": "面向财会/经管背景学生，用 Python 与数据分析工具处理财务数据，胜任财务分析、经营分析类岗位。",
+      "skills": [
+        "Python",
+        "pandas",
+        "SQL",
+        "Excel",
+        "数据清洗",
+        "数据可视化",
+        "统计分析",
+        "财务分析",
+        "报表分析"
+      ],
+      "courses": [
+        {
+          "course_id": "ai-fin-001",
+          "name": "Python与财经大数据分析基础",
+          "institution": "中央财经大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "王彦超、马云飙、林东杰、彭嘉续、段丙蕾",
+          "url": "https://online.cufe.edu.cn/17/17zcMOOC/zgdxMOOC/3004.shtml",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": ["Python", "pandas", "数据清洗", "统计分析"],
+          "verified": "textbook_toc",
+          "verified_note": "章节来自配套教材《财经大数据分析——以Python为工具》公开目录；线上课程章节划分可能不同，演示前应在平台页面核对。",
+          "source_url": "https://jwc.cufe.edu.cn/info/1115/5038.htm",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "数据创建",
+              "sections": [
+                "1.1 数据分析模块介绍",
+                "1.2 DataFrame简介",
+                "1.3 DataFrame数据创建",
+                "1.4 基于本地存储的数据创建",
+                "1.5 实操练习题"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "数据查看",
+              "sections": [
+                "2.1 DataFrame数据属性",
+                "2.2 DataFrame数据查看",
+                "2.3 实操练习题"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "数据清洗",
+              "sections": [
+                "3.1 数据标签重命名",
+                "3.2 缺失值处理",
+                "3.3 异常值处理",
+                "3.4 数据去重",
+                "3.5 数据替换",
+                "3.6 数据标准化",
+                "3.7 实操练习题"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "应用：股权性质信息整理——数据转置",
+              "sections": ["4.1 T转置", "4.2 行列互换", "4.3 数据透视"]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-002",
+          "name": "用Python玩转数据（Data Processing Using Python）",
+          "institution": "南京财经大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": null,
+          "url": null,
+          "url_verified": false,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [],
+          "skills": ["Python", "pandas", "numpy", "数据可视化", "统计分析", "网络爬虫"],
+          "verified": "outline_published",
+          "verified_note": "课程以财经数据为案例背景，中英文双语版本均上线。演示前请补 course url。",
+          "source_url": "https://higher.smartedu.cn/course/69e156b6f1f512e4f2d37476",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "基础",
+              "sections": [
+                "1.1 走近Python：简介、第一个程序、语法基础、数据类型、基本运算、函数模块和包",
+                "1.2 Python面面观：条件、range、循环、break/continue/else、自定义函数、递归、变量作用域"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "数据获取与表示",
+              "sections": [
+                "本地数据获取",
+                "网络数据获取",
+                "序列、字符串、列表、元组",
+                "拓展：RE 入门、动态网页爬取实例、IO 与函数式编程"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "强大的数据结构和 Python 扩展库",
+              "sections": [
+                "字典与集合",
+                "扩展库 SciPy、ndarray、Series、DataFrame",
+                "拓展：numpy 常见应用"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "Python 数据统计与挖掘",
+              "sections": [
+                "4.1 便捷数据获取、绘图基础、数据清洗、数据变换、数据规约",
+                "4.2 基本数据特征分析、基于 pandas 的统计与分析、聚类分析"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "面向对象与图形用户界面",
+              "sections": [
+                "GUI 与面向对象、抽象、继承",
+                "GUI 基本框架、常用组件、布局管理"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-003",
+          "name": "Python财务数据分析与应用（64课时）",
+          "institution": null,
+          "provider": "待确认",
+          "instructor": null,
+          "url": null,
+          "url_verified": false,
+          "hours": 64,
+          "level": "入门",
+          "prereq": [],
+          "skills": ["Python", "pandas", "数据可视化", "财务分析"],
+          "verified": "partial",
+          "verified_note": "仅拿到教学大纲的章级标题，来源为文档分享站，权威性不足。演示前必须替换为平台官方来源，否则从数据集中移除。",
+          "source_url": null,
+          "collected_at": "2026-10-13",
+          "chapters": [
+            { "index": 1, "title": "编程入门", "sections": [] },
+            { "index": 2, "title": "语言基础", "sections": [] },
+            { "index": 3, "title": "控制结构", "sections": [] },
+            { "index": 4, "title": "函数和模块", "sections": [] },
+            { "index": 5, "title": "数据分析基础", "sections": [] },
+            { "index": 6, "title": "数据分析实战", "sections": [] },
+            { "index": 7, "title": "数据可视化", "sections": [] },
+            { "index": 8, "title": "财务应用案例", "sections": [] }
+          ]
+        },
+        {
+          "course_id": "ai-fin-004",
+          "name": "Python在财务中的应用",
+          "institution": null,
+          "provider": "智慧树",
+          "instructor": null,
+          "url": null,
+          "url_verified": false,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [],
+          "skills": ["Python", "pandas", "数据清洗", "数据可视化", "财务分析"],
+          "verified": "partial",
+          "verified_note": "模块级标题来自公开检索结果，未在平台上直接核对。演示前需补 url 并核对模块名。",
+          "source_url": null,
+          "collected_at": "2026-10-13",
+          "chapters": [
+            { "index": 1, "title": "认知 Python", "sections": [] },
+            { "index": 2, "title": "基本语法", "sections": [] },
+            { "index": 3, "title": "语法进阶", "sections": [] },
+            { "index": 4, "title": "了解 pandas", "sections": [] },
+            { "index": 5, "title": "数据采集与清洗", "sections": [] },
+            { "index": 6, "title": "数据可视化", "sections": [] },
+            { "index": 7, "title": "在财务会计中的应用", "sections": [] },
+            { "index": 8, "title": "在管理会计中的应用", "sections": [] },
+            { "index": 9, "title": "综合应用", "sections": [] }
+          ]
+        },
+        {
+          "course_id": "ai-fin-005",
+          "name": "大数据财务分析（微课版）",
+          "institution": null,
+          "provider": "rymooc",
+          "instructor": null,
+          "url": "https://www.rymooc.com/course/show/1097",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": ["ai-fin-001"],
+          "skills": ["数据清洗", "数据可视化", "财务分析", "报表分析"],
+          "verified": "outline_published",
+          "verified_note": "十个项目的项目名来自平台课程页。项目下的节级内容未获取。",
+          "source_url": "https://www.rymooc.com/course/show/1097",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            { "index": 1, "title": "认识大数据财务分析", "sections": [] },
+            { "index": 2, "title": "数据采集", "sections": [] },
+            { "index": 3, "title": "数据清洗与集成", "sections": [] },
+            { "index": 4, "title": "数据可视化", "sections": [] },
+            { "index": 5, "title": "企业基础财报分析", "sections": [] },
+            { "index": 6, "title": "财务能力分析", "sections": [] },
+            { "index": 7, "title": "费用分析", "sections": [] },
+            { "index": 8, "title": "销售分析与预测", "sections": [] },
+            { "index": 9, "title": "资金分析与预测", "sections": [] },
+            { "index": 10, "title": "撰写财务分析报告", "sections": [] }
+          ]
+        },
+        {
+          "course_id": "ai-fin-006",
+          "name": "数据库系统原理",
+          "institution": null,
+          "provider": "国家高等教育智慧教育平台",
+          "instructor": null,
+          "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [],
+          "skills": ["SQL", "数据库"],
+          "verified": "outline_published",
+          "verified_note": "第三章节级标题来自平台课程页。其余章只到章级。本项目只用到第三章（SQL），其余章不排进路线。",
+          "source_url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            { "index": 1, "title": "绪论", "sections": [] },
+            { "index": 2, "title": "关系数据库", "sections": [] },
+            {
+              "index": 3,
+              "title": "关系数据库标准语言 SQL",
+              "sections": [
+                "3.1 SQL 概述",
+                "3.2 数据定义",
+                "3.3 索引的建立和管理",
+                "3.4 数据查询（概述）",
+                "3.5 单表查询：基本单表查询",
+                "3.6 单表查询：复合条件、排序和分组",
+                "3.7 连接查询",
+                "3.8 嵌套查询（一）",
+                "3.9 嵌套查询（二）",
+                "3.10 集合查询和基于派生表的查询",
+                "3.11 数据更新",
+                "3.12 空值的处理",
+                "3.13 视图（一）",
+                "3.14 视图（二）"
+              ]
+            },
+            { "index": 4, "title": "数据库安全性", "sections": [] },
+            { "index": 5, "title": "数据库完整性", "sections": [] },
+            { "index": 6, "title": "关系数据理论", "sections": [] },
+            { "index": 7, "title": "数据库设计", "sections": [] },
+            { "index": 8, "title": "数据库恢复技术", "sections": [] },
+            { "index": 9, "title": "并发控制", "sections": [] }
+          ]
+        },
+        {
+          "course_id": "ai-fin-007",
+          "name": "Excel进阶教程",
+          "institution": "河南应用技术职业学院",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "张青、左莉、张丹丹、吴华芹、米楠、崔琳、马丽艳、张振平",
+          "url": null,
+          "url_verified": false,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": ["Excel", "数据可视化"],
+          "verified": "outline_published",
+          "verified_note": "国家精品课程。项目与节标题来自公开目录。演示前需补 url 并在平台核对。",
+          "source_url": null,
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "Excel 基础知识",
+              "sections": [
+                "1-1 至 1-6：数据输入、条件格式、打印、工作表保护"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "数据处理",
+              "sections": [
+                "2-1 数据区域转换",
+                "2-2 排序",
+                "2-3 筛选",
+                "2-4 分类汇总和合并计算",
+                "2-5 图表",
+                "2-6 数据透视表与数据透视图"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "公式与函数",
+              "sections": ["3-1 至 3-4"]
+            },
+            {
+              "index": 4,
+              "title": "VBA 与宏",
+              "sections": ["4-1 至 4-4"]
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "ai-education",
+      "name": "AI+教育",
+      "description": "面向师范/教育背景学生，理解并能应用 AI 于教学场景，胜任教育科技、教学设计、教师发展类岗位与师范生技能要求。",
+      "skills": [
+        "AI教育应用",
+        "智能学伴",
+        "教学设计",
+        "提示词工程",
+        "教育数据采集",
+        "学情分析",
+        "教育伦理",
+        "课件制作"
+      ],
+      "courses": [
+        {
+          "course_id": "ai-edu-001",
+          "name": "人工智能教育应用",
+          "institution": null,
+          "provider": "国家高等教育智慧教育平台",
+          "instructor": null,
+          "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": ["AI教育应用", "智能学伴", "教学设计", "教育数据采集", "教育伦理"],
+          "verified": "outline_published",
+          "verified_note": "模块与活动编号来自平台课程页。含两次作业与各模块测验。",
+          "source_url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 0,
+              "title": "课程准备篇：走进人工智能教育应用",
+              "sections": ["活动0.1 这门课程学什么", "活动0.2 如何学习这门课程"]
+            },
+            {
+              "index": 1,
+              "title": "人工智能与教育",
+              "sections": [
+                "1.1 了解 AI 的发展阶段",
+                "1.2 认识 AI 的关键技术",
+                "1.3 理解 AI 教育应用的内涵",
+                "1.4 了解 AI 教育应用的前沿",
+                "模块一测验"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "人工智能教育应用环境",
+              "sections": [
+                "2.1 了解智能学习环境",
+                "2.2 感知 AI 教育应用场景",
+                "模块二测验"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "人工智能的学习应用",
+              "sections": [
+                "3.1 了解智能学习助理",
+                "3.2 认识通用型智能学习工具",
+                "3.3 掌握学科智能学习工具",
+                "模块三测验",
+                "作业一：智能学习工具应用分析"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "人工智能的教学应用",
+              "sections": [
+                "4.1 认识智能教师助理",
+                "4.2 掌握智能教学助手",
+                "4.3 分析智能教学应用案例",
+                "作业二：基于课堂的学科智能教学设计方案",
+                "模块四测验"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "人工智能教育评估与管理",
+              "sections": [
+                "5.1 认识 AI 支持的教育数据采集与分析",
+                "5.2 探索教育智能决策",
+                "5.3 AI 教育应用的隐私、伦理问题",
+                "5.4 展望智能教育的发展",
+                "模块五测验"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "课程总结篇",
+              "sections": []
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-002",
+          "name": "人工智能时代的教育",
+          "institution": null,
+          "provider": "国家高等教育智慧教育平台",
+          "instructor": null,
+          "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [],
+          "skills": ["AI教育应用", "教学设计", "学情分析", "教育伦理"],
+          "verified": "partial",
+          "verified_note": "章标题可查；节级编号（如 1.1–1.25）来自平台页面片段，未逐条核对节名。演示前应逐章核对。",
+          "source_url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "人工智能概述",
+              "sections": ["机器学习", "深度学习", "自然语言理解", "模式识别"]
+            },
+            {
+              "index": 2,
+              "title": "人工智能时代的教育",
+              "sections": [
+                "情境学习理论",
+                "类脑智能",
+                "精准教学",
+                "泛在学习",
+                "教育评价",
+                "政策文件"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "人工智能时代的学校",
+              "sections": ["智慧校园", "智慧教室", "智慧实验室", "智慧图书馆"]
+            },
+            {
+              "index": 4,
+              "title": "人工智能时代的教师",
+              "sections": [
+                "教师定位",
+                "智能素养",
+                "角色危机与转型",
+                "教师专业发展",
+                "师德师风建设",
+                "学生学习特点"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-003",
+          "name": "人工智能时代的教育变革",
+          "institution": null,
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": null,
+          "url": null,
+          "url_verified": false,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [],
+          "skills": ["AI教育应用", "教学设计", "课件制作", "提示词工程"],
+          "verified": "partial",
+          "verified_note": "章与节标题来自公开检索片段，未在平台核对。演示前需补 url 并核对。",
+          "source_url": null,
+          "collected_at": "2026-10-13",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "人工智能时代的教育变革",
+              "sections": [
+                "1.1 特征、挑战与展望",
+                "1.2 教师能力结构与标准（教育技术→信息技术应用→信息素养→数字素养）",
+                "1.3 教师专业能力与发展"
+              ]
+            },
+            { "index": 2, "title": "智能教育技术概述", "sections": [] },
+            {
+              "index": 3,
+              "title": "智能化教学环境",
+              "sections": [
+                "国家中小学智慧教育平台",
+                "智能技术赋能教学设计",
+                "GAI 赋能课件/微课制作",
+                "人机协同双师课堂",
+                "AI 赋能跨学科项目式学习"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-004",
+          "name": "人工智能发展及其教育应用",
+          "institution": null,
+          "provider": "高校教师培训公开课（录播）",
+          "instructor": null,
+          "url": null,
+          "url_verified": false,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [],
+          "skills": ["AI教育应用", "教学设计", "提示词工程"],
+          "verified": "partial",
+          "verified_note": "章标题可查。第三章含 22 个助教/助学/助研/助管案例。演示前需确认平台来源与 url。",
+          "source_url": null,
+          "collected_at": "2026-10-13",
+          "chapters": [
+            { "index": 1, "title": "人工智能发展及其教育应用", "sections": [] },
+            {
+              "index": 2,
+              "title": "生成式人工智能助力教育教学改革",
+              "sections": ["功能特征", "教育作用", "应用场景", "应用策略"]
+            },
+            {
+              "index": 3,
+              "title": "生成式人工智能在教育教学中的应用案例",
+              "sections": ["22 个助教 / 助学 / 助研 / 助管案例"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

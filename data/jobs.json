@@ -1,0 +1,189 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "collected_at": "2026-10-13",
+    "collector": "StudyPilot 竞赛版",
+    "verification": "synthetic_from_curriculum",
+    "verification_note": "⚠️ 重要：本文件中的岗位记录【不是】从招聘平台采集的真实职位。它们是依据 data/courses.json 的课程技能标签、以及公开招聘分类推导出的技能画像，用于让方向推荐与差距分析流水线先跑通。",
+    "known_limitation": "真实招聘数据涉及平台条款、反爬与合规问题。本项目规则为「宁可功能不完整，不可任何一条记录造假」，因此所有合成记录均显式标记，演示时不得宣称为采集数据。",
+    "replace_before_submission": [
+      "1. 从公开渠道人工整理 30-50 条真实岗位记录（每方向 15-25 条）",
+      "2. 每条必须填写 source_platform、source_url、collected_at",
+      "3. 把 verification 改为 collected",
+      "4. 运行 node scripts/validate-data.mjs 校验",
+      "5. 全库搜索 synthetic_from_curriculum，确认演示路径中不再出现"
+    ],
+    "skill_vocabulary_note": "skills 数组的取值必须与 courses.json 中各课程的 skills 取并集一致，否则差距分析无法匹配。",
+    "source_platforms_expected": [
+      "国家大学生就业服务平台",
+      "企业官方招聘页（公开招聘信息）",
+      "人社部新职业目录 / 紧缺人才目录"
+    ]
+  },
+
+  "directions": [
+    {
+      "id": "ai-finance",
+      "name": "AI+财务数据分析",
+      "jobs": [
+        {
+          "job_id": "job-fin-001",
+          "title": "财务数据分析师",
+          "company_type": "企业财务共享中心 / 集团财务部",
+          "city": ["杭州", "上海", "深圳"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["会计学", "财务管理", "经济统计学", "经管类"],
+          "skills_required": ["pandas", "Excel", "数据清洗", "财务分析", "数据可视化"],
+          "skills_preferred": ["SQL", "Python"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-fin-002",
+          "title": "经营分析专员",
+          "company_type": "零售 / 制造业集团",
+          "city": ["杭州", "广州", "成都"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["经管类", "统计学"],
+          "skills_required": ["Excel", "数据可视化", "报表分析", "统计分析"],
+          "skills_preferred": ["Python", "SQL", "pandas"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-fin-003",
+          "title": "审计数据分析助理",
+          "company_type": "会计师事务所",
+          "city": ["北京", "上海"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["会计学", "审计学"],
+          "skills_required": ["Excel", "数据清洗", "报表分析"],
+          "skills_preferred": ["Python", "SQL", "pandas"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-fin-004",
+          "title": "商业数据运营",
+          "company_type": "互联网 / 电商",
+          "city": ["杭州", "北京", "深圳"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["不限（经管类优先）"],
+          "skills_required": ["SQL", "Excel", "数据可视化"],
+          "skills_preferred": ["Python", "pandas", "统计分析"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-fin-005",
+          "title": "金融风控数据分析（初级）",
+          "company_type": "银行 / 消费金融",
+          "city": ["上海", "深圳", "杭州"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["金融学", "统计学", "数学"],
+          "skills_required": ["SQL", "统计分析", "Excel"],
+          "skills_preferred": ["Python", "pandas"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        }
+      ]
+    },
+
+    {
+      "id": "ai-education",
+      "name": "AI+教育",
+      "jobs": [
+        {
+          "job_id": "job-edu-001",
+          "title": "教育科技产品助理",
+          "company_type": "教育科技公司",
+          "city": ["北京", "上海", "杭州", "深圳"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["教育学", "教育技术学", "不限"],
+          "skills_required": ["AI教育应用", "教学设计", "提示词工程"],
+          "skills_preferred": ["智能学伴", "课件制作", "学情分析"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-edu-002",
+          "title": "中小学人工智能课程教师",
+          "company_type": "中小学 / 民办学校",
+          "city": ["各省市"],
+          "seniority": "应届 / 初级",
+          "education": "本科及以上",
+          "major_pref": ["师范类", "教育技术学", "计算机相关"],
+          "skills_required": ["AI教育应用", "教学设计", "课件制作"],
+          "skills_preferred": ["提示词工程", "教育伦理"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-edu-003",
+          "title": "教学设计专员（AI 方向）",
+          "company_type": "在线教育 / 出版社",
+          "city": ["北京", "武汉", "成都"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["教育学", "汉语言文学", "新闻传播"],
+          "skills_required": ["教学设计", "课件制作", "AI教育应用"],
+          "skills_preferred": ["提示词工程", "教育数据采集"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-edu-004",
+          "title": "教师培训与教研支持",
+          "company_type": "教师发展中心 / 教育服务商",
+          "city": ["各省市"],
+          "seniority": "应届 / 初级",
+          "education": "本科及以上",
+          "major_pref": ["师范类", "教育学"],
+          "skills_required": ["AI教育应用", "教学设计", "教育伦理"],
+          "skills_preferred": ["学情分析", "智能学伴"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        },
+        {
+          "job_id": "job-edu-005",
+          "title": "教育数据分析",
+          "company_type": "在线教育 / 学校信息化部门",
+          "city": ["北京", "杭州", "广州"],
+          "seniority": "应届 / 初级",
+          "education": "本科",
+          "major_pref": ["教育技术学", "统计学", "计算机相关"],
+          "skills_required": ["教育数据采集", "学情分析", "Excel"],
+          "skills_preferred": ["SQL", "Python", "数据可视化"],
+          "source_platform": null,
+          "source_url": null,
+          "collected_at": null,
+          "verification": "synthetic_from_curriculum"
+        }
+      ]
+    }
+  ]
+}
