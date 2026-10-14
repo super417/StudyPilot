@@ -7,7 +7,6 @@ import ChatPanel from '@/components/chat/ChatPanel';
 import SessionList from '@/components/chat/SessionList';
 import type { TabKey } from '@/components/TabNav';
 import {
-  FALLBACK_CITATIONS,
   FALLBACK_SNAPSHOT,
   formatHours,
   loadDemoCitations,
@@ -100,7 +99,7 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** 演示卡片上的数字：先用兜底值渲染，接口回来再替换 —— 首屏永远不会空白。 */
   const [snapshot, setSnapshot] = useState<DemoSnapshot>(FALLBACK_SNAPSHOT);
-  const [citations, setCitations] = useState<DemoCitation[]>(FALLBACK_CITATIONS);
+  const [citations, setCitations] = useState<DemoCitation[]>([]);
   const addMessage = useAssistantStore((s) => s.addMessage);
   const setContext = useAssistantStore((s) => s.setContext);
   const hydrate = useAssistantStore((s) => s.hydrate);

@@ -2,10 +2,10 @@
  * `#/mainframe` 演示首屏的数据源。
  *
  * 这一页**不走登录态**（`App.tsx` 在鉴权判断之前就渲染它），未登录时下面的接口必然
- * 401，所以每一个都包了兜底 —— 评委看到的数字永远存在，不会空白、不会报错、不会转圈。
+ * 401。指标数字仍用兜底，避免空白；引用没有兜底，未登录就是空列表。
  *
- * 数据策略：能取到真数据就用真的，取不到就用量级一致的兜底值。**不做部分合并**
- * —— 真一半假一半会让人分不清哪个可信，要么全真要么全兜底。
+ * 数据策略：指标接口失败时仍用 FALLBACK_SNAPSHOT，避免首屏空白。
+ * 引用只保留用户已上传且就绪的文件名；拿不到就返回空列表，不补示例片段或相关度。
  */
 import { listDocuments } from './documentsApi';
 import { fetchOverviewMetrics } from './studyApi';
@@ -26,12 +26,9 @@ export interface DemoSnapshot {
   live: boolean;
 }
 
-/** RAG 引用溯源卡片的一条来源 */
+/** 演示页能确认的资料来源：只有用户上传过的文件名。 */
 export interface DemoCitation {
   filename: string;
-  snippet: string;
-  /** 相关度 0-1 */
-  score: number;
 }
 
 /**
@@ -46,38 +43,6 @@ export const FALLBACK_SNAPSHOT: DemoSnapshot = {
   phaseTotal: 4,
   live: false,
 };
-
-/**
- * 引用卡片的兜底来源。
- *
- * 文件名优先用用户**真实上传**的文档（`GET /api/documents`），拿不到才用这里的示例名。
- * 片段与相关度是固定值 —— 后端目前没有返回引用片段的能力（`assistant_service` 只吐
- * token 流），所以这一块只能是演示数据，不能伪装成真的。
- */
-export const FALLBACK_CITATIONS: DemoCitation[] = [
-  {
-    filename: '高等数学复习笔记.pdf',
-    snippet: '该章节讲中值定理怎么用，建议先看例题，再自己把推导复述一遍。',
-    score: 0.92,
-  },
-  {
-    filename: '课程章节笔记.docx',
-    snippet: '此处的方法依赖上一章结论，复习前需先确认前置概念已经掌握，否则会反复出错。',
-    score: 0.87,
-  },
-  {
-    filename: '课程错题整理.md',
-    snippet: '本知识点容易反复出错，建议纳入本周重点复习清单并安排二次回看。',
-    score: 0.81,
-  },
-];
-
-/** 文件名取自真实文档、片段用通用表述，避免出现「文件名是英语、片段讲数学」的穿帮。 */
-const GENERIC_SNIPPETS = [
-  '该章节讲中值定理怎么用，建议先看例题，再自己把推导复述一遍。',
-  '此处的方法依赖上一章结论，复习前需先确认前置概念已经掌握，否则会反复出错。',
-  '本知识点容易反复出错，建议纳入本周重点复习清单并安排二次回看。',
-];
 
 function todayISO(): string {
   const now = new Date();
@@ -127,14 +92,11 @@ export async function loadDemoSnapshot(): Promise<DemoSnapshot> {
 export async function loadDemoCitations(): Promise<DemoCitation[]> {
   try {
     const res = await listDocuments();
-    const ready = res.documents.filter((doc) => doc.ready).slice(0, 3);
-    if (ready.length === 0) return FALLBACK_CITATIONS;
-    return ready.map((doc, i) => ({
-      filename: doc.filename,
-      snippet: GENERIC_SNIPPETS[i % GENERIC_SNIPPETS.length],
-      score: FALLBACK_CITATIONS[i % FALLBACK_CITATIONS.length].score,
-    }));
+    return res.documents
+      .filter((doc) => doc.ready)
+      .slice(0, 3)
+      .map((doc) => ({ filename: doc.filename }));
   } catch {
-    return FALLBACK_CITATIONS;
+    return [];
   }
 }

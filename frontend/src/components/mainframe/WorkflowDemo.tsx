@@ -50,11 +50,15 @@ function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): Workflow
     {
       key: 'retrieve',
       title: '检索知识库',
-      summary: `命中 ${citations.length} 个相关片段`,
+      summary:
+        citations.length === 0
+          ? '没有命中资料'
+          : `列出 ${citations.length} 份已上传资料`,
       icon: Search,
-      detail: citations.map(
-        (c) => `${c.filename} · 相关度 ${(c.score * 100).toFixed(0)}%`,
-      ),
+      detail:
+        citations.length === 0
+          ? ['没有可引用的上传文档']
+          : citations.map((c) => c.filename),
     },
     {
       key: 'tool',
@@ -249,23 +253,19 @@ function WorkflowDemo({ snapshot, citations, onClose }: WorkflowDemoProps) {
                   <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="text-[11px] tracking-[0.16em]">引用溯源</span>
                 </div>
-                <ul className="mt-3 space-y-2.5">
-                  {citations.map((c, i) => (
-                    <li key={`${c.filename}-${i}`} className="border-l-2 border-brand/60 pl-3">
-                      <div className="flex items-baseline justify-between gap-3">
+                {citations.length === 0 ? (
+                  <p className="mt-3 text-[12.5px] text-white/55">没有命中可引用的资料。</p>
+                ) : (
+                  <ul className="mt-3 space-y-2.5">
+                    {citations.map((c, i) => (
+                      <li key={`${c.filename}-${i}`} className="border-l-2 border-brand/60 pl-3">
                         <span className="truncate text-[13px] font-medium text-white">
                           {c.filename}
                         </span>
-                        <span className="shrink-0 text-[11px] text-brand">
-                          {(c.score * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                      <p className="mt-1 truncate text-[12.5px] text-white/55">
-                        {c.snippet}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </motion.section>
             ) : null}
           </AnimatePresence>
