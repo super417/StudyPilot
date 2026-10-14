@@ -14,6 +14,7 @@ from app.models.entities import (
     CheckIn,
     Course,
     DailyTask,
+    MasteryEvidence,
     Phase,
     Plan,
     User,
@@ -328,6 +329,59 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         self.assertIsNone(
             weekly_review_service.get_latest_weekly_review(self.session, mine.id)
         )
+
+    def test_empty_evidence_mastery_is_null_not_zero(self) -> None:
+        user = self._make_user()
+        self._add_check_in(user, date(2025, 2, 10), 30)
+        plan, phase = self._make_plan_with_phase(user)
+        self._add_task(plan, phase, date(2025, 2, 10), "done")
+        review = weekly_review_service.generate_weekly_review(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertIsNotNone(review)
+        avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertIsNone(avg)
+        self.assertNotEqual(avg, 0)
+        self.assertEqual(detail[0]["evidenceCount"], 0)
+        self.assertIsNone(detail[0]["percent"])
+
+    def test_evidence_added_later_in_the_same_week_changes_mastery(self) -> None:
+        user = self._make_user()
+        self._add_check_in(user, date(2025, 2, 10), 30)
+        plan, phase = self._make_plan_with_phase(user)
+        self._add_task(plan, phase, date(2025, 2, 11), "done")
+        first = weekly_review_service.generate_weekly_review(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        before, _ = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertIsNone(before)
+        self.session.add(
+            MasteryEvidence(
+                user_id=user.id,
+                knowledge_point=phase.id,
+                evidence_type="quiz",
+                result="correct",
+                answer_text="闭区间连续",
+                grade_reason="与作答一致",
+                created_at=datetime(2025, 2, 12, 8, 0, tzinfo=timezone.utc),
+            )
+        )
+        self.session.commit()
+        second = weekly_review_service.generate_weekly_review(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        after, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(after, 100)
+        self.assertNotEqual(before, after)
+        self.assertEqual(detail[0]["evidenceCount"], 1)
+        self.assertEqual(detail[0]["percent"], 100)
 
 
 if __name__ == "__main__":
