@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import UserDocument
+from app.services.retrieval import rank
 
 MAX_FILE_BYTES = 20 * 1024 * 1024
 CHUNK_SIZE = 1000
@@ -302,17 +303,20 @@ def build_context(
     session: Session,
     user_id: uuid.UUID,
     doc_ids: list[str] | None,
+    query: str,
     max_chars: int | None = None,
+    k: int = 5,
 ) -> tuple[str, list[dict]]:
-    """Return ``(context_text, hits)`` for the user's documents.
+    """Return ``(context_text, hits)`` for chunks that actually match ``query``.
 
-    ``hits`` items are ``{docId, filename, chunkIndex, snippet}`` and only
-    include text that actually landed in ``context_text``.
+    ``hits`` items are ``{docId, filename, chunkIndex, snippet, score}`` and only
+    include text that landed in ``context_text``. ``score`` is the BM25 value
+    from :func:`rank`. An empty query or a query with no overlapping terms
+    returns ``("", [])`` instead of every stored chunk.
     """
-    if not doc_ids:
+    if not doc_ids or not str(query or "").strip():
         return "", []
 
-    limit = MAX_CONTEXT_CHARS if max_chars is None else max_chars
     rows: list[UserDocument] = []
     for doc_id in doc_ids:
         rows.extend(
@@ -325,45 +329,64 @@ def build_context(
                 .order_by(UserDocument.chunk_index)
             ).all()
         )
+    candidates = [
+        {
+            "doc_id": row.doc_id,
+            "filename": row.filename,
+            "chunk_index": row.chunk_index,
+            "content": row.content,
+        }
+        for row in rows
+    ]
+    ranked = rank(query, candidates, k=k)
+    if not ranked:
+        return "", []
 
-    text = "\n".join(row.content for row in rows)
-    if limit is not None and limit >= 0:
-        text = text[:limit]
-
+    limit = MAX_CONTEXT_CHARS if max_chars is None else max_chars
+    parts: list[str] = []
     hits: list[dict] = []
-    cursor = 0
-    for index, row in enumerate(rows):
-        if cursor >= len(text):
-            break
-        piece = text[cursor : cursor + len(row.content)]
-        if piece:
-            hits.append(
-                {
-                    "docId": row.doc_id,
-                    "filename": row.filename,
-                    "chunkIndex": row.chunk_index,
-                    "snippet": piece,
-                }
-            )
-        cursor += len(row.content)
-        if index < len(rows) - 1 and cursor < len(text) and text[cursor] == "\n":
-            cursor += 1
-    return text, hits
+    used = 0
+    for chunk, score in ranked:
+        content = str(chunk.get("content") or "")
+        if limit is not None and limit >= 0:
+            separator = 1 if parts else 0
+            room = limit - used - separator
+            if room <= 0:
+                break
+            piece = content[:room]
+        else:
+            piece = content
+        if not piece:
+            continue
+        if parts:
+            used += 1
+        parts.append(piece)
+        used += len(piece)
+        hits.append(
+            {
+                "docId": chunk["doc_id"],
+                "filename": chunk["filename"],
+                "chunkIndex": chunk["chunk_index"],
+                "snippet": piece,
+                "score": score,
+            }
+        )
+    return "\n".join(parts), hits
 
 
 def retrieve_document_chunks(
     session: Session,
     user_id: uuid.UUID,
     doc_ids: list[str] | None,
+    query: str,
     max_chars: int | None = None,
 ) -> str:
-    """Return the concatenated chunk text for a user's documents as context.
+    """Return ranked chunk text for a user's documents as context.
 
-    Chunks are grouped per ``doc_id`` and ordered by ``chunk_index`` ascending,
-    then joined into a single plain-text block. Only rows owned by ``user_id``
-    contribute, so another user's content can never leak in. The result is
-    truncated to ``max_chars`` characters (defaulting to ``MAX_CONTEXT_CHARS``)
-    to keep the planning prompt bounded.
+    Only rows owned by ``user_id`` contribute, so another user's content can
+    never leak in. The result is truncated to ``max_chars`` characters
+    (defaulting to ``MAX_CONTEXT_CHARS``). An empty or unmatched ``query``
+    returns an empty string.
     """
-    text, _hits = build_context(session, user_id, doc_ids, max_chars)
+    text, _hits = build_context(session, user_id, doc_ids, query, max_chars)
     return text

@@ -267,7 +267,15 @@ async def generate_for_day(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context = document_service.retrieve_document_chunks(session, user_id, doc_ids) if doc_ids else ""
+    context = (
+        document_service.retrieve_document_chunks(
+            session, user_id, doc_ids, "\n".join(lines)
+        )
+        if doc_ids
+        else ""
+    )
+    if context == "":
+        return []
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)

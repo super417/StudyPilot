@@ -1014,6 +1014,16 @@ def _write_plan_structure(
             )
 
 
+def _retrieval_query(fields: dict[str, object]) -> str:
+    """Goal text already collected from the user. Not a new search phrase."""
+    parts = [
+        str(fields.get("goalName") or "").strip(),
+        str(fields.get("currentLevel") or "").strip(),
+        str(fields.get("completionCriterion") or "").strip(),
+    ]
+    return "\n".join(part for part in parts if part)
+
+
 async def generate_plan(
     session: Session,
     user_id: uuid.UUID,
@@ -1039,7 +1049,7 @@ async def generate_plan(
         session, user_id, document_ids
     )
     context_text = document_service.retrieve_document_chunks(
-        session, user_id, used_docs
+        session, user_id, used_docs, _retrieval_query(fields)
     )
 
     generator = _resolve_plan_generator(session, user_id, plan_generator)
@@ -1106,7 +1116,7 @@ async def compose_unpersisted(
         session, user_id, document_ids
     )
     context_text = document_service.retrieve_document_chunks(
-        session, user_id, used_docs
+        session, user_id, used_docs, _retrieval_query(fields)
     )
     generator = _resolve_plan_generator(session, user_id, plan_generator)
     structure = await _run_generator(
@@ -1256,7 +1266,7 @@ async def regenerate_plan(
         session, user_id, document_ids
     )
     context_text = document_service.retrieve_document_chunks(
-        session, user_id, used_docs
+        session, user_id, used_docs, _retrieval_query(fields)
     )
 
     generator = _resolve_plan_generator(session, user_id, plan_generator)

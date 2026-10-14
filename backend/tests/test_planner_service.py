@@ -379,7 +379,7 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_only_ready_docs_drive_context_and_used_docs(self) -> None:
         self._add_verified_config()
-        self._add_document("docA", ["ALPHA-0", "ALPHA-1"])
+        self._add_document("docA", ["考研数学 ALPHA-0", "零基础 ALPHA-1"])
 
         captured: dict = {}
 

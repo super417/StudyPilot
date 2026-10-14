@@ -621,7 +621,7 @@ async def _stream_chat_reply(
         session, user_id, str(mistake_id) if mistake_id else None
     )
     doc_ids = _list_user_doc_ids(session, user_id)
-    rag_text, citations = document_service.build_context(session, user_id, doc_ids)
+    rag_text, citations = document_service.build_context(session, user_id, doc_ids, text)
 
     messages = build_chat_messages(
         text,

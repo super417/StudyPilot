@@ -146,24 +146,26 @@ class DocumentReadinessTests(unittest.TestCase):
         self._add(self.other.id, "docOther", ["OTHER-SECRET"])
         self.session.commit()
 
-        text = retrieve_document_chunks(self.session, self.user.id, ["docA"])
+        text = retrieve_document_chunks(
+            self.session, self.user.id, ["docA"], "first second third"
+        )
         self.assertEqual(text, "first\nsecond\nthird")
         self.assertNotIn("OTHER-SECRET", text)
         # Requesting the other user's doc id yields nothing for this user.
         self.assertEqual(
-            retrieve_document_chunks(self.session, self.user.id, ["docOther"]), ""
+            retrieve_document_chunks(self.session, self.user.id, ["docOther"], "OTHER-SECRET"), ""
         )
 
     def test_retrieve_empty_when_no_doc_ids(self) -> None:
-        self.assertEqual(retrieve_document_chunks(self.session, self.user.id, []), "")
+        self.assertEqual(retrieve_document_chunks(self.session, self.user.id, [], "first"), "")
         self.assertEqual(
-            retrieve_document_chunks(self.session, self.user.id, None), ""
+            retrieve_document_chunks(self.session, self.user.id, None, "first"), ""
         )
 
     def test_retrieve_truncates_to_max_chars(self) -> None:
         self._add(self.user.id, "docA", ["abcdefghij"])
         text = retrieve_document_chunks(
-            self.session, self.user.id, ["docA"], max_chars=4
+            self.session, self.user.id, ["docA"], "abcdefghij", max_chars=4
         )
         self.assertEqual(text, "abcd")
 
