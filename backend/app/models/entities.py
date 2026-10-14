@@ -376,10 +376,6 @@ class WeeklyReview(Base):
             "completion_rate BETWEEN 0 AND 100",
             name="ck_weekly_reviews_completion_rate_range",
         ),
-        CheckConstraint(
-            "mastery_avg BETWEEN 0 AND 100",
-            name="ck_weekly_reviews_mastery_avg_range",
-        ),
         UniqueConstraint(
             "user_id", "week_start", "week_end", name="uq_weekly_reviews_user_week"
         ),
@@ -396,8 +392,6 @@ class WeeklyReview(Base):
     total_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     streak_days: Mapped[int] = mapped_column(Integer, nullable=False)
     completion_rate: Mapped[int] = mapped_column(Integer, nullable=False)
-    mastery_avg: Mapped[int] = mapped_column(Integer, nullable=False)
-    mastery_detail: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
