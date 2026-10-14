@@ -48,7 +48,13 @@ function StudyStatsCard() {
         { label: '连续学习', value: `${data.streakDays} 天` },
         { label: '投入时长', value: `${Math.round(data.weeklyMinutes / 60)} 小时` },
         { label: '本周完成任务', value: `${data.completedTasks} 个` },
-        { label: '周报掌握度', value: `${data.masteryPercent}%` },
+        {
+          label: '周报掌握度',
+          value:
+            data.masteryPercent == null
+              ? '本周期暂无掌握度证据'
+              : `${data.masteryPercent}%`,
+        },
       ]
     : [];
 

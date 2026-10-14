@@ -19,13 +19,15 @@ import { motion, useMotionValue, useSpring, useInView } from 'framer-motion';
  */
 
 export interface PurpleRingProps {
-  /** 知识掌握平均值百分比 0-100 */
+  /** 知识掌握平均值百分比 0-100。empty 为真时不显示这个数字。 */
   percent: number;
   /** 环形直径（像素），默认 176 */
   size?: number;
+  /** 本周期没有证据时不画进度，也不显示 0%。 */
+  empty?: boolean;
 }
 
-function PurpleRing({ percent, size = 176 }: PurpleRingProps) {
+function PurpleRing({ percent, size = 176, empty = false }: PurpleRingProps) {
   // 约束到 0-100，避免异常 mock 值撑破弧长
   const value = Math.max(0, Math.min(100, percent));
   const strokeWidth = 14;
@@ -40,8 +42,8 @@ function PurpleRing({ percent, size = 176 }: PurpleRingProps) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    if (inView) count.set(value);
-  }, [inView, value, count]);
+    if (inView && !empty) count.set(value);
+  }, [inView, value, count, empty]);
 
   useEffect(() => {
     const unsubscribe = spring.on('change', (latest) => {
@@ -51,8 +53,9 @@ function PurpleRing({ percent, size = 176 }: PurpleRingProps) {
   }, [spring]);
 
   return (
-    <div ref={ref} className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`知识掌握平均值 ${value}%`}>
+    <div className="flex shrink-0 flex-col items-center">
+    <div ref={ref} className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={empty ? '本周期暂无掌握度证据' : `知识掌握平均值 ${value}%`}>
         {/* 轨道：极浅紫 */}
         <circle
           cx={center}
@@ -73,18 +76,26 @@ function PurpleRing({ percent, size = 176 }: PurpleRingProps) {
           strokeLinecap="round"
           transform={`rotate(-90 ${center} ${center})`}
           initial={{ pathLength: 0 }}
-          whileInView={{ pathLength: value / 100 }}
+          whileInView={{ pathLength: empty ? 0 : value / 100 }}
           viewport={{ once: true, margin: '50px' }}
           transition={{ duration: 1.2, ease: [0.25, 0.1, 0.25, 1] }}
         />
       </svg>
       {/* 圆心文字：数字随绘制递增，最终停在 value */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-4xl font-bold leading-none text-purple">
-          {display}%
+        <span className={`font-display font-bold leading-none text-purple ${empty ? 'text-lg' : 'text-4xl'}`}>
+          {empty ? '暂无证据' : `${display}%`}
         </span>
-        <span className="mt-1 text-xs font-medium text-gray-400">知识掌握</span>
+        {empty ? null : (
+          <span className="mt-1 text-xs font-medium text-gray-400">知识掌握</span>
+        )}
       </div>
+    </div>
+    {empty ? (
+      <p className="mt-2 max-w-[11rem] text-center text-xs leading-relaxed text-gray-400">
+        本周期暂无掌握度证据
+      </p>
+    ) : null}
     </div>
   );
 }

@@ -29,9 +29,10 @@ export function toWeeklyReview(
     masteryDetail = raw as MasteryDetailItem[];
   } else if (raw && typeof raw === 'object') {
     masteryDetail = Object.entries(raw as Record<string, unknown>).map(
-      ([subject, percent]) => ({
+      ([subject]) => ({
         subject,
-        percent: Number(percent) || 0,
+        percent: null,
+        evidenceCount: 0,
       }),
     );
   }

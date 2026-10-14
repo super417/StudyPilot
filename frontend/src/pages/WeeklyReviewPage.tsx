@@ -120,7 +120,13 @@ function WeeklyReviewPage() {
                 />
               </div>
               <div className="flex justify-center lg:justify-end">
-                <PurpleRing percent={review?.masteryAvg ?? 0} />
+                <PurpleRing
+                  percent={review?.masteryAvg ?? 0}
+                  empty={
+                    !review ||
+                    (review.masteryDetail ?? []).every((item) => (item.evidenceCount ?? 0) === 0)
+                  }
+                />
               </div>
             </section>
           </FadeIn>

@@ -18,8 +18,9 @@ router = APIRouter(prefix="/api/weekly-reviews", tags=["weekly-reviews"])
 
 
 def _review(session: Session, user_id, review: WeeklyReview) -> dict:
-    # Live subjects, so a review saved from phase progress still shows courses.
-    avg, detail = weekly_review_service.subject_mastery(
+    # Recompute from the evidence ledger. A stored 0 is not mastery when the
+    # week has no evidence rows.
+    avg, detail = weekly_review_service.phase_mastery(
         session, user_id, review.week_start, review.week_end
     )
     return {

@@ -23,32 +23,35 @@ function MasteryDetail({ items }: MasteryDetailProps) {
     <FadeIn y={20}>
       <InteractiveCard className="card p-6 sm:p-8">
         <h2 className="font-display text-lg font-bold text-brandDark">知识掌握明细</h2>
-        <p className="mt-1 text-sm text-gray-400">各科目本周任务的完成比例</p>
-        {items.length === 0 ? (
-          <p className="mt-6 text-sm text-gray-400">还没有课程。先在个人中心添加科目。</p>
+        <p className="mt-1 text-sm text-gray-400">按阶段汇总本周判分证据</p>
+        {items.length === 0 || items.every((item) => item.evidenceCount === 0) ? (
+          <p className="mt-6 text-sm text-gray-400">本周期暂无掌握度证据</p>
         ) : null}
 
         <ul className="mt-6 flex flex-col gap-5">
           {items.map((item) => {
-            const value = Math.max(0, Math.min(100, item.percent));
+            const unevidenced = item.evidenceCount === 0;
+            const value = Math.max(0, Math.min(100, item.percent ?? 0));
             return (
-              // 视口内渲染优化（需求 18.28）：掌握度明细随科目/知识点增长可能变长，
-              // cv-list 跳过屏外行的布局/绘制；每行约 56px 占位估算防滚动跳动。
               <li
-                key={item.subject}
+                key={item.phaseId ?? item.subject}
                 className="cv-list"
                 style={{ containIntrinsicSize: 'auto 56px' }}
               >
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm font-medium text-brandDark">{item.subject}</span>
-                  <span className="font-display text-sm font-semibold text-purple">{value}%</span>
+                  <span className="font-display text-sm font-semibold text-purple">
+                    {unevidenced ? '暂无证据' : `${value}%`}
+                  </span>
                 </div>
-                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-brandFaint">
-                  <div
-                    className="h-full rounded-full bg-purple"
-                    style={{ width: `${value}%` }}
-                  />
-                </div>
+                {unevidenced ? null : (
+                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-brandFaint">
+                    <div
+                      className="h-full rounded-full bg-purple"
+                      style={{ width: `${value}%` }}
+                    />
+                  </div>
+                )}
               </li>
             );
           })}

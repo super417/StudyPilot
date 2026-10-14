@@ -78,8 +78,18 @@ export function buildSelfNote(input: {
       ? `阶段进度 ${phase.completed}/${phase.total}`
       : '规划阶段尚未就绪';
 
+  const evidenceCount = (review?.masteryDetail ?? []).reduce(
+    (sum, item) => sum + (item.evidenceCount ?? 0),
+    0,
+  );
+  const masteryClause =
+    review && evidenceCount === 0
+      ? '本周期暂无掌握度证据'
+      : review
+        ? `掌握均分 ${review.masteryAvg}%`
+        : '';
   const headline = review
-    ? `本周复盘已生成（${review.weekStart} ~ ${review.weekEnd}）：投入 ${review.totalMinutes} 分钟，完成率 ${review.completionRate}%，掌握均分 ${review.masteryAvg}%。目标是把「看→写理解→做题」跑通，不盲目追进度。`
+    ? `本周复盘已生成（${review.weekStart} ~ ${review.weekEnd}）：投入 ${review.totalMinutes} 分钟，完成率 ${review.completionRate}%，${masteryClause}。目标是把「看→写理解→做题」跑通，不盲目追进度。`
     : metrics
       ? `当前${phaseText}，连续打卡 ${metrics.streakDays} 天，累计投入 ${metrics.totalMinutes} 分钟。今日状态「${metrics.todayStatus}」。先稳住每日最小闭环，再谈加速。`
       : '提交学习规划并开始打卡后，这里会根据你的周报与今日状态生成近期自述。';

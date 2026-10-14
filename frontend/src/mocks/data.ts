@@ -176,10 +176,10 @@ export const mockWeeklyReview: WeeklyReview = {
   completionRate: 0,
   masteryAvg: 0,
   masteryDetail: [
-    { subject: '科目 A', percent: 0 },
-    { subject: '科目 B', percent: 0 },
-    { subject: '模块一', percent: 0 },
-    { subject: '模块二', percent: 0 },
+    { subject: '科目 A', percent: null, evidenceCount: 0 },
+    { subject: '科目 B', percent: null, evidenceCount: 0 },
+    { subject: '模块一', percent: null, evidenceCount: 0 },
+    { subject: '模块二', percent: null, evidenceCount: 0 },
   ],
 };
 

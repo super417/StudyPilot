@@ -115,12 +115,15 @@ export interface Mistake {
   createdAt?: string;
 }
 
-/** 某科目掌握度明细项 */
+/** 某阶段掌握度明细项。证据条数为 0 时 percent 为空，不能当成 0%。 */
 export interface MasteryDetailItem {
-  /** 科目名称 */
+  /** 阶段名称 */
   subject: string;
-  /** 掌握度百分比 0-100 */
-  percent: number;
+  /** 有证据时的掌握度百分比 0-100 */
+  percent: number | null;
+  /** 本周期计入该阶段的证据条数 */
+  evidenceCount?: number;
+  phaseId?: string;
 }
 
 /** 周复盘（对应 Weekly_Reviews 表） */

@@ -40,8 +40,8 @@ export interface StudyStatsOverview {
   weeklyMinutes: number;
   /** 完成任务数 */
   completedTasks: number;
-  /** 知识点掌握百分比 0-100 */
-  masteryPercent: number;
+  /** 有证据时的掌握度百分比。没有证据时为 null，不能显示成 0%。 */
+  masteryPercent: number | null;
   /** 近 7 日每日学习时长（分钟），用于迷你趋势图 */
   weeklyTrend: number[];
 }
@@ -136,7 +136,12 @@ export async function fetchStudyStats(): Promise<StudyStatsOverview> {
   const weekDone = tasks.filter((t) => t.status === 'done').length;
   const weeklyMinutes =
     weekly.review?.totalMinutes ?? overview.totalMinutes;
-  const masteryPercent = weekly.review?.masteryAvg ?? 0;
+  const evidenceCount = (weekly.review?.masteryDetail ?? []).reduce(
+    (sum, item) => sum + (item.evidenceCount ?? 0),
+    0,
+  );
+  const masteryPercent =
+    weekly.review == null || evidenceCount === 0 ? null : weekly.review.masteryAvg;
 
   const byDate = new Map<string, number>();
   for (const d of week) byDate.set(d, 0);

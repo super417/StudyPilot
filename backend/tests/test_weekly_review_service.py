@@ -204,7 +204,7 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         # 2 done of 4 in-week -> 50.
         self.assertEqual(review.completion_rate, 50)
 
-    def test_mastery_uses_course_task_completion(self) -> None:
+    def test_mastery_is_not_course_name_completion(self) -> None:
         user = self._make_user()
         self._add_check_in(user, date(2025, 2, 10), 60)
         plan, phase = self._make_plan_with_phase(user)
@@ -223,14 +223,23 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         review = weekly_review_service.generate_weekly_review(
             self.session, user.id, self.week_start, self.week_end
         )
+        self.assertFalse(hasattr(weekly_review_service, "subject_mastery"))
+        self.assertEqual(review.completion_rate, 50)
+        self.assertEqual(review.mastery_avg, 0)
         self.assertEqual(
             review.mastery_detail,
             [
-                {"subject": "英语", "percent": 0},
-                {"subject": "高等数学", "percent": 50},
+                {
+                    "phaseId": str(phase.id),
+                    "subject": "高等数学强化",
+                    "percent": None,
+                    "evidenceCount": 0,
+                }
             ],
         )
-        self.assertEqual(review.mastery_avg, 25)
+        subjects = [item["subject"] for item in review.mastery_detail]
+        self.assertNotIn("英语", subjects)
+        self.assertNotIn("高等数学", subjects)
 
     def test_repeat_call_is_idempotent(self) -> None:
         user = self._make_user()

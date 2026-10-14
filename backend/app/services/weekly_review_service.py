@@ -13,7 +13,15 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.entities import CheckIn, Course, DailyTask, Phase, Plan, User, WeeklyReview
+from app.models.entities import (
+    CheckIn,
+    DailyTask,
+    MasteryEvidence,
+    Phase,
+    Plan,
+    User,
+    WeeklyReview,
+)
 from app.services.metrics_service import compute_streak
 
 
@@ -43,50 +51,94 @@ def _now(now: datetime | None) -> datetime:
     return now if now is not None else datetime.now(timezone.utc)
 
 
-def subject_mastery(
+_EVIDENCE_SCORE = {"correct": 100, "partial": 50, "wrong": 0}
+
+
+def _evidence_day(moment: datetime | date | None) -> date | None:
+    if isinstance(moment, datetime):
+        return moment.date()
+    if isinstance(moment, date):
+        return moment
+    return None
+
+
+def phase_mastery(
     session: Session,
     user_id: uuid.UUID,
     week_start: date,
     week_end: date,
 ) -> tuple[int, list[dict]]:
-    """Per-course mastery for one week: matching task completion, not phase progress.
+    """Mastery for one week, grouped by phase, from mastery_evidence only.
 
-    A task matches a course when the course name appears in the phase name or
-    the task description. ponytail: substring match, same ceiling as the course
-    card; a short name inside a longer one can share tasks.
+    correct is 100, partial is 50, wrong is 0. Rows with a null knowledge_point
+    are excluded from every phase. A phase with no evidence in the week is
+    returned with evidenceCount 0 and percent null. The average uses only
+    phases that have evidence. When none do, the average is 0 so the stored
+    column stays in range; that 0 is not a mastery score and must not be shown
+    as 0%.
     """
-    courses = list(
-        session.scalars(
-            select(Course)
-            .where(Course.user_id == user_id)
-            .order_by(Course.name)
-        )
-    )
-    if not courses:
-        return 0, []
-    rows = session.execute(
-        select(DailyTask, Phase)
+    task_phases = session.scalars(
+        select(Phase)
+        .join(DailyTask, DailyTask.phase_id == Phase.id)
         .join(Plan, Plan.id == DailyTask.plan_id)
-        .join(Phase, Phase.id == DailyTask.phase_id)
         .where(
             Plan.user_id == user_id,
             DailyTask.task_date >= week_start,
             DailyTask.task_date <= week_end,
         )
     ).all()
-    detail: list[dict] = []
-    for course in courses:
-        matched = [
-            task
-            for task, phase in rows
-            if course.name in phase.name or course.name in task.description
-        ]
-        done = sum(1 for task in matched if task.status == "done")
-        detail.append(
-            {"subject": course.name, "percent": completion_rate(done, len(matched))}
+    phases: dict[uuid.UUID, Phase] = {phase.id: phase for phase in task_phases}
+
+    evidence = list(
+        session.scalars(
+            select(MasteryEvidence).where(MasteryEvidence.user_id == user_id)
         )
-    avg = int(round(sum(item["percent"] for item in detail) / len(detail)))
-    return avg, detail
+    )
+    by_phase: dict[uuid.UUID, list[MasteryEvidence]] = {}
+    for row in evidence:
+        day = _evidence_day(row.created_at)
+        if day is None or day < week_start or day > week_end or row.knowledge_point is None:
+            continue
+        phase = phases.get(row.knowledge_point)
+        if phase is None:
+            phase = session.scalar(
+                select(Phase)
+                .join(Plan, Plan.id == Phase.plan_id)
+                .where(Phase.id == row.knowledge_point, Plan.user_id == user_id)
+            )
+            if phase is None:
+                continue
+            phases[phase.id] = phase
+        by_phase.setdefault(phase.id, []).append(row)
+
+    detail: list[dict] = []
+    scored: list[int] = []
+    for phase in sorted(phases.values(), key=lambda item: (item.name, str(item.id))):
+        rows = by_phase.get(phase.id, [])
+        if not rows:
+            detail.append(
+                {
+                    "phaseId": str(phase.id),
+                    "subject": phase.name,
+                    "percent": None,
+                    "evidenceCount": 0,
+                }
+            )
+            continue
+        percent = round(sum(_EVIDENCE_SCORE.get(row.result, 0) for row in rows) / len(rows))
+        percent = max(0, min(100, percent))
+        scored.append(percent)
+        detail.append(
+            {
+                "phaseId": str(phase.id),
+                "subject": phase.name,
+                "percent": percent,
+                "evidenceCount": len(rows),
+            }
+        )
+    if not scored:
+        return 0, detail
+    return max(0, min(100, round(sum(scored) / len(scored)))), detail
 
 
 def generate_weekly_review(
@@ -168,7 +220,7 @@ def generate_weekly_review(
         or 0
     )
     rate = completion_rate(int(done_tasks), int(total_tasks))
-    mastery_avg, mastery_detail = subject_mastery(
+    mastery_avg, mastery_detail = phase_mastery(
         session, user_id, week_start, week_end
     )
 
