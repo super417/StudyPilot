@@ -419,7 +419,7 @@ class PlanRouteTests(unittest.TestCase):
         self._add_verified_config()
         self._override_generator(phase_count=2)
         goal = {
-            "goalName": "考研",
+            "goalName": "复习",
             "goalDate": "2027-12-21",
             "currentLevel": "零基础",
             "dailyMinutes": 120,
@@ -436,7 +436,7 @@ class PlanRouteTests(unittest.TestCase):
 
         vague = self.client.post(
             f"/api/plans/{clarify['draftId']}/clarify",
-            json={"message": "考研"},
+            json={"message": "复习"},
         )
         self.assertEqual([e for e, _ in _parse_sse(vague.text)], ["clarify"])
         self.assertEqual(self._plans(), [])

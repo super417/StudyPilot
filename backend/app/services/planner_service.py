@@ -84,7 +84,7 @@ _PLAN_SSE_EVENTS = (
     PLAN_SSE_ERROR_EVENT,
 )
 
-_VAGUE_FOCUS = re.compile(r"^(?:考研|学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$")
+_VAGUE_FOCUS = re.compile(r"^(?:学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$")
 _CANONICAL_GOAL_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MINUTES_SHAPED = re.compile(
     r"^(?:每天|每日)?\s*(-?\d+(?:\.\d+)?)\s*(?:分钟|min|mins|minutes)?$",
@@ -214,7 +214,7 @@ def missing_fields(payload: dict[str, object]) -> list[str]:
 def focus_is_clear(value: object) -> bool:
     """A book, a subject, or several subjects together are clear enough to plan.
 
-    Only an empty shrug (考研 / 随便 / 不知道) stays unclear.
+    Only an empty shrug (学习 / 随便 / 不知道) stays unclear.
     """
     if not isinstance(value, str):
         return False
@@ -578,12 +578,12 @@ def _parse_plan_structure_from_text(text: str) -> dict:
 
 
 def _heuristic_plan_structure(fields: dict[str, object]) -> dict:
-    """Deterministic 考研骨架：仅在模型输出无法解析时兜底，保证演示可闭环。"""
+    """Deterministic 兜底骨架：仅在模型输出无法解析时兜底，保证演示可闭环。"""
     today = _today_local()
     goal = _coerce_date(fields.get("goalDate"), today + timedelta(days=180))
     span_days = max(30, (goal - today).days)
     mid = today + timedelta(days=span_days // 2)
-    name = str(fields.get("goalName") or "考研复习")
+    name = str(fields.get("goalName") or "学习计划")
     level = str(fields.get("currentLevel") or "待评估")
     return {
         "phases": [
@@ -595,7 +595,7 @@ def _heuristic_plan_structure(fields: dict[str, object]) -> dict:
                     {
                         "task_date": today.isoformat(),
                         "week_label": "W01",
-                        "description": f"梳理{level}薄弱点，建立考研科目知识清单",
+                        "description": f"梳理{level}薄弱点，建立方向知识清单",
                     },
                     {
                         "task_date": (today + timedelta(days=1)).isoformat(),
@@ -612,7 +612,7 @@ def _heuristic_plan_structure(fields: dict[str, object]) -> dict:
                     {
                         "task_date": (mid + timedelta(days=1)).isoformat(),
                         "week_label": "W02",
-                        "description": "真题/模拟卷限时训练与错题归档",
+                        "description": "阶段性自测与错题归档",
                     },
                     {
                         "task_date": (mid + timedelta(days=2)).isoformat(),

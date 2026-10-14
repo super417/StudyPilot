@@ -107,7 +107,7 @@ class GoalFieldTests(unittest.TestCase):
         payload = _complete()
         del payload["completionCriterion"]
         self.assertIn("completionCriterion", missing_fields(payload))
-        vague = _complete(goalName="考研")
+        vague = _complete(goalName="复习")
         self.assertEqual(missing_fields(vague), ["goalName"])
 
     def test_compact_past_and_non_integer_minutes_are_not_ready(self) -> None:
@@ -264,7 +264,7 @@ class GoalRouteTests(unittest.TestCase):
         self._verify()
         self._doc()
 
-        form = self.client.post("/api/plans/generate", json=_complete(goalName="考研"))
+        form = self.client.post("/api/plans/generate", json=_complete(goalName="复习"))
         self.assertEqual([name for name, _ in _parse_sse(form.text)], ["clarify"])
         self.assertEqual(self._plans(), [])
         self.assertEqual(GoalRouteTests.calls, 0)
