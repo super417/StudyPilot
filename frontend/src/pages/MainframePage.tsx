@@ -315,7 +315,7 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
     });
   };
 
-  /** 打开左侧聊天框；带 ctx 时顺便注入上下文（如「制定考研目标」）。 */
+  /** 打开左侧聊天框；带 ctx 时顺便注入上下文（如「制定学习目标」）。 */
   const openChat = async (ctx?: AssistantContext) => {
     if (ctx) setContext(ctx);
     try {
@@ -329,7 +329,7 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
   const handlePill = (action: PillAction) => {
     switch (action) {
       case 'goal':
-        void openChat({ type: 'plan', hint: '制定或调整考研复习规划' });
+        void openChat({ type: 'plan', hint: '制定或调整复习规划' });
         break;
       case 'overview':
         onNavigate?.('overview');

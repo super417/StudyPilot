@@ -1,4 +1,4 @@
-const VAGUE_GOAL = /^(?:考研|学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$/;
+const VAGUE_GOAL = /^(?:学习|复习|不知道|随便|看看|先这样|没有|无)[。.!！]?$/;
 const CANONICAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isRealDate(value: string): boolean {
@@ -43,7 +43,7 @@ export function validateGoalDraft(
   const minutesText = input.dailyMinutes.trim();
 
   if (!goalName || VAGUE_GOAL.test(goalName)) {
-    return { ok: false, hint: '请写明要学的内容，不要只写「学习」或「考研」。' };
+    return { ok: false, hint: '请写明要学的内容，不要只写「学习」或「复习」。' };
   }
   if (!CANONICAL_DATE.test(goalDate) || !isRealDate(goalDate)) {
     return { ok: false, hint: '期限必须是有效的 YYYY-MM-DD。' };

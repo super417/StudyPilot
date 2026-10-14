@@ -1,4 +1,4 @@
-# 智航数据 Schema
+# StudyPilot 数据 Schema
 
 > 版本 1.0.0 · 2026-10-13
 >

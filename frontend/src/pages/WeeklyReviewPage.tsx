@@ -20,7 +20,7 @@ function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: 
       eyebrow: 'WEEKLY REVIEW · 尚未生成',
       title: '一周之后，这里会帮你认识自己',
       description: hasPlan
-        ? `你已有考研规划（阶段 ${phase?.completed ?? 0}/${phase?.total ?? 0}，剩余约 ${metrics?.remainingDays ?? 0} 天）。坚持打卡满一周后，周报会对照你的目标节奏，标出最容易进入状态、最有效与最容易卡住的部分。`
+        ? `你已有学习规划（阶段 ${phase?.completed ?? 0}/${phase?.total ?? 0}，剩余约 ${metrics?.remainingDays ?? 0} 天）。坚持打卡满一周后，周报会对照你的目标节奏，标出最容易进入状态、最有效与最容易卡住的部分。`
         : '周报不只汇总「学了多少」，还会告诉你什么时候最容易进入状态、什么方式最有效、什么最容易卡住。先在助手中提交学习目标并开始打卡吧。',
       emptyTitle: hasPlan
         ? '完成一周学习后自动生成第一份周报'
@@ -35,8 +35,8 @@ function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: 
     eyebrow: `WEEKLY REVIEW · ${review.weekStart} ~ ${review.weekEnd}`,
     title: '一周之后，这里会帮你认识自己',
     description: hasPlan
-      ? `本周对照考研规划：阶段 ${phase?.completed ?? 0}/${phase?.total ?? 0}，剩余约 ${metrics?.remainingDays ?? 0} 天。投入 ${review.totalMinutes} 分钟 · 连续 ${review.streakDays} 天 · 完成率 ${review.completionRate}%。下面是本周知识掌握与节奏观察。`
-      : `本周 ${review.weekStart} ~ ${review.weekEnd}。周报汇总投入、连续打卡与知识掌握，帮你看清考研节奏。`,
+      ? `本周对照学习规划：阶段 ${phase?.completed ?? 0}/${phase?.total ?? 0}，剩余约 ${metrics?.remainingDays ?? 0} 天。投入 ${review.totalMinutes} 分钟 · 连续 ${review.streakDays} 天 · 完成率 ${review.completionRate}%。下面是本周知识掌握与节奏观察。`
+      : `本周 ${review.weekStart} ~ ${review.weekEnd}。周报汇总投入、连续打卡与知识掌握，帮你看清学习节奏。`,
     emptyTitle: '',
     emptyBody: '',
   };
@@ -100,7 +100,7 @@ function WeeklyReviewPage() {
         </div>
       ) : null}
 
-      {loading ? <p className="text-sm text-gray-400">加载考研周报…</p> : null}
+      {loading ? <p className="text-sm text-gray-400">加载周报…</p> : null}
 
       {!loading ? (
         <>

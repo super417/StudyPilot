@@ -3,7 +3,7 @@ import { useDocumentsStore, makeSessionDoc } from '@/store/documentsStore';
 import { DocumentsApiError, deleteDocument, fileTypeFromName, uploadDocument } from '@/lib/documentsApi';
 
 /**
- * 考研资料多选（服务端清单水合；未就绪禁选）。
+ * 学习资料多选（服务端清单水合；未就绪禁选）。
  * 可在表单内直接上传，成功后自动勾选为规划依据。
  */
 function DocumentPicker() {

@@ -102,10 +102,10 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
                   clearContext();
                   return;
                 }
-                setContext({ type: 'plan', hint: '制定或调整考研复习规划' });
+                setContext({ type: 'plan', hint: '制定或调整复习规划' });
               }}
               aria-label={showPlanForm ? '收起学习目标表单' : '提交学习目标'}
-              title={showPlanForm ? '收起目标表单（聊天继续）' : '提交考研学习目标'}
+              title={showPlanForm ? '收起目标表单（聊天继续）' : '提交学习目标'}
               aria-pressed={showPlanForm}
               className={`rounded-full p-1.5 transition-colors hover:bg-white/70 ${
                 showPlanForm ? 'bg-white/80 text-brandDark' : 'text-brandDark/70'
@@ -156,7 +156,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
         >
           {messages.length === 0 ? (
             <p className="pt-10 text-center text-[13px] leading-relaxed text-brandDark/45">
-              问点考研相关的，或者说说你想怎么调整复习计划
+              问点学习相关的，或者说说你想怎么调整复习计划
               <br />
               <span className="mt-2 inline-block text-[12px]">
                 支持知识库摘录 · 规划 Agent · 引用溯源
@@ -215,7 +215,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
                 ? '回复「确定」写入规划，或直接说要改的地方'
                 : lastPlanId
                   ? '描述如何调整规划…'
-                  : '考研相关问题或调整规划说明…'
+                  : '学习相关问题或调整规划说明…'
             }
           />
         </div>

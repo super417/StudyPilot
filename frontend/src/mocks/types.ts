@@ -23,7 +23,7 @@ export type TodayStatus = '未反馈' | '已安排' | '已完成';
 /** 学习规划（对应 Plans 表） */
 export interface Plan {
   id: string;
-  /** 目标名称，如「2028 考研（数学二 + 408）」 */
+  /** 目标名称，如「AI 通识课（数据分析）」 */
   goalName: string;
   /** 副标题，如「数学二 · 408 · 英语二」 */
   subtitle: string;

@@ -78,7 +78,7 @@ export interface TodoItem {
   id: string;
   /** 待办文案 */
   title: string;
-  /** 场景标签（考研 / 科研） */
+  /** 场景标签（学习 / 科研） */
   tag: string;
   /** 是否已完成 */
   done: boolean;

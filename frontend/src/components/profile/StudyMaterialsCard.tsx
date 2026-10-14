@@ -159,7 +159,7 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
         </div>
       ) : (
         <div className="flex h-full flex-col">
-          <CardEmpty>还没有资料，上传考研讲义或笔记开始积累吧</CardEmpty>
+          <CardEmpty>还没有资料，上传讲义或笔记开始积累吧</CardEmpty>
           <button
             type="button"
             disabled={uploading}

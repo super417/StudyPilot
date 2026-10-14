@@ -84,8 +84,8 @@ describe('Feature: study-pilot — frontend integration (task 22.4)', () => {
 
   it('SSE 按帧推送 token，断流后仍保留已渲染 delta', async () => {
     const frames = [
-      'event: token\ndata: {"delta":"考"}\n\n',
-      'event: token\ndata: {"delta":"研"}\n\n',
+      'event: token\ndata: {"delta":"学"}\n\n',
+      'event: token\ndata: {"delta":"习"}\n\n',
       'event: done\ndata: {}\n\n',
     ].join('');
 
@@ -102,7 +102,7 @@ describe('Feature: study-pilot — frontend integration (task 22.4)', () => {
       },
     });
 
-    expect(tokens.join('')).toBe('考研');
+    expect(tokens.join('')).toBe('学习');
     expect(done).toBe(true);
   });
 

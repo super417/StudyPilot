@@ -209,7 +209,7 @@ function ChatWindow() {
           />
 
           <header className="flex shrink-0 items-center justify-between gap-2 bg-brandDark px-4 py-3 text-white">
-            <span className="truncate text-sm font-semibold">考研学习助手</span>
+            <span className="truncate text-sm font-semibold">学习助手</span>
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -223,14 +223,14 @@ function ChatWindow() {
               <button
                 type="button"
                 aria-label={showPlanForm ? '收起学习目标表单' : '提交学习目标'}
-                title={showPlanForm ? '收起目标表单（聊天继续）' : '提交考研学习目标'}
+                title={showPlanForm ? '收起目标表单（聊天继续）' : '提交学习目标'}
                 aria-pressed={showPlanForm}
                 onClick={() => {
                   if (showPlanForm) {
                     clearContext();
                     return;
                   }
-                  setContext({ type: 'plan', hint: '制定或调整考研复习规划' });
+                  setContext({ type: 'plan', hint: '制定或调整复习规划' });
                 }}
                 className={`rounded-full p-1 transition-colors hover:bg-white/15 ${
                   showPlanForm ? 'bg-white/20' : ''
@@ -288,7 +288,7 @@ function ChatWindow() {
           >
             {messages.length === 0 ? (
               <p className="pt-6 text-center text-sm text-gray-400">
-                考研提问走真实 SSE；点日历可提交学习目标
+                学习提问走真实 SSE；点日历可提交学习目标
                 <br />
                 <span className="mt-2 inline-block text-xs">
                   支持领域拦截 · 知识库摘录 · 规划 Agent
@@ -351,7 +351,7 @@ function ChatWindow() {
                   ? '回复「确定」写入规划，或直接说要改的地方'
                   : lastPlanId
                     ? '描述如何调整规划…'
-                    : '考研相关问题或调整规划说明…'
+                    : '学习相关问题或调整规划说明…'
               }
             />
           </div>

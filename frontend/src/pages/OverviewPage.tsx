@@ -269,7 +269,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
           <motion.div style={{ y: goalParallaxY }}>
             <FadeIn delay={0.15} y={40}>
               {loading && !metrics ? (
-                <section className="card p-8 text-sm text-gray-400">加载考研指标…</section>
+                <section className="card p-8 text-sm text-gray-400">加载学习指标…</section>
               ) : plan ? (
                 <GoalCard plan={plan} today={today} />
               ) : (
@@ -316,7 +316,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
               const nextTask = todayTasks.find((task) => task.status === 'pending');
               const prompt = nextTask
                 ? `开始今天 ${mins} 分钟。先做：${nextTask.description}`
-                : `开始今天 ${mins} 分钟考研学习`;
+                : `开始今天 ${mins} 分钟学习`;
               openAssistantWithContext({ type: 'free', hint: prompt });
               useAssistantStore.getState().queuePrompt(prompt);
             }}

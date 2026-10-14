@@ -26,7 +26,7 @@
 1. 注册 / 登录  
 2. 个人中心配置并验证 AI API（DeepSeek Base URL 填 `https://api.deepseek.com`，勿填 platform 控制台）  
 3. 「选择模型」按 API `/models` 动态加载；推理强度会作用于助手与规划  
-4. 学习资料上传考研讲义（PDF/DOCX/TXT/MD）  
+4. 学习资料上传讲义（PDF/DOCX/TXT/MD）  
 5. 助手日历 → 提交学习目标（真实规划 SSE：clarify / notice / done）  
 6. 总览打卡 → 刷新今日三态与路线洞察板块  
 7. Roadmap：`GET /api/plans/latest` 展示阶段；本周任务可切换完成态  
@@ -52,7 +52,7 @@
 
 1. 个人中心填写 **API Key / Base URL / 模型**（DeepSeek：`https://api.deepseek.com`）  
 2. 保存时后端校验；密钥加密入库  
-3. 规划：`POST /api/plans/generate` → Ai_Proxy 调模型；解析失败则确定性考研骨架兜底  
+3. 规划：`POST /api/plans/generate` → Ai_Proxy 调模型；解析失败则确定性兜底骨架  
 4. 闲聊：`POST /api/assistant/chat` 真实 SSE；携带 `reasoningStrength`
 
 ## 验证命令

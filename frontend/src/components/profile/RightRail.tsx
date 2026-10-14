@@ -248,12 +248,12 @@ function QuickActions({
       <button
         type="button"
         onClick={() => {
-          openAssistantWithContext({ type: 'plan', hint: '制定或调整考研复习规划' });
+          openAssistantWithContext({ type: 'plan', hint: '制定或调整复习规划' });
           onAction('已打开规划目标表单');
         }}
         className="liquid-glass-tile mt-2 w-full px-3 py-2 text-left text-xs font-medium text-brandDark/80"
       >
-        提交 / 调整考研规划
+        提交 / 调整学习规划
       </button>
     </GlassSection>
   );

@@ -22,7 +22,7 @@ function draft(overrides: Partial<Parameters<typeof validateGoalDraft>[0]> = {})
 
 describe('goal draft validation', () => {
   it('rejects vague objects, compact dates, past dates, and rounded minutes', () => {
-    expect(draft({ goalName: '考研' }).ok).toBe(false);
+    expect(draft({ goalName: '复习' }).ok).toBe(false);
     expect(draft({ goalDate: '20270630' }).ok).toBe(false);
     expect(draft({ goalDate: '2020-01-01' }).ok).toBe(false);
     expect(draft({ dailyMinutes: '45.4' }).ok).toBe(false);

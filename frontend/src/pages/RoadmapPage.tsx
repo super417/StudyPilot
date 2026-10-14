@@ -194,19 +194,19 @@ function RoadmapPage() {
         </div>
       ) : null}
       {statusMsg ? <p className="text-sm text-brandDark">{statusMsg}</p> : null}
-      {loading ? <p className="text-sm text-gray-400">加载本周考研任务…</p> : null}
+      {loading ? <p className="text-sm text-gray-400">加载本周学习任务…</p> : null}
 
       {!loading && !hasPlan ? (
         <section className="card p-6">
           <p className="text-sm font-medium text-brandDark">还没有阶段路线图</p>
           <p className="mt-1 text-xs text-gray-500">
-            生成规划后，这里会展示各复习阶段与本周每日任务。请先在助手中提交考研目标。
+            生成规划后，这里会展示各复习阶段与本周每日任务。请先在助手中提交学习目标。
           </p>
           <button
             type="button"
             className="btn-pill mt-4 px-5 py-2 text-sm"
             onClick={() =>
-              openAssistantWithContext({ type: 'plan', hint: '生成考研复习 Roadmap' })
+              openAssistantWithContext({ type: 'plan', hint: '生成复习 Roadmap' })
             }
           >
             去生成规划
