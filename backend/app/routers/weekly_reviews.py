@@ -18,8 +18,8 @@ router = APIRouter(prefix="/api/weekly-reviews", tags=["weekly-reviews"])
 
 
 def _review(session: Session, user_id, review: WeeklyReview) -> dict:
-    # Recompute from the evidence ledger. A stored 0 is not mastery when the
-    # week has no evidence rows.
+    # Derived at read time from mastery_evidence. The review row is only the
+    # container; these two keys are not columns and are not frozen on create.
     avg, detail = weekly_review_service.phase_mastery(
         session, user_id, review.week_start, review.week_end
     )

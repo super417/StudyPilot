@@ -225,9 +225,12 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         )
         self.assertFalse(hasattr(weekly_review_service, "subject_mastery"))
         self.assertEqual(review.completion_rate, 50)
-        self.assertEqual(review.mastery_avg, 0)
+        avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertIsNone(avg)
         self.assertEqual(
-            review.mastery_detail,
+            detail,
             [
                 {
                     "phaseId": str(phase.id),
@@ -237,7 +240,7 @@ class WeeklyReviewServiceTests(unittest.TestCase):
                 }
             ],
         )
-        subjects = [item["subject"] for item in review.mastery_detail]
+        subjects = [item["subject"] for item in detail]
         self.assertNotIn("英语", subjects)
         self.assertNotIn("高等数学", subjects)
 
@@ -291,8 +294,6 @@ class WeeklyReviewServiceTests(unittest.TestCase):
             total_minutes=100,
             streak_days=1,
             completion_rate=0,
-            mastery_avg=0,
-            mastery_detail={},
         )
         newer = WeeklyReview(
             user_id=user.id,
@@ -301,8 +302,6 @@ class WeeklyReviewServiceTests(unittest.TestCase):
             total_minutes=200,
             streak_days=2,
             completion_rate=0,
-            mastery_avg=0,
-            mastery_detail={},
         )
         self.session.add_all([older, newer])
         self.session.commit()
@@ -323,8 +322,6 @@ class WeeklyReviewServiceTests(unittest.TestCase):
                 total_minutes=200,
                 streak_days=2,
                 completion_rate=0,
-                mastery_avg=0,
-                mastery_detail={},
             )
         )
         self.session.commit()

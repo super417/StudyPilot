@@ -303,10 +303,13 @@ class PracticeGradingTests(unittest.TestCase):
         )
         self.assertIsNotNone(review)
         self.assertEqual(review.completion_rate, 100)
-        self.assertEqual(review.mastery_avg, 33)
-        self.assertNotEqual(review.completion_rate, review.mastery_avg)
-        self.assertEqual(review.mastery_detail[0]["evidenceCount"], 3)
-        self.assertEqual(review.mastery_detail[0]["percent"], 33)
+        avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(avg, 33)
+        self.assertNotEqual(review.completion_rate, avg)
+        self.assertEqual(detail[0]["evidenceCount"], 3)
+        self.assertEqual(detail[0]["percent"], 33)
         self.assertEqual(len(list(self.session.scalars(select(MasteryEvidence)))), 3)
 
 

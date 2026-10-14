@@ -101,8 +101,6 @@ class WeeklyReviewRouteTests(unittest.TestCase):
             total_minutes=180,
             streak_days=3,
             completion_rate=75,
-            mastery_avg=0,
-            mastery_detail={},
         )
         self.session.add(review)
         self.session.commit()

@@ -1,10 +1,12 @@
 """Weekly-review generation and the latest-review read (needs 7.2-7.6).
 
-A weekly review is a persisted snapshot of one natural (ISO) week — Monday
-through Sunday — for one user. It is generated only when that week holds at
-least one ``Check_In`` (requirement 7.6); an empty week produces nothing. The
-natural-week boundary math and the completion-rate math are isolated as pure
-functions so they can be unit-tested without a database.
+A weekly review row is the container for one natural (ISO) week — Monday
+through Sunday — for one user: minutes, streak, and completion. It is created
+only when that week holds at least one ``Check_In`` (requirement 7.6); an empty
+week produces nothing. Mastery is not stored on the row. It is derived from
+``mastery_evidence`` whenever it is read. The week-boundary math and the
+completion-rate math are isolated as pure functions so they can be unit-tested
+without a database.
 """
 
 from datetime import date, datetime, timedelta, timezone
@@ -67,15 +69,14 @@ def phase_mastery(
     user_id: uuid.UUID,
     week_start: date,
     week_end: date,
-) -> tuple[int, list[dict]]:
+) -> tuple[int | None, list[dict]]:
     """Mastery for one week, grouped by phase, from mastery_evidence only.
 
     correct is 100, partial is 50, wrong is 0. Rows with a null knowledge_point
     are excluded from every phase. A phase with no evidence in the week is
     returned with evidenceCount 0 and percent null. The average uses only
-    phases that have evidence. When none do, the average is 0 so the stored
-    column stays in range; that 0 is not a mastery score and must not be shown
-    as 0%.
+    phases that have evidence. When none do, the average is None: no evidence
+    is not a score of 0.
     """
     task_phases = session.scalars(
         select(Phase)
@@ -137,10 +138,12 @@ def phase_mastery(
             }
         )
     if not scored:
-        return 0, detail
+        return None, detail
     return max(0, min(100, round(sum(scored) / len(scored)))), detail
 
 
+# TODO(未来): 「周报是快照」的直觉是对的，但真正要冻结的是**已闭合的周**，
+# 且必须由一个显式的「周关闭」事件写入，不能由打开页面触发。本版不做。
 def generate_weekly_review(
     session: Session,
     user_id: uuid.UUID,
@@ -152,10 +155,11 @@ def generate_weekly_review(
 
     Returns the existing review when one already exists for
     ``(user_id, week_start, week_end)`` — the unique constraint makes the week
-    idempotent, so a repeat call never writes a second row. Otherwise generates
-    one only when the week holds at least one ``Check_In`` (7.6); an empty week
-    returns ``None`` and writes nothing. A commit failure rolls back and
-    re-raises.
+    idempotent, so a repeat call never writes a second row. The row is only the
+    container. Mastery is computed by :func:`phase_mastery` at read time and is
+    not written here. Otherwise generates one only when the week holds at least
+    one ``Check_In`` (7.6); an empty week returns ``None`` and writes nothing.
+    A commit failure rolls back and re-raises.
     """
     existing = session.scalar(
         select(WeeklyReview).where(
@@ -220,9 +224,6 @@ def generate_weekly_review(
         or 0
     )
     rate = completion_rate(int(done_tasks), int(total_tasks))
-    mastery_avg, mastery_detail = phase_mastery(
-        session, user_id, week_start, week_end
-    )
 
     review = WeeklyReview(
         user_id=user_id,
@@ -231,8 +232,6 @@ def generate_weekly_review(
         total_minutes=int(total_minutes),
         streak_days=int(streak_days),
         completion_rate=rate,
-        mastery_avg=mastery_avg,
-        mastery_detail=mastery_detail,
         created_at=_now(now),
     )
     session.add(review)
