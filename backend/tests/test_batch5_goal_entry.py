@@ -873,7 +873,9 @@ class CompletionCriterionMigrationTests(unittest.TestCase):
             try:
                 command.upgrade(config, "head")
                 self._assert_column(database, True)
-                command.downgrade(config, "-1")
+                # Step back to the revision before completion_criterion, not "-1".
+                # Later heads (mastery_evidence) must not change what this checks.
+                command.downgrade(config, "b0c1d2e3f4a5")
                 self._assert_column(database, False)
                 command.upgrade(config, "head")
                 self._assert_column(database, True)

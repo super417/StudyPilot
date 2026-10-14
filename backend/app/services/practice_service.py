@@ -10,7 +10,15 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import DailyTask, Mistake, Phase, Plan, PracticeQuestion, UserDocument
+from app.models.entities import (
+    DailyTask,
+    MasteryEvidence,
+    Mistake,
+    Phase,
+    Plan,
+    PracticeQuestion,
+    UserDocument,
+)
 from app.services import document_service
 from app.services.ai_proxy import (
     CredentialUnavailableError,
@@ -40,6 +48,19 @@ class PracticeValidationError(ValueError):
 
     def __init__(self, message: str = "练习题内容不合法") -> None:
         super().__init__(message)
+
+
+class PracticeGradeError(RuntimeError):
+    """The model call or its payload could not be graded. No evidence row exists."""
+
+    code = "GRADE_FAILED"
+
+    def __init__(self, message: str = "判分失败，没有写入掌握度证据") -> None:
+        super().__init__(message)
+
+
+_GRADE_RESULTS = ("correct", "partial", "wrong")
+_CITATION_MARKERS = ("原文", "资料中")
 
 
 def _question_json(row: PracticeQuestion) -> dict:
@@ -110,6 +131,11 @@ def set_status(
     status: str,
     my_answer: str | None = None,
 ) -> PracticeQuestion:
+    """Learner self-mark. Does not write mastery evidence and does not affect mastery.
+
+    「做对了」must go through ``grade_answer``. This path only records the
+    learner's own status, and a ``wrong`` mark still files a mistake.
+    """
     if status not in _VALID_STATUS:
         raise PracticeValidationError("状态不合法")
     row = session.scalar(
@@ -307,3 +333,190 @@ async def generate_for_day(
     for row in rows:
         session.refresh(row)
     return rows
+
+
+def _knowledge_point(
+    session: Session, user_id: uuid.UUID, question: PracticeQuestion
+) -> uuid.UUID | None:
+    """Phase id of the question's source task. Unknown stays null — never guessed."""
+    if question.source_task_id is None:
+        return None
+    return session.scalar(
+        select(DailyTask.phase_id)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .where(
+            DailyTask.id == question.source_task_id,
+            Plan.user_id == user_id,
+        )
+    )
+
+
+def _source_for_grade(
+    session: Session, user_id: uuid.UUID, query: str
+) -> tuple[str, str | None]:
+    doc_ids = list(
+        session.scalars(
+            select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
+        )
+    )
+    text, hits = document_service.build_context(session, user_id, doc_ids, query)
+    if not hits:
+        return "", None
+    top = hits[0]
+    return text, f"{top['docId']}#{top['chunkIndex']}"
+
+
+def _parse_grade_payload(produced: object) -> dict:
+    if not isinstance(produced, dict):
+        raise PracticeGradeError("判分结果无法解析")
+    result = produced.get("result")
+    reason = produced.get("reason")
+    if result not in _GRADE_RESULTS or not isinstance(reason, str) or not reason.strip():
+        raise PracticeGradeError("判分结果无法解析")
+    error_tag = produced.get("error_tag")
+    if isinstance(error_tag, str):
+        error_tag = error_tag.strip()[:64] or None
+    else:
+        error_tag = None
+    return {"result": result, "reason": reason.strip(), "error_tag": error_tag}
+
+
+def _reason_for_storage(reason: str, source_ref: str | None) -> str:
+    if source_ref is None and any(marker in reason for marker in _CITATION_MARKERS):
+        return "没有可对照的材料，只根据题目和作答判断。"
+    return reason
+
+
+def _loads_model_json(text: str) -> dict:
+    raw = text.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?", "", raw).strip()
+        if raw.endswith("```"):
+            raw = raw[: raw.rfind("```")].strip()
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise PracticeGradeError("判分结果无法解析") from exc
+    return _parse_grade_payload(body)
+
+
+async def _default_grader(
+    session: Session,
+    user_id: uuid.UUID,
+    question: str,
+    answer: str,
+    source_text: str,
+) -> dict:
+    require_verified_api_config(session, user_id)
+    credential = resolve_credential(session, user_id)
+    excerpt = source_text.strip()
+    payload = {
+        "model": credential.model_type,
+        "stream": False,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "只输出 JSON："
+                    '{"result":"correct","reason":"...","error_tag":""}'
+                    "。result 只能是 correct、partial、wrong。"
+                    "有摘录时 reason 依据摘录；摘录为空时不要写「原文」或「资料中」。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"题目：\n{question}\n作答：\n{answer}\n摘录：\n"
+                    + (excerpt[:4000] if excerpt else "（没有检索到可对照的摘录）")
+                ),
+            },
+        ],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                credential.base_url,
+                headers={
+                    **build_outbound_headers(credential),
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+    except Exception as exc:
+        raise PracticeGradeError("判分调用失败，没有写入掌握度证据") from exc
+    if response.status_code >= 400:
+        raise PracticeGradeError("判分调用失败，没有写入掌握度证据")
+    try:
+        body = response.json()
+    except Exception as exc:
+        raise PracticeGradeError("判分结果无法解析") from exc
+    choices = body.get("choices") if isinstance(body, dict) else None
+    text = ""
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        message = choices[0].get("message") or {}
+        text = message.get("content") or ""
+    return _loads_model_json(str(text))
+
+
+async def grade_answer(
+    session: Session,
+    user_id: uuid.UUID,
+    question_id: uuid.UUID,
+    answer_text: str,
+    grader: Callable[..., dict | Awaitable[dict]] | None = None,
+) -> MasteryEvidence:
+    """Grade one answer from retrieved source text and append one evidence row.
+
+    A failed or unparseable model response writes nothing and raises.
+    ``knowledge_point`` is the source task's phase id, or null when that
+    cannot be derived. It is never inferred from the subject line.
+    """
+    answer = (answer_text or "").strip()
+    if not answer:
+        raise PracticeValidationError("请先写下你的作答")
+    question = session.scalar(
+        select(PracticeQuestion).where(
+            PracticeQuestion.id == question_id,
+            PracticeQuestion.user_id == user_id,
+        )
+    )
+    if question is None:
+        raise PracticeNotFoundError()
+    source_text, source_ref = _source_for_grade(
+        session, user_id, f"{question.question}\n{answer}"
+    )
+    try:
+        if grader is None:
+            produced = await _default_grader(
+                session, user_id, question.question, answer, source_text
+            )
+        else:
+            produced = grader(question.question, answer, source_text)
+            if hasattr(produced, "__await__"):
+                produced = await produced  # type: ignore[assignment]
+        verdict = _parse_grade_payload(produced)
+    except PracticeGradeError:
+        session.rollback()
+        raise
+    except (NoVerifiedApiConfigError, CredentialUnavailableError):
+        session.rollback()
+        raise
+    except Exception as exc:
+        session.rollback()
+        raise PracticeGradeError("判分失败，没有写入掌握度证据") from exc
+
+    row = MasteryEvidence(
+        user_id=user_id,
+        knowledge_point=_knowledge_point(session, user_id, question),
+        evidence_type="quiz",
+        result=verdict["result"],
+        error_tag=verdict["error_tag"],
+        answer_text=answer,
+        grade_reason=_reason_for_storage(verdict["reason"], source_ref),
+        source_ref=source_ref,
+        question_id=question.id,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row

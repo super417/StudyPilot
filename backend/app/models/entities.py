@@ -263,6 +263,45 @@ class PracticeQuestion(Base):
     )
 
 
+class MasteryEvidence(Base):
+    """Append-only ledger. Mastery is computed from these rows and is never stored here."""
+
+    __tablename__ = "mastery_evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "evidence_type IN ('quiz', 'explanation', 'composite')",
+            name="ck_mastery_evidence_evidence_type",
+        ),
+        CheckConstraint(
+            "result IN ('correct', 'partial', 'wrong')",
+            name="ck_mastery_evidence_result",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    # Phase.id when the question's source task still points at one. Null is unknown.
+    knowledge_point: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    evidence_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    result: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    answer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    grade_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    question_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("practice_questions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
 class CheckIn(Base):
     __tablename__ = "check_ins"
     __table_args__ = (

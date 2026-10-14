@@ -6,6 +6,7 @@ import {
   createPractice,
   deletePractice,
   generatePractice,
+  gradePractice,
   listPractice,
   setPracticeStatus,
   type PracticeQuestion,
@@ -27,10 +28,31 @@ function PracticeCard({
   onWrong: () => void;
 }) {
   const [showAnswer, setShowAnswer] = useState(false);
+  const [answerText, setAnswerText] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const mark = async (status: 'correct' | 'wrong') => {
+  const grade = async () => {
+    if (busy) return;
+    if (!answerText.trim()) {
+      setNote('请先写下你的作答');
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    try {
+      const body = await gradePractice(item.id, answerText.trim());
+      const verdict = body.result === 'correct' ? '答对' : body.result === 'partial' ? '部分正确' : '答错';
+      setNote(`${verdict}。${body.reason ?? ''}`);
+      onChanged();
+    } catch (err) {
+      setNote(err instanceof ApiError ? err.message : '判分失败，没有写入掌握度证据');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const mark = async (status: 'wrong') => {
     if (busy) return;
     setBusy(true);
     setNote(null);
@@ -58,12 +80,21 @@ function PracticeCard({
           {item.explanation ? <p className="mt-1 text-gray-600">解析：{item.explanation}</p> : null}
         </div>
       ) : null}
+      <label className="mt-3 block text-xs text-gray-500">
+        我的作答
+        <textarea
+          value={answerText}
+          onChange={(event) => setAnswerText(event.target.value)}
+          rows={3}
+          className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
+        />
+      </label>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" className="rounded-full bg-white px-3 py-1 text-xs ring-1 ring-brand/30" onClick={() => setShowAnswer((v) => !v)}>
           {showAnswer ? '隐藏答案' : '显示答案'}
         </button>
-        <button type="button" disabled={busy} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void mark('correct')}>
-          做对了
+        <button type="button" disabled={busy} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void grade()}>
+          提交判分
         </button>
         <button type="button" disabled={busy} className="rounded-full bg-brandDark px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void mark('wrong')}>
           做错了

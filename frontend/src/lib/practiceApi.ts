@@ -42,6 +42,28 @@ export function createPractice(input: {
   });
 }
 
+export interface PracticeGradeResponse {
+  status: string;
+  result: 'correct' | 'partial' | 'wrong';
+  reason: string | null;
+  evidence: {
+    id: string;
+    knowledgePoint: string | null;
+    evidenceType: string;
+    sourceRef: string | null;
+  };
+}
+
+export function gradePractice(
+  id: string,
+  answerText: string,
+): Promise<PracticeGradeResponse> {
+  return apiRequest(`/api/practice/${id}/grade`, {
+    method: 'POST',
+    body: JSON.stringify({ answerText }),
+  });
+}
+
 export function setPracticeStatus(
   id: string,
   status: PracticeQuestion['status'],
