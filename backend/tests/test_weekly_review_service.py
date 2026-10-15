@@ -238,6 +238,9 @@ class WeeklyReviewServiceTests(unittest.TestCase):
                     "subject": "高等数学强化",
                     "percent": None,
                     "evidenceCount": 0,
+                    "completionRate": 50,
+                    "taskDone": 1,
+                    "taskTotal": 2,
                 }
             ],
         )
@@ -382,6 +385,77 @@ class WeeklyReviewServiceTests(unittest.TestCase):
         self.assertNotEqual(before, after)
         self.assertEqual(detail[0]["evidenceCount"], 1)
         self.assertEqual(detail[0]["percent"], 100)
+
+    def test_phase_completion_uses_this_weeks_tasks(self) -> None:
+        user = self._make_user()
+        plan, phase = self._make_plan_with_phase(user)
+        self._add_task(plan, phase, date(2025, 2, 10), "done")
+        self._add_task(plan, phase, date(2025, 2, 11), "done")
+        self._add_task(plan, phase, date(2025, 2, 12), "pending")
+        _avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(detail[0]["taskDone"], 2)
+        self.assertEqual(detail[0]["taskTotal"], 3)
+        self.assertEqual(detail[0]["completionRate"], 67)
+
+    def test_phase_with_evidence_but_no_tasks_has_null_completion(self) -> None:
+        user = self._make_user()
+        _plan, phase = self._make_plan_with_phase(user)
+        self.session.add(
+            MasteryEvidence(
+                user_id=user.id,
+                knowledge_point=phase.id,
+                evidence_type="quiz",
+                result="wrong",
+                created_at=datetime(2025, 2, 12, 8, 0, tzinfo=timezone.utc),
+            )
+        )
+        self.session.commit()
+        _avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(detail[0]["taskTotal"], 0)
+        self.assertIsNone(detail[0]["completionRate"])
+        self.assertNotEqual(detail[0]["completionRate"], 0)
+        self.assertEqual(detail[0]["percent"], 0)
+
+    def test_full_completion_can_diverge_from_mastery(self) -> None:
+        user = self._make_user()
+        plan, phase = self._make_plan_with_phase(user)
+        self._add_task(plan, phase, date(2025, 2, 10), "done")
+        self._add_task(plan, phase, date(2025, 2, 11), "done")
+        self._add_task(plan, phase, date(2025, 2, 12), "done")
+        for result in ("correct", "wrong", "wrong"):
+            self.session.add(
+                MasteryEvidence(
+                    user_id=user.id,
+                    knowledge_point=phase.id,
+                    evidence_type="quiz",
+                    result=result,
+                    created_at=datetime(2025, 2, 12, 9, 0, tzinfo=timezone.utc),
+                )
+            )
+        self.session.commit()
+        _avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(detail[0]["completionRate"], 100)
+        self.assertEqual(detail[0]["percent"], 33)
+        self.assertNotEqual(detail[0]["completionRate"], detail[0]["percent"])
+
+    def test_missing_evidence_still_reports_completion(self) -> None:
+        user = self._make_user()
+        plan, phase = self._make_plan_with_phase(user)
+        self._add_task(plan, phase, date(2025, 2, 10), "done")
+        self._add_task(plan, phase, date(2025, 2, 11), "pending")
+        _avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertIsNone(detail[0]["percent"])
+        self.assertEqual(detail[0]["completionRate"], 50)
+        self.assertEqual(detail[0]["taskDone"], 1)
+        self.assertEqual(detail[0]["taskTotal"], 2)
 
 
 if __name__ == "__main__":

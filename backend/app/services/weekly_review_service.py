@@ -64,6 +64,37 @@ def _evidence_day(moment: datetime | date | None) -> date | None:
     return None
 
 
+def _week_task_counts(
+    session: Session,
+    user_id: uuid.UUID,
+    week_start: date,
+    week_end: date,
+) -> dict[uuid.UUID, tuple[int, int]]:
+    """Done and total task counts per phase inside one week.
+
+    Same window and the same inclusion rule as the week's completion rate:
+    every task dated in the week counts, including ones carried in from
+    another day. This does not read ``Phase.progress_percent``.
+    """
+    rows = session.execute(
+        select(DailyTask.phase_id, DailyTask.status)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .where(
+            Plan.user_id == user_id,
+            DailyTask.task_date >= week_start,
+            DailyTask.task_date <= week_end,
+        )
+    ).all()
+    counts: dict[uuid.UUID, list[int]] = {}
+    for phase_id, status in rows:
+        done, total = counts.get(phase_id, [0, 0])
+        total += 1
+        if status == "done":
+            done += 1
+        counts[phase_id] = [done, total]
+    return {phase_id: (done, total) for phase_id, (done, total) in counts.items()}
+
+
 def phase_mastery(
     session: Session,
     user_id: uuid.UUID,
@@ -77,7 +108,12 @@ def phase_mastery(
     returned with evidenceCount 0 and percent null. The average uses only
     phases that have evidence. When none do, the average is None: no evidence
     is not a score of 0.
+
+    Each item also carries that phase's completion for the same week
+    (``completionRate``, ``taskDone``, ``taskTotal``). No tasks in the week
+    means ``completionRate`` is None, not 0.
     """
+    task_counts = _week_task_counts(session, user_id, week_start, week_end)
     task_phases = session.scalars(
         select(Phase)
         .join(DailyTask, DailyTask.phase_id == Phase.id)
@@ -115,6 +151,8 @@ def phase_mastery(
     detail: list[dict] = []
     scored: list[int] = []
     for phase in sorted(phases.values(), key=lambda item: (item.name, str(item.id))):
+        done, total = task_counts.get(phase.id, (0, 0))
+        completion = None if total == 0 else completion_rate(done, total)
         rows = by_phase.get(phase.id, [])
         if not rows:
             detail.append(
@@ -123,6 +161,9 @@ def phase_mastery(
                     "subject": phase.name,
                     "percent": None,
                     "evidenceCount": 0,
+                    "completionRate": completion,
+                    "taskDone": done,
+                    "taskTotal": total,
                 }
             )
             continue
@@ -135,6 +176,9 @@ def phase_mastery(
                 "subject": phase.name,
                 "percent": percent,
                 "evidenceCount": len(rows),
+                "completionRate": completion,
+                "taskDone": done,
+                "taskTotal": total,
             }
         )
     if not scored:
