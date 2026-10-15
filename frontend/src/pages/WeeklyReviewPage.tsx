@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PurpleRing from '@/components/PurpleRing';
 import WeeklyMetrics from '@/components/WeeklyMetrics';
-import MasteryDetail from '@/components/MasteryDetail';
+import PhaseRings from '@/components/PhaseRings';
 import { AnimatedText, FadeIn } from '@/components/motion';
 import type { Metrics, WeeklyReview } from '@/mocks/types';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
@@ -147,7 +147,7 @@ function WeeklyReviewPage() {
               </section>
             </FadeIn>
           ) : (
-            <MasteryDetail items={review.masteryDetail} />
+            <PhaseRings items={review.masteryDetail} />
           )}
         </>
       ) : null}

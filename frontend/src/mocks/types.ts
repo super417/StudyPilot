@@ -119,11 +119,17 @@ export interface Mistake {
 export interface MasteryDetailItem {
   /** 阶段名称 */
   subject: string;
-  /** 有证据时的掌握度百分比 0-100 */
+  /** 有证据时的掌握度百分比 0-100。没有证据时为 null。 */
   percent: number | null;
   /** 本周期计入该阶段的证据条数 */
   evidenceCount?: number;
   phaseId?: string;
+  /** 本周该阶段的完成度。本周没有任务时为 null。 */
+  completionRate?: number | null;
+  /** 本周该阶段已完成任务数 */
+  taskDone?: number | null;
+  /** 本周该阶段任务总数 */
+  taskTotal?: number | null;
 }
 
 /** 周复盘（对应 Weekly_Reviews 表） */
