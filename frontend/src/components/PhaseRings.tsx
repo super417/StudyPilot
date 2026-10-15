@@ -72,7 +72,11 @@ function PhaseRing({ item }: { item: MasteryDetailItem }) {
             : `完成度 ${completion}%（${item.taskDone ?? 0}/${item.taskTotal ?? 0}）`}
         </p>
         <p className="mt-1 text-sm text-brandDark">
-          {masteryMissing ? '暂无掌握度证据' : `掌握度 ${mastery}%`}
+          {masteryMissing
+            ? '暂无掌握度证据'
+            : typeof item.evidenceCount === 'number'
+              ? `掌握度 ${mastery}% · 基于 ${item.evidenceCount} 次作答`
+              : `掌握度 ${mastery}%`}
         </p>
         {diverged ? (
           <p className="mt-2 text-sm font-medium text-purple">
