@@ -925,7 +925,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(done_task.status, "done")
         phase = self.session.get(Phase, done_task.phase_id)
         self.assertIsNotNone(phase)
-        self.assertGreater(phase.progress_percent, 0)
+        self.assertEqual(self.session.get(DailyTask, created_task_id).status, "done")
         self.assertEqual(
             len(
                 list(
@@ -1013,7 +1013,7 @@ class AdjustmentConcurrentFixTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(done_task.phase_id, phase_id)
         phase = self.session.get(Phase, phase_id)
         self.assertIsNotNone(phase)
-        self.assertGreater(phase.progress_percent, 0)
+        self.assertEqual(self.session.get(DailyTask, target_id).status, "done")
         linked = self.session.get(PracticeQuestion, practice_id)
         self.assertEqual(linked.source_task_id, target_id)
         remaining = list(

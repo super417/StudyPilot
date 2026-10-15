@@ -136,9 +136,7 @@ def _snapshot_body(session: Session, plan: Plan) -> dict:
                 "name": phase.name,
                 "startDate": phase.start_date.isoformat(),
                 "endDate": phase.end_date.isoformat(),
-                "progressPercent": phase.progress_percent,
                 "isCurrent": phase.is_current,
-                "isCompleted": phase.is_completed,
             }
             for phase in phases
         ],
@@ -1424,9 +1422,7 @@ def _phase_changed_from_expected(phase: Phase | None, expected: dict) -> bool:
         or phase.phase_index != expected.get("phaseIndex")
         or phase.start_date.isoformat() != expected.get("startDate")
         or phase.end_date.isoformat() != expected.get("endDate")
-        or int(phase.progress_percent) != int(expected.get("progressPercent") or 0)
         or bool(phase.is_current) != bool(expected.get("isCurrent"))
-        or bool(phase.is_completed) != bool(expected.get("isCompleted"))
     )
 
 
@@ -1580,9 +1576,7 @@ def undo_latest(
                 name=phase_item["name"],
                 start_date=date.fromisoformat(phase_item["startDate"]),
                 end_date=date.fromisoformat(phase_item["endDate"]),
-                progress_percent=phase_item.get("progressPercent", 0),
                 is_current=bool(phase_item.get("isCurrent")),
-                is_completed=bool(phase_item.get("isCompleted")),
             )
             session.add(phase)
             existing_phases[phase_item["id"]] = phase

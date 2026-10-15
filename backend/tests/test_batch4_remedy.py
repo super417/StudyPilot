@@ -94,9 +94,7 @@ class RemedyTests(unittest.TestCase):
             name="已过期阶段",
             start_date=plan.start_date,
             end_date=self.today + timedelta(days=phase_end_offset),
-            progress_percent=0,
             is_current=True,
-            is_completed=False,
         )
         self.session.add(phase)
         self.session.commit()
@@ -160,7 +158,8 @@ class RemedyTests(unittest.TestCase):
         overdue = self._task(plan, phase, -1, "待补的过期任务", 30)
         original_goal = plan.goal_date
         phase_end = phase.end_date
-        progress = phase.progress_percent
+        overdue_status = overdue.status
+        future_status = future.status
         preview = remedy_service.create_remedy_preview(self.session, user.id, plan.id)
         remedy = preview.diff["remedy"]
         spread = next(item for item in remedy["options"] if item["id"] == "spread")
@@ -219,7 +218,7 @@ class RemedyTests(unittest.TestCase):
         self.assertEqual(kept.task_date, future.task_date)
         self.assertEqual(kept.description, future.description)
         self.assertEqual(live_phase.end_date, phase_end)
-        self.assertEqual(live_phase.progress_percent, progress)
+        self.assertEqual(kept.status, future_status)
         self.assertEqual(live_plan.goal_date.isoformat(), placed["taskDate"])
         self.assertEqual(
             self.session.scalar(
@@ -232,7 +231,8 @@ class RemedyTests(unittest.TestCase):
         self.assertEqual(undone.status, "undone")
         self.session.expire_all()
         self.assertEqual(self.session.get(DailyTask, overdue.id).status, "pending")
-        self.assertEqual(self.session.get(Phase, phase.id).progress_percent, progress)
+        self.assertEqual(self.session.get(DailyTask, overdue.id).status, overdue_status)
+        self.assertEqual(self.session.get(DailyTask, future.id).status, future_status)
         self.assertEqual(self.session.get(Phase, phase.id).end_date, phase_end)
         self.assertEqual(self.session.get(Plan, plan.id).goal_date, original_goal)
         self.assertEqual(
@@ -427,8 +427,8 @@ class RemedyTests(unittest.TestCase):
         self._confirm(user, plan, preview)
         task_service.set_task_status(self.session, user.id, retained.id, "done")
         self.session.expire_all()
-        expected = self.session.get(Phase, phase.id).progress_percent
-        self.assertGreater(expected, 0)
+        status_before_undo = self.session.get(DailyTask, retained.id).status
+        self.assertEqual(status_before_undo, "done")
         later_goal = plan.goal_date + timedelta(days=4)
         plan.goal_date = later_goal
         self.session.commit()
@@ -438,7 +438,9 @@ class RemedyTests(unittest.TestCase):
             self.session.rollback()
         self.session.expire_all()
         self.assertEqual(self.session.get(DailyTask, retained.id).status, "done")
-        self.assertEqual(self.session.get(Phase, phase.id).progress_percent, expected)
+        self.assertEqual(
+            self.session.get(DailyTask, retained.id).status, status_before_undo
+        )
         self.assertEqual(self.session.get(Plan, plan.id).goal_date, later_goal)
 
     def test_k3_edited_or_past_copy_blocks_undo(self) -> None:
@@ -563,6 +565,39 @@ class RemedyTests(unittest.TestCase):
         self.assertFalse(preview.steps[1]["mock"])
         self.assertEqual(preview.diff["remedy"]["dailyMinutes"], 60)
         self.assertTrue(preview.validation["durationDays"])
+
+    def test_undo_restores_progress_computed_from_tasks(self) -> None:
+        user = self._user()
+        plan, phase = self._plan(
+            user, daily_minutes=60, goal_offset=1, phase_end_offset=-1
+        )
+        done = self._task(plan, phase, 1, "已经做完", 60, status="done")
+        overdue = self._task(plan, phase, -1, "待补的过期任务", 30)
+        before = task_service.phase_progress(self.session, phase.id)
+        preview = remedy_service.create_remedy_preview(self.session, user.id, plan.id)
+        revised = remedy_service.revise_remedy(
+            self.session,
+            user.id,
+            plan.id,
+            preview.id,
+            option_id="extend",
+            keep_source_ids=[str(overdue.id)],
+            minute_overrides=None,
+            selection_version=preview.proposal["selectionVersion"],
+        )
+        remedy_service.confirm_remedy(
+            self.session,
+            user.id,
+            plan.id,
+            revised.id,
+            expected_selection_version=revised.proposal["selectionVersion"],
+        )
+        undone = remedy_service.undo_remedy(self.session, user.id, plan.id)
+        self.assertEqual(undone.status, "undone")
+        self.session.expire_all()
+        self.assertEqual(self.session.get(DailyTask, overdue.id).status, "pending")
+        self.assertEqual(self.session.get(DailyTask, done.id).status, "done")
+        self.assertEqual(task_service.phase_progress(self.session, phase.id), before)
 
 
 class RemedyFileTests(RemedyTests):

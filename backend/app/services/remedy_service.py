@@ -908,8 +908,6 @@ def _apply_remedy(session: Session, plan: Plan, row: PlanAdjustment) -> None:
 
 def _phase_record(phase: Phase) -> dict:
     return {
-        "progressPercent": phase.progress_percent,
-        "isCompleted": bool(phase.is_completed),
         "isCurrent": bool(phase.is_current),
         "startDate": phase.start_date.isoformat(),
         "endDate": phase.end_date.isoformat(),
@@ -988,8 +986,6 @@ def _replay_changed_fields(session: Session, plan: Plan, record: dict) -> None:
             raise AdjustmentConflictError("阶段已不存在，不能撤销")
         live = _phase_record(phase)
         for key in (
-            "progressPercent",
-            "isCompleted",
             "isCurrent",
             "startDate",
             "endDate",
@@ -997,10 +993,6 @@ def _replay_changed_fields(session: Session, plan: Plan, record: dict) -> None:
         ):
             if before.get(key) != after.get(key) and live.get(key) != after.get(key):
                 raise AdjustmentConflictError("阶段在确认后已变化，不能撤销")
-        if before.get("progressPercent") != after.get("progressPercent"):
-            phase.progress_percent = int(before["progressPercent"])
-        if before.get("isCompleted") != after.get("isCompleted"):
-            phase.is_completed = bool(before["isCompleted"])
         if before.get("isCurrent") != after.get("isCurrent"):
             phase.is_current = bool(before["isCurrent"])
         if before.get("startDate") != after.get("startDate"):
