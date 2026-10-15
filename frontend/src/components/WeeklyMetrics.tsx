@@ -2,7 +2,7 @@ import type { WeeklyReview } from '@/mocks/types';
 import { FadeIn, InteractiveCard } from '@/components/motion';
 
 export interface WeeklyMetricsProps {
-  /** 有周报时用真实值；为空时展示 0 占位（与设计稿一致）。 */
+  /** 有周报时用真实值；没有周报时显示「暂无数据」，不用 0 冒充。 */
   review: Pick<WeeklyReview, 'totalMinutes' | 'streakDays' | 'completionRate'> | null;
 }
 
@@ -16,17 +16,17 @@ function WeeklyMetrics({ review }: WeeklyMetricsProps) {
   const items: MetricItem[] = [
     {
       label: '累计投入',
-      value: `${review?.totalMinutes ?? 0}m`,
+      value: review == null ? '暂无数据' : `${review.totalMinutes}m`,
       footer: '持续累积',
     },
     {
       label: '连续天数',
-      value: `${review?.streakDays ?? 0}`,
+      value: review == null ? '暂无数据' : `${review.streakDays}`,
       footer: '中断后将重来',
     },
     {
       label: '任务完成率',
-      value: `${review?.completionRate ?? 0}%`,
+      value: review == null ? '暂无数据' : `${review.completionRate}%`,
       footer: '滚动增长',
     },
   ];
