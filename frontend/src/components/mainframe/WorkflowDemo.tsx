@@ -41,12 +41,18 @@ interface WorkflowStep {
 }
 
 function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): WorkflowStep[] {
+  const hoursLabel =
+    formatHours(snapshot.totalMinutes) == null
+      ? '暂无数据'
+      : `${formatHours(snapshot.totalMinutes)} 小时`;
+  const streakLabel =
+    snapshot.streakDays == null ? '暂无数据' : `${snapshot.streakDays} 天`;
   const phaseLine =
     snapshot.phaseCompleted == null || snapshot.phaseTotal == null
       ? '暂无数据'
       : snapshot.phaseTotal > 0
         ? `阶段进度 ${snapshot.phaseCompleted}/${snapshot.phaseTotal}`
-        : `连续打卡 ${snapshot.streakDays} 天`;
+        : `连续打卡 ${streakLabel}`;
 
   return [
     {
@@ -70,7 +76,7 @@ function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): Workflow
       detail: [
         '工具名：get_weekly_review',
         '入参：{ "range": "本周" }',
-        `返回：完成率 ${snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`} · 学习 ${formatHours(snapshot.totalMinutes)} 小时`,
+        `返回：完成率 ${snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`} · 学习 ${hoursLabel}`,
       ],
     },
     {
@@ -80,8 +86,8 @@ function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): Workflow
       icon: Sparkles,
       detail: [
         snapshot.completionRate == null ? '完成率 暂无数据' : `完成率 ${snapshot.completionRate}%`,
-        `累计学习 ${formatHours(snapshot.totalMinutes)} 小时`,
-        `连续打卡 ${snapshot.streakDays} 天`,
+        `累计学习 ${hoursLabel}`,
+        `连续打卡 ${streakLabel}`,
         phaseLine,
       ],
     },

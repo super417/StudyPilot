@@ -310,7 +310,13 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
       role: 'assistant',
       content: `本周复盘已生成：完成率 ${
         snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`
-      }，累计学习 ${formatHours(snapshot.totalMinutes)} 小时，连续打卡 ${snapshot.streakDays} 天。`,
+      }，累计学习 ${
+        formatHours(snapshot.totalMinutes) == null
+          ? '暂无数据'
+          : `${formatHours(snapshot.totalMinutes)} 小时`
+      }，连续打卡 ${
+        snapshot.streakDays == null ? '暂无数据' : `${snapshot.streakDays} 天`
+      }。`,
     });
   };
 

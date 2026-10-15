@@ -2,9 +2,8 @@
  * `#/mainframe` 演示首屏的数据源。
  *
  * 这一页**不走登录态**（`App.tsx` 在鉴权判断之前就渲染它），未登录时下面的接口必然
- * 401。完成率和阶段进度没有兜底数字：接口失败或没有周报时显示「暂无数据」。
- * 累计分钟和连续天数仍保留 FALLBACK_SNAPSHOT 里的占位值，它们不进入阶段双环。
- * 引用没有兜底，未登录就是空列表。
+ * 401。完成率、累计分钟、连续天数和阶段进度都没有兜底数字：接口失败或没有周报时
+ * 显示「暂无数据」。引用没有兜底，未登录就是空列表。
  */
 import { listDocuments } from './documentsApi';
 import { fetchOverviewMetrics } from './studyApi';
@@ -13,15 +12,15 @@ import { fetchLatestWeeklyReview } from './weeklyReviewsApi';
 export interface DemoSnapshot {
   /** 本周复盘完成率（0-100）。没有周报时为 null，不能显示成编造的百分数。 */
   completionRate: number | null;
-  /** 本周累计学习分钟数 */
-  totalMinutes: number;
-  /** 连续打卡天数 */
-  streakDays: number;
+  /** 本周累计学习分钟数。没有周报时为 null。 */
+  totalMinutes: number | null;
+  /** 连续打卡天数。没有周报时为 null。 */
+  streakDays: number | null;
   /** 阶段进度：已完成阶段数。没有数据时为 null。 */
   phaseCompleted: number | null;
   /** 阶段进度：阶段总数。没有数据时为 null。 */
   phaseTotal: number | null;
-  /** true = 完成率和阶段进度来自真实接口 */
+  /** true = 字段来自真实接口 */
   live: boolean;
 }
 
@@ -31,13 +30,12 @@ export interface DemoCitation {
 }
 
 /**
- * 接口不可用时的占位。完成率和阶段进度留空。
- * 累计分钟和连续天数仍是编造的，不进入阶段双环，是否删除另定。
+ * 接口不可用或没有周报时的空状态。全部数字字段为 null，界面写「暂无数据」。
  */
 export const FALLBACK_SNAPSHOT: DemoSnapshot = {
   completionRate: null,
-  totalMinutes: 642,
-  streakDays: 9,
+  totalMinutes: null,
+  streakDays: null,
   phaseCompleted: null,
   phaseTotal: null,
   live: false,
@@ -62,8 +60,11 @@ function toPercent(value: number): number {
   return Math.round(Math.min(value, 100));
 }
 
-/** 分钟转小时，保留一位小数（演示卡片上不出现 10.7 以外的精度）。 */
-export function formatHours(minutes: number): string {
+/**
+ * 分钟转小时，保留一位小数。没有分钟数时返回 null，不能变成 `0.0`。
+ */
+export function formatHours(minutes: number | null): string | null {
+  if (minutes == null) return null;
   return (minutes / 60).toFixed(1);
 }
 

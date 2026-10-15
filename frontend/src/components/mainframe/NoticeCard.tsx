@@ -65,7 +65,10 @@ function NoticeCard({ snapshot, onViewWeekly, onClose }: NoticeCardProps) {
               </h2>
               <p className="mt-1.5 text-[13px] leading-relaxed text-white/55">
                 完成率 {snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`} · 学习{' '}
-                {formatHours(snapshot.totalMinutes)} 小时 · 连续 {snapshot.streakDays} 天
+                {formatHours(snapshot.totalMinutes) == null
+                  ? '暂无数据'
+                  : `${formatHours(snapshot.totalMinutes)} 小时`}{' '}
+                · 连续 {snapshot.streakDays == null ? '暂无数据' : `${snapshot.streakDays} 天`}
               </p>
               {snapshot.phaseCompleted == null || snapshot.phaseTotal == null ? (
                 <p className="mt-1 text-[12px] text-white/35">阶段进度 暂无数据</p>
