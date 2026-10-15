@@ -6,8 +6,8 @@
  *
  * 为什么全部在前端驱动、不走真实 SSE：
  * 这个页面是演示首屏，任何一次网络抖动或 API key 未配置都会变成一次翻车现场。
- * 过程动画是演的，但**里面的数字是真的**（见 `lib/mainframeDemo.ts`），
- * 引用卡片里的文件名也优先取用户真实上传的文档。
+ * 过程动画是演的。完成率和阶段进度只在接口有周报时出现，否则写「暂无数据」。
+ * 引用卡片里的文件名优先取用户真实上传的文档。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -42,9 +42,11 @@ interface WorkflowStep {
 
 function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): WorkflowStep[] {
   const phaseLine =
-    snapshot.phaseTotal > 0
-      ? `阶段进度 ${snapshot.phaseCompleted}/${snapshot.phaseTotal}`
-      : `连续打卡 ${snapshot.streakDays} 天`;
+    snapshot.phaseCompleted == null || snapshot.phaseTotal == null
+      ? '暂无数据'
+      : snapshot.phaseTotal > 0
+        ? `阶段进度 ${snapshot.phaseCompleted}/${snapshot.phaseTotal}`
+        : `连续打卡 ${snapshot.streakDays} 天`;
 
   return [
     {
@@ -68,7 +70,7 @@ function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): Workflow
       detail: [
         '工具名：get_weekly_review',
         '入参：{ "range": "本周" }',
-        `返回：完成率 ${snapshot.completionRate}% · 学习 ${formatHours(snapshot.totalMinutes)} 小时`,
+        `返回：完成率 ${snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`} · 学习 ${formatHours(snapshot.totalMinutes)} 小时`,
       ],
     },
     {
@@ -77,7 +79,7 @@ function buildSteps(snapshot: DemoSnapshot, citations: DemoCitation[]): Workflow
       summary: '汇总 4 个维度',
       icon: Sparkles,
       detail: [
-        `完成率 ${snapshot.completionRate}%`,
+        snapshot.completionRate == null ? '完成率 暂无数据' : `完成率 ${snapshot.completionRate}%`,
         `累计学习 ${formatHours(snapshot.totalMinutes)} 小时`,
         `连续打卡 ${snapshot.streakDays} 天`,
         phaseLine,

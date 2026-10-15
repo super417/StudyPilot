@@ -2,27 +2,26 @@
  * `#/mainframe` 演示首屏的数据源。
  *
  * 这一页**不走登录态**（`App.tsx` 在鉴权判断之前就渲染它），未登录时下面的接口必然
- * 401。指标数字仍用兜底，避免空白；引用没有兜底，未登录就是空列表。
- *
- * 数据策略：指标接口失败时仍用 FALLBACK_SNAPSHOT，避免首屏空白。
- * 引用只保留用户已上传且就绪的文件名；拿不到就返回空列表，不补示例片段或相关度。
+ * 401。完成率和阶段进度没有兜底数字：接口失败或没有周报时显示「暂无数据」。
+ * 累计分钟和连续天数仍保留 FALLBACK_SNAPSHOT 里的占位值，它们不进入阶段双环。
+ * 引用没有兜底，未登录就是空列表。
  */
 import { listDocuments } from './documentsApi';
 import { fetchOverviewMetrics } from './studyApi';
 import { fetchLatestWeeklyReview } from './weeklyReviewsApi';
 
 export interface DemoSnapshot {
-  /** 本周复盘完成率（0-100） */
-  completionRate: number;
+  /** 本周复盘完成率（0-100）。没有周报时为 null，不能显示成编造的百分数。 */
+  completionRate: number | null;
   /** 本周累计学习分钟数 */
   totalMinutes: number;
   /** 连续打卡天数 */
   streakDays: number;
-  /** 阶段进度：已完成阶段数 */
-  phaseCompleted: number;
-  /** 阶段进度：阶段总数（为 0 时不展示这一行） */
-  phaseTotal: number;
-  /** true = 数字来自真实接口；false = 用了兜底值 */
+  /** 阶段进度：已完成阶段数。没有数据时为 null。 */
+  phaseCompleted: number | null;
+  /** 阶段进度：阶段总数。没有数据时为 null。 */
+  phaseTotal: number | null;
+  /** true = 完成率和阶段进度来自真实接口 */
   live: boolean;
 }
 
@@ -32,15 +31,15 @@ export interface DemoCitation {
 }
 
 /**
- * 接口不可用时的兜底快照。
- * 量级刻意贴近真实使用场景（一周 10 小时上下、完成率八成多），肉眼看不出是假数据。
+ * 接口不可用时的占位。完成率和阶段进度留空。
+ * 累计分钟和连续天数仍是编造的，不进入阶段双环，是否删除另定。
  */
 export const FALLBACK_SNAPSHOT: DemoSnapshot = {
-  completionRate: 86,
+  completionRate: null,
   totalMinutes: 642,
   streakDays: 9,
-  phaseCompleted: 3,
-  phaseTotal: 4,
+  phaseCompleted: null,
+  phaseTotal: null,
   live: false,
 };
 

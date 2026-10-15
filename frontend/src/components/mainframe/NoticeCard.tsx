@@ -64,10 +64,12 @@ function NoticeCard({ snapshot, onViewWeekly, onClose }: NoticeCardProps) {
                 本周复盘已生成
               </h2>
               <p className="mt-1.5 text-[13px] leading-relaxed text-white/55">
-                完成率 {snapshot.completionRate}% · 学习 {formatHours(snapshot.totalMinutes)}{' '}
-                小时 · 连续 {snapshot.streakDays} 天
+                完成率 {snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`} · 学习{' '}
+                {formatHours(snapshot.totalMinutes)} 小时 · 连续 {snapshot.streakDays} 天
               </p>
-              {snapshot.phaseTotal > 0 ? (
+              {snapshot.phaseCompleted == null || snapshot.phaseTotal == null ? (
+                <p className="mt-1 text-[12px] text-white/35">阶段进度 暂无数据</p>
+              ) : snapshot.phaseTotal > 0 ? (
                 <p className="mt-1 text-[12px] text-white/35">
                   阶段进度 {snapshot.phaseCompleted}/{snapshot.phaseTotal}
                 </p>

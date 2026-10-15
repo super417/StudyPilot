@@ -97,7 +97,7 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
   const [chatOpen, setChatOpen] = useState(() => isMainframeChatExpand());
   /** 右侧会话列表栏 */
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  /** 演示卡片上的数字：先用兜底值渲染，接口回来再替换 —— 首屏永远不会空白。 */
+  /** 完成率和阶段进度先是空的；接口返回周报后再换成真实数字。 */
   const [snapshot, setSnapshot] = useState<DemoSnapshot>(FALLBACK_SNAPSHOT);
   const [citations, setCitations] = useState<DemoCitation[]>([]);
   const addMessage = useAssistantStore((s) => s.addMessage);
@@ -308,9 +308,9 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
     addMessage({
       id: `notice-${Date.now()}`,
       role: 'assistant',
-      content: `本周复盘已生成：完成率 ${snapshot.completionRate}%，累计学习 ${formatHours(
-        snapshot.totalMinutes,
-      )} 小时，连续打卡 ${snapshot.streakDays} 天。`,
+      content: `本周复盘已生成：完成率 ${
+        snapshot.completionRate == null ? '暂无数据' : `${snapshot.completionRate}%`
+      }，累计学习 ${formatHours(snapshot.totalMinutes)} 小时，连续打卡 ${snapshot.streakDays} 天。`,
     });
   };
 
