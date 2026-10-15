@@ -2,7 +2,7 @@ import type { MasteryDetailItem } from '@/mocks/types';
 
 /**
  * 完成度比掌握度高出这么多（百分点）才标出差距。
- * 这是产品判断值，可调。
+ * 经验值，非研究结论，可调。
  */
 export const DIVERGENCE_THRESHOLD = 30;
 
