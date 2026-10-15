@@ -24,7 +24,7 @@ from app.models.entities import (
     User,
     UserDocument,
 )
-from app.services import planner_service
+from app.services import planner_service, task_service
 from app.services.api_config_service import NoVerifiedApiConfigError
 from app.services.plan_draft_store import MAX_CLARIFY_ROUNDS, PlanDraft
 from app.services.planner_service import (
@@ -236,8 +236,12 @@ class GeneratePlanTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([p.phase_index for p in phases], [1, 2, 3, 4, 5])
         self.assertTrue(phases[0].is_current)
         self.assertFalse(any(p.is_current for p in phases[1:]))
-        self.assertTrue(all(p.progress_percent == 0 for p in phases))
-        self.assertTrue(all(not p.is_completed for p in phases))
+        self.assertTrue(
+            all(task_service.phase_progress(self.session, p.id) == 0 for p in phases)
+        )
+        self.assertTrue(
+            all(not task_service.phase_is_completed(self.session, p.id) for p in phases)
+        )
 
         tasks = list(
             self.session.scalars(

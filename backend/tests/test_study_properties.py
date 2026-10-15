@@ -177,9 +177,20 @@ class StudyPropertyTests(unittest.TestCase):
             name=f"阶段 {phase_index}",
             start_date=_TODAY,
             end_date=_TODAY + timedelta(days=30),
-            is_completed=completed,
         )
         self.session.add(phase)
+        self.session.flush()
+        if completed:
+            self.session.add(
+                DailyTask(
+                    plan_id=plan.id,
+                    phase_id=phase.id,
+                    task_date=_TODAY,
+                    week_label="W39",
+                    description="已完成",
+                    status="done",
+                )
+            )
         self.session.commit()
         return phase
 
@@ -385,7 +396,7 @@ class StudyPropertyTests(unittest.TestCase):
             task_service.recompute_phase_progress(self.session, phase)
             self.session.commit()
             self.session.expire_all()
-            self.assertEqual(self.session.get(Phase, phase.id).progress_percent, 0)
+            self.assertEqual(task_service.phase_progress(self.session, phase.id), 0)
             return
 
         for index, mark_done in enumerate(toggles):
@@ -403,14 +414,14 @@ class StudyPropertyTests(unittest.TestCase):
                 .select_from(DailyTask)
                 .where(DailyTask.phase_id == phase.id, DailyTask.status == "done")
             )
-            refreshed = self.session.get(Phase, phase.id)
+            progress = task_service.phase_progress(self.session, phase.id)
             self.assertEqual(
-                refreshed.progress_percent,
+                progress,
                 round(done_count / total * 100),
                 "progress must always equal round(done/total*100)",
             )
-            self.assertGreaterEqual(refreshed.progress_percent, 0)
-            self.assertLessEqual(refreshed.progress_percent, 100)
+            self.assertGreaterEqual(progress, 0)
+            self.assertLessEqual(progress, 100)
 
     # --- Property 21 --------------------------------------------------------
 

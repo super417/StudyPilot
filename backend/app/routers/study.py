@@ -207,7 +207,10 @@ def set_task_status_route(
         content={
             "status": "ok",
             "task": {"id": str(task.id), "status": task.status},
-            "phase": {"id": str(phase.id), "progressPercent": phase.progress_percent},
+            "phase": {
+                "id": str(phase.id),
+                "progressPercent": task_service.phase_progress(session, phase.id),
+            },
         },
     )
 

@@ -837,9 +837,9 @@ def _snapshot_plan(session: Session, plan: Plan, reason: str) -> PlanRevision:
                 "name": phase.name,
                 "startDate": phase.start_date.isoformat(),
                 "endDate": phase.end_date.isoformat(),
-                "progressPercent": phase.progress_percent,
+                "progressPercent": task_service.phase_progress(session, phase.id),
                 "isCurrent": phase.is_current,
-                "isCompleted": phase.is_completed,
+                "isCompleted": task_service.phase_is_completed(session, phase.id),
             }
             for phase in phases
         ],
@@ -969,9 +969,7 @@ def _write_plan_structure(
             name=str(phase_data.get("name", f"阶段 {phase_index}")),
             start_date=phase_start,
             end_date=phase_end,
-            progress_percent=0,
             is_current=(phase_index == 1),
-            is_completed=False,
         )
         session.add(phase)
         session.flush()  # assign phase.id before wiring daily tasks

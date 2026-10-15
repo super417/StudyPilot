@@ -79,31 +79,40 @@ class TaskNotFoundError(ValueError):
         super().__init__(message)
 
 
-def recompute_phase_progress(session: Session, phase: Phase) -> None:
-    """Set ``phase.progress_percent`` / completion, then advance ``is_current``.
+def phase_progress(session: Session, phase_id: uuid.UUID) -> int:
+    """Percent complete for one phase, computed from its daily tasks.
 
-    ``progress = round(done / total * 100)`` over the phase's daily tasks; an
-    empty phase (total 0) is defined as 0 and not completed. When every task is
-    done the phase becomes completed; the first incomplete phase on the same
-    plan becomes current. Pure recompute — the caller owns the commit.
+    Same rule as the old stored ``progress_percent``: ``total`` excludes
+    ``carried`` tasks; ``total == 0`` is 0; otherwise
+    ``round(done / total * 100)``. Done counts only ``status == "done"``.
     """
     total = session.scalar(
         select(func.count())
         .select_from(DailyTask)
-        .where(DailyTask.phase_id == phase.id, DailyTask.status != "carried")
+        .where(DailyTask.phase_id == phase_id, DailyTask.status != "carried")
     ) or 0
     if total == 0:
-        phase.progress_percent = 0
-        phase.is_completed = False
-    else:
-        done = session.scalar(
-            select(func.count())
-            .select_from(DailyTask)
-            .where(DailyTask.phase_id == phase.id, DailyTask.status == "done")
-        ) or 0
-        phase.progress_percent = round(done / total * 100)
-        phase.is_completed = phase.progress_percent == 100
-    session.flush()
+        return 0
+    done = session.scalar(
+        select(func.count())
+        .select_from(DailyTask)
+        .where(DailyTask.phase_id == phase_id, DailyTask.status == "done")
+    ) or 0
+    return round(done / total * 100)
+
+
+def phase_is_completed(session: Session, phase_id: uuid.UUID) -> bool:
+    """A phase is complete exactly when its computed progress is 100."""
+    return phase_progress(session, phase_id) == 100
+
+
+def recompute_phase_progress(session: Session, phase: Phase) -> None:
+    """Advance ``is_current`` from task completion. Progress is not stored.
+
+    The first phase whose computed progress is not 100 becomes current; if
+    every phase is complete, the last one stays current. Callers that need
+    the percent use :func:`phase_progress`. The caller owns the commit.
+    """
     sync_plan_current_phase(session, phase.plan_id)
 
 
@@ -116,7 +125,10 @@ def sync_plan_current_phase(session: Session, plan_id: uuid.UUID) -> None:
     )
     if not phases:
         return
-    current = next((p for p in phases if not p.is_completed), phases[-1])
+    current = next(
+        (item for item in phases if not phase_is_completed(session, item.id)),
+        phases[-1],
+    )
     for phase in phases:
         phase.is_current = phase.id == current.id
     session.flush()

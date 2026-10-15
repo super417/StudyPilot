@@ -15,6 +15,7 @@ from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
 from app.models.entities import CheckIn, DailyTask, Phase, Plan, User
+from app.services import task_service
 from app.services.session_service import session_store
 
 
@@ -215,7 +216,7 @@ class StudyRouteTests(unittest.TestCase):
 
         self.session.expire_all()
         phase_row = self.session.get(Phase, phase.id)
-        self.assertEqual(phase_row.progress_percent, 50)
+        self.assertEqual(task_service.phase_progress(self.session, phase_row.id), 50)
         self.assertNotEqual(body["id"], str(existing.id))
 
     def test_add_today_task_without_plan_is_404(self) -> None:

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.entities import Phase, User
 from app.routers.dependencies import get_current_user
-from app.services import planner_service
+from app.services import planner_service, task_service
 from app.services.planner_service import PhaseNotFoundError
 
 router = APIRouter(prefix="/api/phases", tags=["phases"])
@@ -48,7 +48,7 @@ def _json_error(status_code: int, code: str, message: str) -> JSONResponse:
     )
 
 
-def _phase_result(phase: Phase) -> dict:
+def _phase_result(session: Session, phase: Phase) -> dict:
     return {
         "status": "ok",
         "phase": {
@@ -57,9 +57,9 @@ def _phase_result(phase: Phase) -> dict:
             "name": phase.name,
             "startDate": phase.start_date.isoformat(),
             "endDate": phase.end_date.isoformat(),
-            "progressPercent": phase.progress_percent,
+            "progressPercent": task_service.phase_progress(session, phase.id),
             "isCurrent": bool(phase.is_current),
-            "isCompleted": bool(phase.is_completed),
+            "isCompleted": task_service.phase_is_completed(session, phase.id),
         },
     }
 
@@ -90,4 +90,4 @@ async def update_phase_route(
     except PhaseNotFoundError as error:
         return _json_error(404, error.code, str(error))
 
-    return JSONResponse(status_code=200, content=_phase_result(phase))
+    return JSONResponse(status_code=200, content=_phase_result(session, phase))

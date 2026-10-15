@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import CheckIn, DailyTask, Phase, Plan
+from app.services import task_service
 
 # Today three-state labels (requirement 4.4 / 16.3).
 TODAY_STATUS_NO_TASK = "未反馈"
@@ -93,8 +94,8 @@ def compute_overview(
     - ``streak_days`` = :func:`compute_streak` over distinct check-in dates (15.3).
     - ``remaining_days`` = ``max(0, goal_date - today)`` for the latest plan;
       0 when the user has no plan (15.4).
-    - ``phase_progress`` = (count of is_completed phases, latest plan's
-      total_phases); (0, 0) with no plan (15.5).
+    - ``phase_progress`` = (count of phases whose tasks are all done, latest
+      plan's total_phases); (0, 0) with no plan (15.5).
     - ``today_status`` = three-state map from today's task/check-in presence (16.3).
     """
     total_minutes = session.scalar(
@@ -118,11 +119,10 @@ def compute_overview(
     else:
         remaining_days = max(0, (plan.goal_date - today).days)
         total_phases = plan.total_phases
-        completed = session.scalar(
-            select(func.count())
-            .select_from(Phase)
-            .where(Phase.plan_id == plan.id, Phase.is_completed.is_(True))
-        ) or 0
+        phases = session.scalars(select(Phase).where(Phase.plan_id == plan.id)).all()
+        completed = sum(
+            1 for phase in phases if task_service.phase_is_completed(session, phase.id)
+        )
 
     has_task = (
         session.scalar(

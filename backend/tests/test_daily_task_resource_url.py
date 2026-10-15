@@ -249,9 +249,7 @@ class ResourceLinkPersistenceTests(_DatabaseTestCase):
             name="阶段 1",
             start_date=today - timedelta(days=10),
             end_date=today,
-            progress_percent=0,
             is_current=True,
-            is_completed=False,
         )
         self.session.add(phase)
         self.session.flush()
@@ -337,9 +335,7 @@ class ResourceLinkRouteTests(_DatabaseTestCase):
             name="阶段 1",
             start_date=today,
             end_date=today,
-            progress_percent=0,
             is_current=True,
-            is_completed=False,
         )
         self.session.add(phase)
         self.session.flush()

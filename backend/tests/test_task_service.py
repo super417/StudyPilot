@@ -220,14 +220,16 @@ class TaskServiceTests(unittest.TestCase):
         _, updated_phase = task_service.set_task_status(
             self.session, user.id, tasks[0].id, "done"
         )
-        self.assertEqual(updated_phase.progress_percent, 20)
+        self.assertEqual(task_service.phase_progress(self.session, updated_phase.id), 20)
 
         task_service.set_task_status(self.session, user.id, tasks[1].id, "done")
         _, phase_after_three = task_service.set_task_status(
             self.session, user.id, tasks[2].id, "done"
         )
         # 3 of 5 done -> 60.
-        self.assertEqual(phase_after_three.progress_percent, 60)
+        self.assertEqual(
+            task_service.phase_progress(self.session, phase_after_three.id), 60
+        )
 
     def test_pending_toggle_recomputes(self) -> None:
         user = self._make_user()
@@ -237,13 +239,13 @@ class TaskServiceTests(unittest.TestCase):
         _, phase_half = task_service.set_task_status(
             self.session, user.id, tasks[2].id, "done"
         )
-        self.assertEqual(phase_half.progress_percent, 75)
+        self.assertEqual(task_service.phase_progress(self.session, phase_half.id), 75)
 
         # Toggle one back to pending: 2 of 4 -> 50.
         _, phase_back = task_service.set_task_status(
             self.session, user.id, tasks[0].id, "pending"
         )
-        self.assertEqual(phase_back.progress_percent, 50)
+        self.assertEqual(task_service.phase_progress(self.session, phase_back.id), 50)
 
     def test_empty_phase_progress_is_zero(self) -> None:
         # A phase with a single task that flips back and forth still touches
@@ -267,14 +269,13 @@ class TaskServiceTests(unittest.TestCase):
             name="空阶段",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 2, 1),
-            progress_percent=42,
         )
         self.session.add(empty_phase)
         self.session.commit()
 
         task_service.recompute_phase_progress(self.session, empty_phase)
-        self.assertEqual(empty_phase.progress_percent, 0)
-        self.assertFalse(empty_phase.is_completed)
+        self.assertEqual(task_service.phase_progress(self.session, empty_phase.id), 0)
+        self.assertFalse(task_service.phase_is_completed(self.session, empty_phase.id))
         self.assertTrue(empty_phase.is_current)
 
     def test_phase_completes_and_advances_current(self) -> None:
@@ -324,14 +325,16 @@ class TaskServiceTests(unittest.TestCase):
 
         task_service.set_task_status(self.session, user.id, tasks[0].id, "done")
         self.session.expire_all()
-        self.assertFalse(self.session.get(Phase, phase_one.id).is_completed)
+        self.assertFalse(
+            task_service.phase_is_completed(self.session, phase_one.id)
+        )
         self.assertTrue(self.session.get(Phase, phase_one.id).is_current)
 
         _, finished = task_service.set_task_status(
             self.session, user.id, tasks[1].id, "done"
         )
-        self.assertEqual(finished.progress_percent, 100)
-        self.assertTrue(finished.is_completed)
+        self.assertEqual(task_service.phase_progress(self.session, finished.id), 100)
+        self.assertTrue(task_service.phase_is_completed(self.session, finished.id))
         self.session.expire_all()
         self.assertFalse(self.session.get(Phase, phase_one.id).is_current)
         self.assertTrue(self.session.get(Phase, phase_two.id).is_current)
@@ -340,8 +343,8 @@ class TaskServiceTests(unittest.TestCase):
         _, reopened = task_service.set_task_status(
             self.session, user.id, tasks[0].id, "pending"
         )
-        self.assertEqual(reopened.progress_percent, 50)
-        self.assertFalse(reopened.is_completed)
+        self.assertEqual(task_service.phase_progress(self.session, reopened.id), 50)
+        self.assertFalse(task_service.phase_is_completed(self.session, reopened.id))
         self.assertTrue(reopened.is_current)
         self.session.expire_all()
         self.assertFalse(self.session.get(Phase, phase_two.id).is_current)
@@ -365,7 +368,9 @@ class TaskServiceTests(unittest.TestCase):
         refreshed_phase = self.session.scalar(
             select(Phase).where(Phase.id == phase.id)
         )
-        self.assertEqual(refreshed_phase.progress_percent, 0)
+        self.assertEqual(
+            task_service.phase_progress(self.session, refreshed_phase.id), 0
+        )
 
     def test_unknown_task_raises_not_found(self) -> None:
         user = self._make_user()
@@ -405,8 +410,8 @@ class TaskServiceTests(unittest.TestCase):
         task_service.recompute_phase_progress(self.session, phase)
         self.session.refresh(phase)
         # carried 不进分母，只剩顺延出来的 1 条 pending。
-        self.assertEqual(phase.progress_percent, 0)
-        self.assertFalse(phase.is_completed)
+        self.assertEqual(task_service.phase_progress(self.session, phase.id), 0)
+        self.assertFalse(task_service.phase_is_completed(self.session, phase.id))
 
     def test_settle_leaves_tasks_dated_before_the_plan_started(self) -> None:
         user = self._make_user()

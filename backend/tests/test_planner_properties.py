@@ -475,9 +475,7 @@ class PropertyTests(unittest.TestCase):
                 phase.name,
                 phase.start_date,
                 phase.end_date,
-                phase.progress_percent,
                 phase.is_current,
-                phase.is_completed,
             )
             for phase in phases
         }
@@ -522,9 +520,7 @@ class PropertyTests(unittest.TestCase):
                 phase.name,
                 phase.start_date,
                 phase.end_date,
-                phase.progress_percent,
                 phase.is_current,
-                phase.is_completed,
             ), "every non-target phase must stay unchanged")
 
         # Daily tasks are untouched by a card-level tweak.

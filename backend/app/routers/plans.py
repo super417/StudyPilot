@@ -21,7 +21,13 @@ from app.core.clock import local_today
 from app.core.database import get_db
 from app.models.entities import Plan, PlanRevision, User
 from app.routers.dependencies import get_current_user
-from app.services import adjustment_service, document_service, planner_service, remedy_service
+from app.services import (
+    adjustment_service,
+    document_service,
+    planner_service,
+    remedy_service,
+    task_service,
+)
 from app.services.adjustment_service import (
     AdjustmentConflictError,
     AdjustmentNotFoundError,
@@ -169,16 +175,16 @@ def get_plan_generator() -> PlanGenerator | None:
     return None
 
 
-def _phase_dict(phase) -> dict:
+def _phase_dict(session: Session, phase) -> dict:
     return {
         "id": str(phase.id),
         "phaseIndex": phase.phase_index,
         "name": phase.name,
         "startDate": phase.start_date.isoformat(),
         "endDate": phase.end_date.isoformat(),
-        "progressPercent": phase.progress_percent,
+        "progressPercent": task_service.phase_progress(session, phase.id),
         "isCurrent": bool(phase.is_current),
-        "isCompleted": bool(phase.is_completed),
+        "isCompleted": task_service.phase_is_completed(session, phase.id),
     }
 
 
@@ -214,7 +220,7 @@ def latest_plan_route(
                 "totalPhases": plan.total_phases,
                 "updatedAt": plan.updated_at.isoformat(),
             },
-            "phases": [_phase_dict(p) for p in phases],
+            "phases": [_phase_dict(session, p) for p in phases],
         },
     )
 
@@ -278,7 +284,7 @@ def set_plan_start_route(
         content={
             "status": "ok",
             "startDate": chosen.isoformat(),
-            "phases": [_phase_dict(phase) for phase in phases],
+            "phases": [_phase_dict(session, phase) for phase in phases],
         },
     )
 

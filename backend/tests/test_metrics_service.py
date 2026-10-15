@@ -125,16 +125,26 @@ class ComputeOverviewTests(unittest.TestCase):
         self.session.add(plan)
         self.session.flush()
         for i in range(total_phases):
-            self.session.add(
-                Phase(
-                    plan_id=plan.id,
-                    phase_index=i + 1,
-                    name=f"阶段 {i + 1}",
-                    start_date=date(2025, 1, 1),
-                    end_date=date(2025, 2, 1),
-                    is_completed=(i < completed),
-                )
+            phase = Phase(
+                plan_id=plan.id,
+                phase_index=i + 1,
+                name=f"阶段 {i + 1}",
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 2, 1),
             )
+            self.session.add(phase)
+            self.session.flush()
+            if i < completed:
+                self.session.add(
+                    DailyTask(
+                        plan_id=plan.id,
+                        phase_id=phase.id,
+                        task_date=date(2025, 1, 2),
+                        week_label="W01",
+                        description=f"阶段 {i + 1} 已完成",
+                        status="done",
+                    )
+                )
         self.session.commit()
         return plan
 

@@ -169,10 +169,6 @@ class PlanAdjustment(Base):
 class Phase(Base):
     __tablename__ = "phases"
     __table_args__ = (
-        CheckConstraint(
-            "progress_percent BETWEEN 0 AND 100",
-            name="ck_phases_progress_percent_range",
-        ),
         UniqueConstraint("plan_id", "phase_index", name="uq_phases_plan_phase_index"),
     )
 
@@ -186,9 +182,7 @@ class Phase(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
-    progress_percent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_current: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class DailyTask(Base):

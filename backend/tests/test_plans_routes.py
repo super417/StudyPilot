@@ -789,7 +789,7 @@ class PlanRouteTests(unittest.TestCase):
         )
         target = phases[1]
         others_before = {
-            p.id: (p.name, p.start_date, p.end_date, p.progress_percent, p.is_current)
+            p.id: (p.name, p.start_date, p.end_date, p.is_current)
             for p in phases
             if p.id != target.id
         }
@@ -823,7 +823,6 @@ class PlanRouteTests(unittest.TestCase):
                     phase.name,
                     phase.start_date,
                     phase.end_date,
-                    phase.progress_percent,
                     phase.is_current,
                 ),
             )
