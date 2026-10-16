@@ -1,4 +1,4 @@
-import type { MasteryDetailItem } from '@/mocks/types';
+import type { MasteryDetailItem, ReinforceOutcome } from '@/mocks/types';
 
 /**
  * 完成度比掌握度高出这么多（百分点）才标出差距。
@@ -12,6 +12,10 @@ export interface PhaseRingsProps {
   /** 背离出现时，由页面发起补强预览。不传则不显示入口。 */
   onRequestReinforce?: () => void;
   reinforceBusy?: boolean;
+  /** 按 phaseId 索引；有条目才显示重测与前后对比。 */
+  reinforceOutcomesByPhase?: Record<string, ReinforceOutcome>;
+  onRequestRetest?: (phaseId: string) => void;
+  retestBusyPhaseId?: string | null;
 }
 
 function ringGeometry(radius: number, value: number | null) {
@@ -23,14 +27,39 @@ function ringGeometry(radius: number, value: number | null) {
   return { dash: `${drawn} ${circumference}`, color: '#8B5CF6' };
 }
 
+function formatBefore(outcome: ReinforceOutcome): string {
+  const { percent, evidenceCount } = outcome.before;
+  if (percent == null) {
+    return `补强前 暂无证据（基于 ${evidenceCount} 次）`;
+  }
+  return `补强前 ${percent}%（基于 ${evidenceCount} 次）`;
+}
+
+function formatAfter(outcome: ReinforceOutcome): string {
+  if (outcome.after.evidenceCount === 0) {
+    return '尚未重测';
+  }
+  const { percent, evidenceCount } = outcome.after;
+  if (percent == null) {
+    return `尚未重测`;
+  }
+  return `补强后 ${percent}%（基于 ${evidenceCount} 次）`;
+}
+
 function PhaseRing({
   item,
   onRequestReinforce,
   reinforceBusy,
+  outcome,
+  onRequestRetest,
+  retestBusy,
 }: {
   item: MasteryDetailItem;
   onRequestReinforce?: () => void;
   reinforceBusy?: boolean;
+  outcome?: ReinforceOutcome;
+  onRequestRetest?: (phaseId: string) => void;
+  retestBusy?: boolean;
 }) {
   const size = 112;
   const center = size / 2;
@@ -42,6 +71,8 @@ function PhaseRing({
   const masteryMissing = mastery == null;
   const gap = completion != null && mastery != null ? completion - mastery : null;
   const diverged = gap != null && gap >= DIVERGENCE_THRESHOLD;
+  const phaseId = item.phaseId;
+  const canRetest = Boolean(outcome && phaseId && onRequestRetest);
 
   return (
     <li className="flex flex-col gap-3 rounded-[28px] border border-brandFaint bg-card p-5 sm:flex-row sm:items-center">
@@ -90,6 +121,11 @@ function PhaseRing({
               ? `掌握度 ${mastery}% · 基于 ${item.evidenceCount} 次作答`
               : `掌握度 ${mastery}%`}
         </p>
+        {outcome ? (
+          <p className="mt-2 text-sm text-brandDark">
+            {formatBefore(outcome)} → {formatAfter(outcome)}
+          </p>
+        ) : null}
         {diverged ? (
           <p className="mt-2 text-sm font-medium text-purple">
             完成度高于掌握度 {gap} 点
@@ -105,25 +141,52 @@ function PhaseRing({
             {reinforceBusy ? '正在生成补强预览…' : '生成补强任务'}
           </button>
         ) : null}
+        {canRetest && phaseId ? (
+          <button
+            type="button"
+            className="mt-3 ml-0 block text-sm font-medium text-purple underline-offset-2 hover:underline disabled:opacity-50 sm:ml-3 sm:inline"
+            disabled={retestBusy}
+            onClick={() => onRequestRetest?.(phaseId)}
+          >
+            {retestBusy ? '正在出重测题…' : '重测'}
+          </button>
+        ) : null}
       </div>
     </li>
   );
 }
 
-function PhaseRings({ items, onRequestReinforce, reinforceBusy }: PhaseRingsProps) {
+function PhaseRings({
+  items,
+  onRequestReinforce,
+  reinforceBusy,
+  reinforceOutcomesByPhase,
+  onRequestRetest,
+  retestBusyPhaseId,
+}: PhaseRingsProps) {
   if (items.length === 0) {
     return <p className="text-sm text-gray-400">本周期暂无掌握度证据</p>;
   }
   return (
     <ul className="flex flex-col gap-4">
-      {items.map((item) => (
-        <PhaseRing
-          key={item.phaseId ?? item.subject}
-          item={item}
-          onRequestReinforce={onRequestReinforce}
-          reinforceBusy={reinforceBusy}
-        />
-      ))}
+      {items.map((item) => {
+        const phaseId = item.phaseId;
+        const outcome =
+          phaseId && reinforceOutcomesByPhase
+            ? reinforceOutcomesByPhase[phaseId]
+            : undefined;
+        return (
+          <PhaseRing
+            key={phaseId ?? item.subject}
+            item={item}
+            onRequestReinforce={onRequestReinforce}
+            reinforceBusy={reinforceBusy}
+            outcome={outcome}
+            onRequestRetest={onRequestRetest}
+            retestBusy={Boolean(phaseId && retestBusyPhaseId === phaseId)}
+          />
+        );
+      })}
     </ul>
   );
 }

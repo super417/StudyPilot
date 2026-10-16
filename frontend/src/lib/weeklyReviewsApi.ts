@@ -1,5 +1,9 @@
 import { apiRequest } from './httpClient';
-import type { MasteryDetailItem, WeeklyReview } from '@/mocks/types';
+import type {
+  MasteryDetailItem,
+  ReinforceOutcome,
+  WeeklyReview,
+} from '@/mocks/types';
 
 export interface WeeklyReviewLatestResponse {
   status: string;
@@ -11,6 +15,7 @@ export interface WeeklyReviewLatestResponse {
     completionRate: number;
     masteryAvg: number;
     masteryDetail: MasteryDetailItem[];
+    reinforceOutcomes?: ReinforceOutcome[];
     createdAt: string;
   } | null;
   empty?: boolean;
@@ -46,5 +51,8 @@ export function toWeeklyReview(
     completionRate: review.completionRate,
     masteryAvg: review.masteryAvg,
     masteryDetail,
+    reinforceOutcomes: Array.isArray(review.reinforceOutcomes)
+      ? review.reinforceOutcomes
+      : [],
   };
 }

@@ -132,6 +132,18 @@ export interface MasteryDetailItem {
   taskTotal?: number | null;
 }
 
+/** 补强前后掌握度（全时段现算，不受周窗口限制）。无证据时 percent 为 null。 */
+export interface ReinforceOutcomeBucket {
+  percent: number | null;
+  evidenceCount: number;
+}
+
+export interface ReinforceOutcome {
+  phaseId: string;
+  before: ReinforceOutcomeBucket;
+  after: ReinforceOutcomeBucket;
+}
+
 /** 周复盘（对应 Weekly_Reviews 表） */
 export interface WeeklyReview {
   id: string;
@@ -149,6 +161,8 @@ export interface WeeklyReview {
   masteryAvg: number;
   /** 各科目掌握度明细 */
   masteryDetail: MasteryDetailItem[];
+  /** 仅含有补强任务的阶段；全时段现算 */
+  reinforceOutcomes?: ReinforceOutcome[];
 }
 
 /** 用户文档（对应 User_Documents 表，前端按文档聚合展示） */

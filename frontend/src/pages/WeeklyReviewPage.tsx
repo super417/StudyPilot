@@ -3,10 +3,12 @@ import PurpleRing from '@/components/PurpleRing';
 import WeeklyMetrics from '@/components/WeeklyMetrics';
 import PhaseRings from '@/components/PhaseRings';
 import { AnimatedText, FadeIn } from '@/components/motion';
-import type { Metrics, WeeklyReview } from '@/mocks/types';
+import type { TabKey } from '@/components/TabNav';
+import type { Metrics, ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 import { fetchOverviewMetrics, toMetrics } from '@/lib/studyApi';
 import { createReinforcePreview } from '@/lib/plansApi';
+import { generateReinforceRetest } from '@/lib/practiceApi';
 import { todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store/assistantStore';
@@ -44,7 +46,11 @@ function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: 
   };
 }
 
-function WeeklyReviewPage() {
+export interface WeeklyReviewPageProps {
+  onNavigate?: (tab: TabKey) => void;
+}
+
+function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
   const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
@@ -57,6 +63,7 @@ function WeeklyReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [reinforceMsg, setReinforceMsg] = useState<string | null>(null);
   const [reinforceBusy, setReinforceBusy] = useState(false);
+  const [retestBusyPhaseId, setRetestBusyPhaseId] = useState<string | null>(null);
 
   const reload = async () => {
     setLoading(true);
@@ -99,6 +106,14 @@ function WeeklyReviewPage() {
 
   const planId = activePlanId ?? lastPlanId;
 
+  const reinforceOutcomesByPhase = useMemo(() => {
+    const map: Record<string, ReinforceOutcome> = {};
+    for (const item of review?.reinforceOutcomes ?? []) {
+      if (item.phaseId) map[item.phaseId] = item;
+    }
+    return map;
+  }, [review]);
+
   const handleRequestReinforce = async () => {
     if (!planId || reinforceBusy) return;
     setReinforceBusy(true);
@@ -117,6 +132,27 @@ function WeeklyReviewPage() {
       setReinforceMsg(e instanceof ApiError ? e.message : '生成补强预览失败');
     } finally {
       setReinforceBusy(false);
+    }
+  };
+
+  const handleRequestRetest = async (phaseId: string) => {
+    if (!phaseId || retestBusyPhaseId) return;
+    setRetestBusyPhaseId(phaseId);
+    setReinforceMsg(null);
+    try {
+      const res = await generateReinforceRetest(phaseId);
+      const count = res.questions?.length ?? 0;
+      setReinforceMsg(
+        count > 0
+          ? `已生成 ${count} 道重测题，请到习题本作答`
+          : '没有生成重测题（可能缺少可检索资料）',
+      );
+      if (count > 0) onNavigate?.('mistakes');
+      await reload();
+    } catch (e) {
+      setReinforceMsg(e instanceof ApiError ? e.message : '重测出题失败');
+    } finally {
+      setRetestBusyPhaseId(null);
     }
   };
 
@@ -188,6 +224,9 @@ function WeeklyReviewPage() {
                 items={review.masteryDetail}
                 onRequestReinforce={planId ? () => void handleRequestReinforce() : undefined}
                 reinforceBusy={reinforceBusy}
+                reinforceOutcomesByPhase={reinforceOutcomesByPhase}
+                onRequestRetest={(phaseId) => void handleRequestRetest(phaseId)}
+                retestBusyPhaseId={retestBusyPhaseId}
               />
             </>
           )}

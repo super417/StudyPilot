@@ -128,6 +128,8 @@ function App() {
                 <ProfilePage onNavigate={setActiveTab} />
               ) : activeTab === 'overview' ? (
                 <OverviewPage onNavigate={setActiveTab} />
+              ) : activeTab === 'weekly' ? (
+                <WeeklyReviewPage onNavigate={setActiveTab} />
               ) : (
                 <CurrentPage />
               )}

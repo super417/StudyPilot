@@ -30,6 +30,15 @@ export function generatePractice(date: string): Promise<{ status: string; questi
   });
 }
 
+export function generateReinforceRetest(
+  phaseId: string,
+): Promise<{ status: string; questions: PracticeQuestion[] }> {
+  return apiRequest('/api/practice/reinforce-retest', {
+    method: 'POST',
+    body: JSON.stringify({ phaseId }),
+  });
+}
+
 export function createPractice(input: {
   question: string;
   answer?: string;

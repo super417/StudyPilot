@@ -102,6 +102,59 @@ describe('PhaseRings', () => {
     expect(markup).toContain('生成补强任务');
   });
 
+  it('有补强任务的阶段显示重测与前后对比；after 无证据写尚未重测而不是 0%', () => {
+    const phaseId = 'phase-a';
+    const markup = renderToStaticMarkup(
+      createElement(PhaseRings, {
+        items: [
+          {
+            subject: '阶段一',
+            phaseId,
+            percent: 40,
+            evidenceCount: 2,
+            completionRate: 100,
+            taskDone: 2,
+            taskTotal: 2,
+          },
+        ],
+        reinforceOutcomesByPhase: {
+          [phaseId]: {
+            phaseId,
+            before: { percent: 40, evidenceCount: 2 },
+            after: { percent: null, evidenceCount: 0 },
+          },
+        },
+        onRequestRetest: () => undefined,
+      }),
+    );
+    expect(markup).toContain('重测');
+    expect(markup).toContain('补强前 40%（基于 2 次）');
+    expect(markup).toContain('尚未重测');
+    expect(markup).not.toContain('补强后 0%');
+  });
+
+  it('没有补强任务的阶段不显示重测入口', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PhaseRings, {
+        items: [
+          {
+            subject: '阶段一',
+            phaseId: 'phase-a',
+            percent: 40,
+            evidenceCount: 2,
+            completionRate: 100,
+            taskDone: 2,
+            taskTotal: 2,
+          },
+        ],
+        reinforceOutcomesByPhase: {},
+        onRequestRetest: () => undefined,
+      }),
+    );
+    expect(markup).not.toContain('重测');
+    expect(markup).not.toContain('补强前');
+  });
+
   it('差距达到阈值才标出，任一为空则不标', () => {
     const marked = html([
       {
