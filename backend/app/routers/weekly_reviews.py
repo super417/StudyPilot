@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.entities import User, WeeklyReview
 from app.routers.dependencies import get_current_user
-from app.services import weekly_review_service
+from app.services import reinforce_service, weekly_review_service
 
 router = APIRouter(prefix="/api/weekly-reviews", tags=["weekly-reviews"])
 
@@ -23,6 +23,8 @@ def _review(session: Session, user_id, review: WeeklyReview) -> dict:
     avg, detail = weekly_review_service.phase_mastery(
         session, user_id, review.week_start, review.week_end
     )
+    # reinforceOutcomes：由全时段证据现算，不受 week_start/week_end 限制。
+    outcomes = reinforce_service.list_reinforce_outcomes(session, user_id)
     return {
         "weekStart": review.week_start.isoformat(),
         "weekEnd": review.week_end.isoformat(),
@@ -31,6 +33,7 @@ def _review(session: Session, user_id, review: WeeklyReview) -> dict:
         "completionRate": review.completion_rate,
         "masteryAvg": avg,
         "masteryDetail": detail,
+        "reinforceOutcomes": outcomes,
         "createdAt": review.created_at.isoformat(),
     }
 

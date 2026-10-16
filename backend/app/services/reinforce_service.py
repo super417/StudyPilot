@@ -29,7 +29,82 @@ from app.services.adjustment_service import (
     AdjustmentNotFoundError,
 )
 from app.services.divergence import DIVERGENCE_THRESHOLD
-from app.services.weekly_review_service import _evidence_day
+from app.services.weekly_review_service import _EVIDENCE_SCORE, _evidence_day
+
+
+def _score_bucket(rows: list[MasteryEvidence]) -> dict:
+    if not rows:
+        return {"percent": None, "evidenceCount": 0}
+    percent = round(sum(_EVIDENCE_SCORE.get(row.result, 0) for row in rows) / len(rows))
+    return {"percent": max(0, min(100, percent)), "evidenceCount": len(rows)}
+
+
+def phase_reinforce_outcome(
+    session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
+) -> dict:
+    """Before/after mastery for one phase, split by reinforce_task_evidence.
+
+    Full-history read: no week window. before = evidence whose source task is
+    not a reinforce task; after = evidence whose source task is linked in
+    reinforce_task_evidence. Path: question_id → PracticeQuestion.source_task_id.
+    """
+    phase = session.scalar(
+        select(Phase)
+        .join(Plan, Plan.id == Phase.plan_id)
+        .where(Phase.id == phase_id, Plan.user_id == user_id)
+    )
+    if phase is None:
+        raise AdjustmentNotFoundError("阶段不存在")
+    reinforce_task_ids = set(
+        session.scalars(
+            select(ReinforceTaskEvidence.task_id)
+            .join(DailyTask, DailyTask.id == ReinforceTaskEvidence.task_id)
+            .where(DailyTask.phase_id == phase_id)
+        )
+    )
+    evidence_rows = list(
+        session.scalars(
+            select(MasteryEvidence).where(
+                MasteryEvidence.user_id == user_id,
+                MasteryEvidence.knowledge_point == phase_id,
+            )
+        )
+    )
+    before_rows: list[MasteryEvidence] = []
+    after_rows: list[MasteryEvidence] = []
+    for row in evidence_rows:
+        if row.knowledge_point is None:
+            continue
+        source_task_id: uuid.UUID | None = None
+        if row.question_id is not None:
+            question = session.get(PracticeQuestion, row.question_id)
+            if question is not None:
+                source_task_id = question.source_task_id
+        if source_task_id is not None and source_task_id in reinforce_task_ids:
+            after_rows.append(row)
+        else:
+            before_rows.append(row)
+    return {
+        "phaseId": str(phase_id),
+        "before": _score_bucket(before_rows),
+        "after": _score_bucket(after_rows),
+    }
+
+
+def list_reinforce_outcomes(session: Session, user_id: uuid.UUID) -> list[dict]:
+    """Outcomes only for phases that currently have reinforce tasks."""
+    phase_ids = list(
+        session.scalars(
+            select(DailyTask.phase_id)
+            .join(ReinforceTaskEvidence, ReinforceTaskEvidence.task_id == DailyTask.id)
+            .join(Plan, Plan.id == DailyTask.plan_id)
+            .where(Plan.user_id == user_id)
+            .distinct()
+        )
+    )
+    return [
+        phase_reinforce_outcome(session, user_id, phase_id) for phase_id in phase_ids
+    ]
 
 
 def create_reinforce_preview(

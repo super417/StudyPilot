@@ -17,6 +17,7 @@ from app.models.entities import (
     Phase,
     Plan,
     PracticeQuestion,
+    ReinforceTaskEvidence,
     UserDocument,
 )
 from app.services import document_service
@@ -330,6 +331,100 @@ async def generate_for_day(
     ]
     session.add_all(rows)
     session.commit()
+    for row in rows:
+        session.refresh(row)
+    return rows
+
+
+def _reinforce_tasks_for_phase(
+    session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
+) -> tuple[Phase, list[DailyTask]]:
+    phase = session.scalar(
+        select(Phase)
+        .join(Plan, Plan.id == Phase.plan_id)
+        .where(Phase.id == phase_id, Plan.user_id == user_id)
+    )
+    if phase is None:
+        raise PracticeNotFoundError("阶段不存在")
+    task_ids = list(
+        session.scalars(
+            select(ReinforceTaskEvidence.task_id)
+            .join(DailyTask, DailyTask.id == ReinforceTaskEvidence.task_id)
+            .join(Plan, Plan.id == DailyTask.plan_id)
+            .where(
+                DailyTask.phase_id == phase_id,
+                Plan.user_id == user_id,
+            )
+            .distinct()
+        )
+    )
+    tasks = [session.get(DailyTask, task_id) for task_id in task_ids]
+    return phase, [task for task in tasks if task is not None]
+
+
+async def generate_reinforce_retest(
+    session: Session,
+    user_id: uuid.UUID,
+    phase_id: uuid.UUID,
+    generator: QuestionGenerator | None = None,
+) -> list[PracticeQuestion]:
+    """Generate practice questions anchored to reinforce tasks of one phase.
+
+    Does not call ``_done_task_lines`` and does not select by date. Every
+    written ``PracticeQuestion.source_task_id`` is a reinforce task id for
+    ``phase_id``. No reinforce tasks → refuse without writing.
+    """
+    require_verified_api_config(session, user_id)
+    phase, reinforce_tasks = _reinforce_tasks_for_phase(session, user_id, phase_id)
+    if not reinforce_tasks:
+        raise PracticeValidationError("该阶段没有补强任务，无法重测")
+    lines = [f"{phase.name}：{task.description}" for task in reinforce_tasks]
+    doc_ids = list(
+        session.scalars(
+            select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
+        )
+    )
+    context = (
+        document_service.retrieve_document_chunks(
+            session, user_id, doc_ids, "\n".join(lines)
+        )
+        if doc_ids
+        else ""
+    )
+    if context == "":
+        return []
+    try:
+        if generator is None:
+            produced = await _default_generator(session, user_id, lines, context)
+            questions = _parse_questions(str(produced.get("raw") or ""))
+        else:
+            produced = generator(lines, context)
+            if hasattr(produced, "__await__"):
+                produced = await produced  # type: ignore[assignment]
+            questions = _parse_questions(json.dumps(produced))
+    except (NoVerifiedApiConfigError, CredentialUnavailableError):
+        raise
+    except Exception:
+        questions = _heuristic_questions(lines)
+    rows = [
+        PracticeQuestion(
+            user_id=user_id,
+            source="generated",
+            subject=item["subject"],
+            question=item["question"],
+            answer=item["answer"],
+            explanation=item["explanation"],
+            source_task_id=reinforce_tasks[index % len(reinforce_tasks)].id,
+            status="pending",
+        )
+        for index, item in enumerate(questions)
+    ]
+    session.add_all(rows)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     for row in rows:
         session.refresh(row)
     return rows

@@ -125,9 +125,11 @@ class WeeklyReviewRouteTests(unittest.TestCase):
                 "completionRate",
                 "masteryAvg",
                 "masteryDetail",
+                "reinforceOutcomes",
                 "createdAt",
             },
         )
+        self.assertEqual(body["review"]["reinforceOutcomes"], [])
         self.assertEqual(body["review"]["totalMinutes"], 180)
         self.assertEqual(body["review"]["completionRate"], 75)
 
