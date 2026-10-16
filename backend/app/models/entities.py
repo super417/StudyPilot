@@ -296,6 +296,34 @@ class MasteryEvidence(Base):
     )
 
 
+class ReinforceTaskEvidence(Base):
+    """Which reinforce DailyTask covers which MasteryEvidence.
+
+    Append-only while the reinforce is in effect. Undo deletes these rows with
+    the tasks so the same evidence can be reinforced again. Composite primary
+    key (task_id, evidence_id): one evidence may yield both a redo and a reread
+    task, so evidence_id alone is not unique.
+    """
+
+    __tablename__ = "reinforce_task_evidence"
+
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("daily_tasks.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    evidence_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("mastery_evidence.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+
 class CheckIn(Base):
     __tablename__ = "check_ins"
     __table_args__ = (

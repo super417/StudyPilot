@@ -1,7 +1,8 @@
 """Deterministic reinforce tasks from wrong/partial evidence. No model call.
 
-Preview writes only a ``PlanAdjustment``. Confirm inserts ``DailyTask`` rows;
-undo deletes those rows. Separate from ``remedy_service`` by name and kind.
+Preview writes only a ``PlanAdjustment``. Confirm inserts ``DailyTask`` rows
+and ``ReinforceTaskEvidence`` links; undo deletes both in one transaction.
+Separate from ``remedy_service`` by name and kind.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
@@ -20,6 +21,7 @@ from app.models.entities import (
     Plan,
     PlanAdjustment,
     PracticeQuestion,
+    ReinforceTaskEvidence,
 )
 from app.services import adjustment_service, planner_service, weekly_review_service
 from app.services.adjustment_service import (
@@ -169,10 +171,19 @@ def undo_reinforce(
     assert row is not None
     record = row.applied_record or {}
     try:
-        for task_id in record.get("createdTaskIds") or []:
-            task = session.get(DailyTask, uuid.UUID(task_id))
-            if task is not None:
-                session.delete(task)
+        task_ids = [
+            uuid.UUID(task_id) for task_id in (record.get("createdTaskIds") or [])
+        ]
+        if task_ids:
+            session.execute(
+                delete(ReinforceTaskEvidence).where(
+                    ReinforceTaskEvidence.task_id.in_(task_ids)
+                )
+            )
+            for task_id in task_ids:
+                task = session.get(DailyTask, task_id)
+                if task is not None:
+                    session.delete(task)
         session.flush()
         session.commit()
     except Exception:
@@ -196,6 +207,7 @@ def _build(
     tasks: list[dict] = []
     evidence_refs: list[dict] = []
     seen_evidence: set[str] = set()
+    blocked = _blocked_evidence_ids(session, plan.id)
 
     for item in detail:
         completion = item.get("completionRate")
@@ -213,6 +225,8 @@ def _build(
         if phase is None or phase.plan_id != plan.id:
             continue
         for row in errors:
+            if row.id in blocked:
+                continue
             evidence_id = str(row.id)
             if evidence_id not in seen_evidence:
                 seen_evidence.add(evidence_id)
@@ -336,6 +350,36 @@ def _error_evidence(
     return matched
 
 
+def _covered_evidence_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID]:
+    """Evidence already linked to a reinforce task for this plan (table is source of truth)."""
+    return set(
+        session.scalars(
+            select(ReinforceTaskEvidence.evidence_id)
+            .join(DailyTask, DailyTask.id == ReinforceTaskEvidence.task_id)
+            .where(DailyTask.plan_id == plan_id)
+        )
+    )
+
+
+def _blocked_evidence_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID]:
+    """Skip evidence already reinforced (table) or reserved by a pending reinforce preview."""
+    blocked = _covered_evidence_ids(session, plan_id)
+    pending = session.scalars(
+        select(PlanAdjustment).where(
+            PlanAdjustment.plan_id == plan_id,
+            PlanAdjustment.status == "pending",
+        )
+    )
+    for adjustment in pending:
+        if (adjustment.proposal or {}).get("kind") != "reinforce":
+            continue
+        for item in (adjustment.proposal or {}).get("tasks") or []:
+            raw = item.get("evidenceId")
+            if raw:
+                blocked.add(uuid.UUID(str(raw)))
+    return blocked
+
+
 def _question_text(session: Session, evidence: MasteryEvidence) -> str:
     if evidence.question_id is None:
         return "（无题目原文）"
@@ -350,19 +394,25 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
     tasks = list(proposal.get("tasks") or [])
     if not tasks:
         raise AdjustmentConflictError("预览没有可写入的补强任务")
+    already = _covered_evidence_ids(session, plan.id)
     created_ids: list[str] = []
     created_copies: list[dict] = []
     for item in tasks:
+        evidence_raw = item.get("evidenceId")
+        if not evidence_raw:
+            raise AdjustmentConflictError("补强任务缺少证据")
+        evidence_id = uuid.UUID(str(evidence_raw))
+        if evidence_id in already:
+            continue
         phase_id = uuid.UUID(str(item["phaseId"]))
         phase = session.get(Phase, phase_id)
         if phase is None or phase.plan_id != plan.id:
             raise AdjustmentConflictError("补强任务的阶段已不存在")
         if item.get("kind") == "reread":
             source_ref = item.get("sourceRef")
-            evidence_id = item.get("evidenceId")
-            if not source_ref or not evidence_id:
+            if not source_ref:
                 raise AdjustmentConflictError("重读任务缺少出处")
-            evidence = session.get(MasteryEvidence, uuid.UUID(str(evidence_id)))
+            evidence = session.get(MasteryEvidence, evidence_id)
             if evidence is None or evidence.source_ref != source_ref:
                 raise AdjustmentConflictError("重读出处无法在判分记录中核对")
         task_date = date.fromisoformat(str(item["taskDate"]))
@@ -378,6 +428,9 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
         )
         session.add(task)
         session.flush()
+        session.add(
+            ReinforceTaskEvidence(task_id=task.id, evidence_id=evidence_id)
+        )
         created_ids.append(str(task.id))
         created_copies.append(
             {
@@ -386,11 +439,13 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
                 "taskDate": task_date.isoformat(),
                 "description": task.description,
                 "kind": item.get("kind"),
-                "evidenceId": item.get("evidenceId"),
+                "evidenceId": str(evidence_id),
                 "sourceRef": item.get("sourceRef"),
                 "questionId": item.get("questionId"),
             }
         )
+    if not created_ids:
+        raise AdjustmentConflictError("这些证据已有补强任务，请重新生成预览")
     row.applied_record = {
         "kind": "reinforce",
         "createdTaskIds": created_ids,

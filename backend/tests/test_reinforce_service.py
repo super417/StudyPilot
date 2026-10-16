@@ -22,6 +22,7 @@ from app.models.entities import (
     Plan,
     PlanAdjustment,
     PracticeQuestion,
+    ReinforceTaskEvidence,
     User,
 )
 from app.services import reinforce_service, weekly_review_service
@@ -173,7 +174,10 @@ class ReinforceServiceTests(unittest.TestCase):
         """
         user = self._user()
         plan, phase = self._plan_phase(user)
-        self._tasks(plan, phase, done=10, total=10)
+        # Keep a large done base so a few pending reinforce tasks cannot
+        # drop completion enough to clear the divergence window
+        # (e.g. 100/104 → 96, mastery 64 → gap 32 ≥ threshold).
+        self._tasks(plan, phase, done=100, total=100)
         question = self._question(user)
         wrong = self._evidence(user, phase, question, "wrong", source_ref)
         if gap == DIVERGENCE_THRESHOLD:
@@ -358,6 +362,107 @@ class ReinforceServiceTests(unittest.TestCase):
             self.assertEqual(task.phase_id, phase.id)
             self.assertEqual(task.plan_id, plan.id)
             self.assertEqual(task.status, "pending")
+        links = list(
+            self.session.scalars(
+                select(ReinforceTaskEvidence).where(
+                    ReinforceTaskEvidence.evidence_id == evidence.id
+                )
+            )
+        )
+        self.assertGreaterEqual(len(links), 1)
+
+    def _task_evidence_ids(self, row: PlanAdjustment) -> set[str]:
+        return {
+            str(item.get("evidenceId"))
+            for item in (row.proposal or {}).get("tasks") or []
+            if item.get("evidenceId")
+        }
+
+    def test_preview_twice_does_not_repeat_same_evidence(self) -> None:
+        user, plan, phase, question, evidence = self._divergent_with_wrong()
+        first = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        first_ids = self._task_evidence_ids(first)
+        self.assertIn(str(evidence.id), first_ids)
+        second = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        second_ids = self._task_evidence_ids(second)
+        self.assertNotIn(str(evidence.id), second_ids)
+
+    def test_preview_after_confirm_does_not_repeat_same_evidence(self) -> None:
+        user, plan, phase, question, evidence = self._divergent_with_wrong()
+        preview = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        reinforce_service.confirm_reinforce(
+            self.session,
+            user.id,
+            plan.id,
+            preview.id,
+            expected_selection_version=1,
+        )
+        again = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        self.assertNotIn(str(evidence.id), self._task_evidence_ids(again))
+        self.assertGreaterEqual(
+            self.session.scalar(
+                select(func.count())
+                .select_from(ReinforceTaskEvidence)
+                .where(ReinforceTaskEvidence.evidence_id == evidence.id)
+            )
+            or 0,
+            1,
+        )
+
+    def test_undo_allows_regenerate_for_same_evidence(self) -> None:
+        user, plan, phase, question, evidence = self._divergent_with_wrong()
+        preview = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        reinforce_service.confirm_reinforce(
+            self.session,
+            user.id,
+            plan.id,
+            preview.id,
+            expected_selection_version=1,
+        )
+        reinforce_service.undo_reinforce(self.session, user.id, plan.id)
+        link_count = self.session.scalar(
+            select(func.count())
+            .select_from(ReinforceTaskEvidence)
+            .where(ReinforceTaskEvidence.evidence_id == evidence.id)
+        )
+        self.assertEqual(link_count, 0)
+        regenerated = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        self.assertIn(str(evidence.id), self._task_evidence_ids(regenerated))
+
+    def test_new_error_evidence_still_generates_after_prior_reinforce(self) -> None:
+        user, plan, phase, question, evidence = self._divergent_with_wrong()
+        preview = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        reinforce_service.confirm_reinforce(
+            self.session,
+            user.id,
+            plan.id,
+            preview.id,
+            expected_selection_version=1,
+        )
+        fresh_question = self._question(user, "新错题不误伤")
+        fresh = self._evidence(
+            user, phase, fresh_question, "wrong", "fresh-doc#1"
+        )
+        again = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        again_ids = self._task_evidence_ids(again)
+        self.assertIn(str(fresh.id), again_ids)
+        self.assertNotIn(str(evidence.id), again_ids)
 
 
 if __name__ == "__main__":
