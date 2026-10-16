@@ -83,6 +83,25 @@ describe('PhaseRings', () => {
     expect(missingCount).not.toContain('基于');
   });
 
+  it('背离时显示生成补强任务入口', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PhaseRings, {
+        items: [
+          {
+            subject: '阶段一',
+            percent: 33,
+            evidenceCount: 3,
+            completionRate: 100,
+            taskDone: 3,
+            taskTotal: 3,
+          },
+        ],
+        onRequestReinforce: () => undefined,
+      }),
+    );
+    expect(markup).toContain('生成补强任务');
+  });
+
   it('差距达到阈值才标出，任一为空则不标', () => {
     const marked = html([
       {

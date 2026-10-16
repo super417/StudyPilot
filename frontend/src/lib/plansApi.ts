@@ -373,6 +373,23 @@ export function createRemedyPreview(planId: string) {
   });
 }
 
+export function createReinforcePreview(planId: string) {
+  return apiRequest<{ status: string; adjustment: PlanAdjustmentPreview }>(
+    `/api/plans/${encodeURIComponent(planId)}/reinforce-preview`,
+    { method: 'POST' },
+  ).then((payload) => {
+    const row = payload.adjustment;
+    return {
+      ...row,
+      summary: row.summary || row.decisionSummary || '',
+      phases: row.phases ?? 0,
+      usedDocs: row.usedDocs ?? [],
+      evidenceRefs: row.evidenceRefs ?? [],
+      steps: row.steps ?? [],
+    };
+  });
+}
+
 export function rejectPlanAdjustment(planId: string, adjustmentId: string) {
   return apiRequest<{ status: string; adjustment: { status: string } }>(
     `/api/plans/${encodeURIComponent(planId)}/adjustments/${encodeURIComponent(adjustmentId)}/reject`,

@@ -3,11 +3,15 @@ import type { MasteryDetailItem } from '@/mocks/types';
 /**
  * 完成度比掌握度高出这么多（百分点）才标出差距。
  * 经验值，非研究结论，可调。
+ * 与 backend ``app.services.divergence.DIVERGENCE_THRESHOLD`` 保持一致。
  */
 export const DIVERGENCE_THRESHOLD = 30;
 
 export interface PhaseRingsProps {
   items: MasteryDetailItem[];
+  /** 背离出现时，由页面发起补强预览。不传则不显示入口。 */
+  onRequestReinforce?: () => void;
+  reinforceBusy?: boolean;
 }
 
 function ringGeometry(radius: number, value: number | null) {
@@ -19,7 +23,15 @@ function ringGeometry(radius: number, value: number | null) {
   return { dash: `${drawn} ${circumference}`, color: '#8B5CF6' };
 }
 
-function PhaseRing({ item }: { item: MasteryDetailItem }) {
+function PhaseRing({
+  item,
+  onRequestReinforce,
+  reinforceBusy,
+}: {
+  item: MasteryDetailItem;
+  onRequestReinforce?: () => void;
+  reinforceBusy?: boolean;
+}) {
   const size = 112;
   const center = size / 2;
   const outer = ringGeometry(42, item.completionRate ?? null);
@@ -83,19 +95,34 @@ function PhaseRing({ item }: { item: MasteryDetailItem }) {
             完成度高于掌握度 {gap} 点
           </p>
         ) : null}
+        {diverged && onRequestReinforce ? (
+          <button
+            type="button"
+            className="mt-3 text-sm font-medium text-purple underline-offset-2 hover:underline disabled:opacity-50"
+            disabled={reinforceBusy}
+            onClick={onRequestReinforce}
+          >
+            {reinforceBusy ? '正在生成补强预览…' : '生成补强任务'}
+          </button>
+        ) : null}
       </div>
     </li>
   );
 }
 
-function PhaseRings({ items }: PhaseRingsProps) {
+function PhaseRings({ items, onRequestReinforce, reinforceBusy }: PhaseRingsProps) {
   if (items.length === 0) {
     return <p className="text-sm text-gray-400">本周期暂无掌握度证据</p>;
   }
   return (
     <ul className="flex flex-col gap-4">
       {items.map((item) => (
-        <PhaseRing key={item.phaseId ?? item.subject} item={item} />
+        <PhaseRing
+          key={item.phaseId ?? item.subject}
+          item={item}
+          onRequestReinforce={onRequestReinforce}
+          reinforceBusy={reinforceBusy}
+        />
       ))}
     </ul>
   );

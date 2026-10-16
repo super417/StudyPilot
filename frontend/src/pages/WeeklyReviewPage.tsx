@@ -6,8 +6,10 @@ import { AnimatedText, FadeIn } from '@/components/motion';
 import type { Metrics, WeeklyReview } from '@/mocks/types';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 import { fetchOverviewMetrics, toMetrics } from '@/lib/studyApi';
+import { createReinforcePreview } from '@/lib/plansApi';
 import { todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
+import { useAssistantStore } from '@/store/assistantStore';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 
 /** 按是否有规划 / 周报，拼出与用户目标相关的说明文案。 */
@@ -44,11 +46,17 @@ function buildCopy(metrics: Metrics | null, review: WeeklyReview | null, empty: 
 
 function WeeklyReviewPage() {
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
+  const activePlanId = usePlanSessionStore((s) => s.activePlanId);
+  const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
+  const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
+  const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const [review, setReview] = useState<WeeklyReview | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [empty, setEmpty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reinforceMsg, setReinforceMsg] = useState<string | null>(null);
+  const [reinforceBusy, setReinforceBusy] = useState(false);
 
   const reload = async () => {
     setLoading(true);
@@ -88,6 +96,29 @@ function WeeklyReviewPage() {
     () => buildCopy(metrics, review, empty || !review),
     [metrics, review, empty],
   );
+
+  const planId = activePlanId ?? lastPlanId;
+
+  const handleRequestReinforce = async () => {
+    if (!planId || reinforceBusy) return;
+    setReinforceBusy(true);
+    setReinforceMsg(null);
+    try {
+      const preview = await createReinforcePreview(planId);
+      if (planId !== 'derived-latest') setActivePlanId(planId);
+      setPendingAdjustment(preview);
+      openAssistantWithContext({ type: 'free', hint: '查看补强预览' });
+      setReinforceMsg(
+        preview.validation?.ok === false
+          ? preview.decisionSummary || '没有可生成的补强任务'
+          : '已生成补强预览，确认前不会改正式计划',
+      );
+    } catch (e) {
+      setReinforceMsg(e instanceof ApiError ? e.message : '生成补强预览失败');
+    } finally {
+      setReinforceBusy(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -147,7 +178,18 @@ function WeeklyReviewPage() {
               </section>
             </FadeIn>
           ) : (
-            <PhaseRings items={review.masteryDetail} />
+            <>
+              {reinforceMsg ? (
+                <p className="text-sm text-gray-500" role="status">
+                  {reinforceMsg}
+                </p>
+              ) : null}
+              <PhaseRings
+                items={review.masteryDetail}
+                onRequestReinforce={planId ? () => void handleRequestReinforce() : undefined}
+                reinforceBusy={reinforceBusy}
+              />
+            </>
           )}
         </>
       ) : null}
