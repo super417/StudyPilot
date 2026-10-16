@@ -402,6 +402,9 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
         if not evidence_raw:
             raise AdjustmentConflictError("补强任务缺少证据")
         evidence_id = uuid.UUID(str(evidence_raw))
+        # Intentional idempotency: this evidence already has reinforce task(s),
+        # so skip it and keep writing the rest. Only when every item is skipped
+        # does the AdjustmentConflictError below reject an empty apply.
         if evidence_id in already:
             continue
         phase_id = uuid.UUID(str(item["phaseId"]))

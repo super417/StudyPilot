@@ -318,6 +318,7 @@ class ReinforceTaskEvidence(Base):
         ForeignKey("mastery_evidence.id", ondelete="CASCADE"),
         primary_key=True,
         nullable=False,
+        index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
