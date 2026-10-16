@@ -25,7 +25,7 @@ from app.models.entities import (
     ReinforceTaskEvidence,
     User,
 )
-from app.services import reinforce_service, weekly_review_service
+from app.services import reinforce_service, task_service, weekly_review_service
 from app.services.divergence import DIVERGENCE_THRESHOLD
 
 
@@ -463,6 +463,39 @@ class ReinforceServiceTests(unittest.TestCase):
         again_ids = self._task_evidence_ids(again)
         self.assertIn(str(fresh.id), again_ids)
         self.assertNotIn(str(evidence.id), again_ids)
+
+    def test_undo_reinforce_rolls_back_completed_record_intentional_by_ruling(
+        self,
+    ) -> None:
+        """由裁定确定：撤销补强连同已完成记录一并回滚，属有意为之。"""
+        user, plan, phase, question, evidence = self._divergent_with_wrong()
+        progress_without_reinforce = task_service.phase_progress(
+            self.session, phase.id
+        )
+        preview = reinforce_service.create_reinforce_preview(
+            self.session, user.id, plan.id, today=self.today
+        )
+        confirmed = reinforce_service.confirm_reinforce(
+            self.session,
+            user.id,
+            plan.id,
+            preview.id,
+            expected_selection_version=1,
+        )
+        created_ids = (confirmed.applied_record or {}).get("createdTaskIds") or []
+        self.assertGreaterEqual(len(created_ids), 1)
+        target_id = uuid.UUID(str(created_ids[0]))
+        progress_after_confirm = task_service.phase_progress(self.session, phase.id)
+        task_service.set_task_status(self.session, user.id, target_id, "done")
+        progress_after_done = task_service.phase_progress(self.session, phase.id)
+        self.assertNotEqual(progress_after_done, progress_after_confirm)
+        undone = reinforce_service.undo_reinforce(self.session, user.id, plan.id)
+        self.assertEqual(undone.status, "undone")
+        self.session.expire_all()
+        self.assertIsNone(self.session.get(DailyTask, target_id))
+        progress_after_undo = task_service.phase_progress(self.session, phase.id)
+        self.assertNotEqual(progress_after_undo, progress_after_done)
+        self.assertEqual(progress_after_undo, progress_without_reinforce)
 
 
 if __name__ == "__main__":
