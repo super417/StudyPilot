@@ -14,7 +14,7 @@ vi.mock('@/lib/weeklyReviewsApi', () => ({
 }));
 vi.mock('@/lib/documentsApi', () => ({ listDocuments: mocks.listDocuments }));
 
-import { FALLBACK_SNAPSHOT, formatHours, loadDemoSnapshot } from '@/lib/mainframeDemo';
+import { EMPTY_SNAPSHOT, formatHours, loadDemoSnapshot } from '@/lib/mainframeDemo';
 
 describe('mainframeDemo', () => {
   beforeEach(() => {
@@ -45,7 +45,7 @@ describe('mainframeDemo', () => {
     });
 
     const snapshot = await loadDemoSnapshot();
-    expect(snapshot).toEqual(FALLBACK_SNAPSHOT);
+    expect(snapshot).toEqual(EMPTY_SNAPSHOT);
     expect(snapshot.completionRate).toBeNull();
     expect(snapshot.totalMinutes).toBeNull();
     expect(snapshot.streakDays).toBeNull();

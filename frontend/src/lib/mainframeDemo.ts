@@ -32,7 +32,7 @@ export interface DemoCitation {
 /**
  * 接口不可用或没有周报时的空状态。全部数字字段为 null，界面写「暂无数据」。
  */
-export const FALLBACK_SNAPSHOT: DemoSnapshot = {
+export const EMPTY_SNAPSHOT: DemoSnapshot = {
   completionRate: null,
   totalMinutes: null,
   streakDays: null,
@@ -75,7 +75,7 @@ export async function loadDemoSnapshot(): Promise<DemoSnapshot> {
       fetchLatestWeeklyReview(),
     ]);
     const review = weekly.review;
-    if (!review) return FALLBACK_SNAPSHOT;
+    if (!review) return EMPTY_SNAPSHOT;
     return {
       completionRate: toPercent(review.completionRate),
       totalMinutes: review.totalMinutes,
@@ -85,7 +85,7 @@ export async function loadDemoSnapshot(): Promise<DemoSnapshot> {
       live: true,
     };
   } catch {
-    return FALLBACK_SNAPSHOT;
+    return EMPTY_SNAPSHOT;
   }
 }
 

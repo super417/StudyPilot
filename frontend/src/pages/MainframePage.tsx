@@ -7,7 +7,7 @@ import ChatPanel from '@/components/chat/ChatPanel';
 import SessionList from '@/components/chat/SessionList';
 import type { TabKey } from '@/components/TabNav';
 import {
-  FALLBACK_SNAPSHOT,
+  EMPTY_SNAPSHOT,
   formatHours,
   loadDemoCitations,
   loadDemoSnapshot,
@@ -98,7 +98,7 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
   /** 右侧会话列表栏 */
   const [sessionsOpen, setSessionsOpen] = useState(false);
   /** 完成率和阶段进度先是空的；接口返回周报后再换成真实数字。 */
-  const [snapshot, setSnapshot] = useState<DemoSnapshot>(FALLBACK_SNAPSHOT);
+  const [snapshot, setSnapshot] = useState<DemoSnapshot>(EMPTY_SNAPSHOT);
   const [citations, setCitations] = useState<DemoCitation[]>([]);
   const addMessage = useAssistantStore((s) => s.addMessage);
   const setContext = useAssistantStore((s) => s.setContext);
