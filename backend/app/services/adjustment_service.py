@@ -1164,6 +1164,16 @@ def confirm_adjustment(
             adjustment_id,
             expected_selection_version=expected_selection_version,
         )
+    if (row.proposal or {}).get("kind") == "reinforce":
+        from app.services import reinforce_service
+
+        return reinforce_service.confirm_reinforce(
+            session,
+            user_id,
+            plan_id,
+            adjustment_id,
+            expected_selection_version=expected_selection_version,
+        )
     if row.status != "pending":
         raise AdjustmentConflictError("该预览不能确认")
     if expected_selection_version is None:
@@ -1513,6 +1523,10 @@ def undo_latest(
         from app.services import remedy_service
 
         return remedy_service.undo_remedy(session, user_id, plan_id)
+    if (row.applied_record or {}).get("kind") == "reinforce":
+        from app.services import reinforce_service
+
+        return reinforce_service.undo_reinforce(session, user_id, plan_id)
     if row.status != "confirmed" or not row.applied_record:
         raise AdjustmentConflictError("没有可撤销的已生效调整")
 

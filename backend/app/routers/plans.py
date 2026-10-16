@@ -25,6 +25,7 @@ from app.services import (
     adjustment_service,
     document_service,
     planner_service,
+    reinforce_service,
     remedy_service,
     task_service,
 )
@@ -824,6 +825,39 @@ def create_remedy_preview_route(
     try:
         parsed_plan = uuid.UUID(plan_id)
         row = remedy_service.create_remedy_preview(session, user.id, parsed_plan)
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    except AdjustmentConflictError as error:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "code": error.code,
+                "message": str(error),
+            },
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ok", "adjustment": adjustment_service.adjustment_to_api(row)},
+    )
+
+
+@router.post("/{plan_id}/reinforce-preview")
+def create_reinforce_preview_route(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed_plan = uuid.UUID(plan_id)
+        row = reinforce_service.create_reinforce_preview(session, user.id, parsed_plan)
     except (ValueError, AttributeError, TypeError, PlanNotFoundError):
         return JSONResponse(
             status_code=404,
