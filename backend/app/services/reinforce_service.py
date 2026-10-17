@@ -116,9 +116,13 @@ def phase_reinforce_outcome(
     after = _score_bucket(after_rows)
     after["correctCount"] = sum(1 for row in after_rows if row.result == "correct")
     overall = _score_bucket(overall_rows)
-    if overall["evidenceCount"] != before["evidenceCount"] + after["evidenceCount"]:
+    # Every evidence row must land in exactly one bucket. Comparing against the
+    # bucket sum would be tautological (both sides come from the same lists);
+    # comparing against the fetched rows is what catches a future third bucket
+    # or an early ``continue`` silently dropping rows.
+    if overall["evidenceCount"] != len(evidence_rows):
         raise ReinforceOutcomeInconsistencyError(
-            "overall.evidenceCount != before.evidenceCount + after.evidenceCount"
+            "有证据未进入 before/after 任何一桶"
         )
     return {
         "phaseId": str(phase_id),
