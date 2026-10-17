@@ -116,7 +116,8 @@ function App() {
           <TabNav activeTab={activeTab} onChange={setActiveTab} />
         </div>
         <main>
-          <AnimatePresence mode="wait">
+          {/* mode=wait 曾使 exit 未结束时主区卡住：Tab 已高亮但内容仍停在总览。 */}
+          <AnimatePresence>
             <motion.div
               key={activeTab}
               initial={{ opacity: 0, y: 16 }}
