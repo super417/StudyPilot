@@ -22,6 +22,7 @@ from app.models.entities import (
     PlanAdjustment,
     PracticeQuestion,
     ReinforceTaskEvidence,
+    UserDocument,
 )
 from app.services import adjustment_service, planner_service, weekly_review_service
 from app.services.adjustment_service import (
@@ -39,6 +40,30 @@ def _score_bucket(rows: list[MasteryEvidence]) -> dict:
     return {"percent": max(0, min(100, percent)), "evidenceCount": len(rows)}
 
 
+class ReinforceOutcomeInconsistencyError(RuntimeError):
+    """before + after counts do not cover the overall set; stop rather than invent."""
+
+
+def _reread_description(session: Session, user_id: uuid.UUID, source_ref: str) -> str:
+    """Human-readable reread task text; keep raw ref when the document is gone."""
+    if "#" not in source_ref:
+        return f"重读判分原文：{source_ref}（来源不可用）"
+    doc_id, _, index_text = source_ref.partition("#")
+    try:
+        chunk_index = int(index_text)
+    except ValueError:
+        return f"重读判分原文：{source_ref}（来源不可用）"
+    filename = session.scalar(
+        select(UserDocument.filename).where(
+            UserDocument.user_id == user_id,
+            UserDocument.doc_id == doc_id,
+        )
+    )
+    if not filename:
+        return f"重读判分原文：{source_ref}（来源不可用）"
+    return f"重读判分原文：{filename} · 第 {chunk_index + 1} 段"
+
+
 def phase_reinforce_outcome(
     session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
 ) -> dict:
@@ -47,6 +72,8 @@ def phase_reinforce_outcome(
     Full-history read: no week window. before = evidence whose source task is
     not a reinforce task; after = evidence whose source task is linked in
     reinforce_task_evidence. Path: question_id → PracticeQuestion.source_task_id.
+
+    ``overall`` is the same formula over before∪after (not a juxtaposed after%).
     """
     phase = session.scalar(
         select(Phase)
@@ -84,10 +111,20 @@ def phase_reinforce_outcome(
             after_rows.append(row)
         else:
             before_rows.append(row)
+    overall_rows = before_rows + after_rows
+    before = _score_bucket(before_rows)
+    after = _score_bucket(after_rows)
+    after["correctCount"] = sum(1 for row in after_rows if row.result == "correct")
+    overall = _score_bucket(overall_rows)
+    if overall["evidenceCount"] != before["evidenceCount"] + after["evidenceCount"]:
+        raise ReinforceOutcomeInconsistencyError(
+            "overall.evidenceCount != before.evidenceCount + after.evidenceCount"
+        )
     return {
         "phaseId": str(phase_id),
-        "before": _score_bucket(before_rows),
-        "after": _score_bucket(after_rows),
+        "overall": overall,
+        "before": before,
+        "after": after,
     }
 
 
@@ -339,7 +376,9 @@ def _build(
                         "phaseId": str(phase_id),
                         "phaseName": phase.name,
                         "taskDate": today.isoformat(),
-                        "description": f"重读判分原文：{row.source_ref}",
+                        "description": _reread_description(
+                            session, user_id, row.source_ref
+                        ),
                         "status": "pending",
                         "estimatedMinutes": None,
                         "evidenceId": evidence_id,

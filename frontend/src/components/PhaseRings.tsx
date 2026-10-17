@@ -27,23 +27,21 @@ function ringGeometry(radius: number, value: number | null) {
   return { dash: `${drawn} ${circumference}`, color: '#8B5CF6' };
 }
 
-function formatBefore(outcome: ReinforceOutcome): string {
-  const { percent, evidenceCount } = outcome.before;
+function formatOverall(outcome: ReinforceOutcome): string {
+  const { percent, evidenceCount } = outcome.overall;
   if (percent == null) {
-    return `补强前 暂无证据（基于 ${evidenceCount} 次）`;
+    return `阶段掌握度 暂无证据（基于 ${evidenceCount} 次）`;
   }
-  return `补强前 ${percent}%（基于 ${evidenceCount} 次）`;
+  return `阶段掌握度 ${percent}%（基于 ${evidenceCount} 次）`;
 }
 
-function formatAfter(outcome: ReinforceOutcome): string {
+function formatAfterDetail(outcome: ReinforceOutcome): string {
   if (outcome.after.evidenceCount === 0) {
     return '尚未重测';
   }
-  const { percent, evidenceCount } = outcome.after;
-  if (percent == null) {
-    return `尚未重测`;
-  }
-  return `补强后 ${percent}%（基于 ${evidenceCount} 次）`;
+  const n = outcome.after.evidenceCount;
+  const correct = outcome.after.correctCount ?? 0;
+  return `补强后新增 ${n} 次作答，其中 ${correct} 次正确`;
 }
 
 function PhaseRing({
@@ -122,9 +120,10 @@ function PhaseRing({
               : `掌握度 ${mastery}%`}
         </p>
         {outcome ? (
-          <p className="mt-2 text-sm text-brandDark">
-            {formatBefore(outcome)} → {formatAfter(outcome)}
-          </p>
+          <>
+            <p className="mt-2 text-sm text-brandDark">{formatOverall(outcome)}</p>
+            <p className="mt-1 text-sm text-brandDark">{formatAfterDetail(outcome)}</p>
+          </>
         ) : null}
         {diverged ? (
           <p className="mt-2 text-sm font-medium text-purple">

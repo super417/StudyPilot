@@ -136,10 +136,14 @@ export interface MasteryDetailItem {
 export interface ReinforceOutcomeBucket {
   percent: number | null;
   evidenceCount: number;
+  /** 仅 after 桶有：result === correct 的条数 */
+  correctCount?: number;
 }
 
 export interface ReinforceOutcome {
   phaseId: string;
+  /** 该阶段全部证据（before∪after）同一公式重算，前端主数用它 */
+  overall: ReinforceOutcomeBucket;
   before: ReinforceOutcomeBucket;
   after: ReinforceOutcomeBucket;
 }

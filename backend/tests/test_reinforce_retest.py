@@ -262,6 +262,7 @@ class ReinforceRetestTests(unittest.TestCase):
         after_ev = self._evidence(user, phase_a, after_q, "correct")
         self._link(reinforce, before_ev)
         # before: wrong=0 + correct=100 → 50; after: correct=100
+        # overall: 0+100+100 → 67
         outcome = reinforce_service.phase_reinforce_outcome(
             self.session, user.id, phase_a.id
         )
@@ -270,6 +271,13 @@ class ReinforceRetestTests(unittest.TestCase):
         self.assertEqual(outcome["before"]["percent"], 50)
         self.assertEqual(outcome["after"]["evidenceCount"], 1)
         self.assertEqual(outcome["after"]["percent"], 100)
+        self.assertEqual(outcome["after"]["correctCount"], 1)
+        self.assertEqual(outcome["overall"]["evidenceCount"], 3)
+        self.assertEqual(outcome["overall"]["percent"], 67)
+        self.assertEqual(
+            outcome["overall"]["evidenceCount"],
+            outcome["before"]["evidenceCount"] + outcome["after"]["evidenceCount"],
+        )
         self.assertNotEqual(after_ev.id, before_ev.id)
 
     def test_after_empty_percent_is_none_not_zero(self) -> None:
@@ -286,6 +294,55 @@ class ReinforceRetestTests(unittest.TestCase):
         self.assertEqual(outcome["after"]["evidenceCount"], 0)
         self.assertIsNone(outcome["after"]["percent"])
         self.assertNotEqual(outcome["after"]["percent"], 0)
+        self.assertEqual(outcome["after"]["correctCount"], 0)
+        self.assertEqual(outcome["overall"]["evidenceCount"], 1)
+        self.assertEqual(outcome["overall"]["percent"], 0)
+
+    def test_overall_percent_is_full_history_not_after_alone(self) -> None:
+        """12 before mixed + 3 after all correct → overall is not 100."""
+        user = self._user()
+        plan, phase_a, _phase_b = self._plan_two_phases(user)
+        normal = self._task(plan, phase_a, "普通任务")
+        reinforce = self._task(plan, phase_a, "补强任务", status="pending")
+        before_q = self._question(user, normal, "补强前题")
+        after_q = self._question(user, reinforce, "补强后题")
+        link_ev: MasteryEvidence | None = None
+        for _ in range(6):
+            self._evidence(user, phase_a, before_q, "correct")
+            link_ev = self._evidence(user, phase_a, before_q, "wrong")
+        assert link_ev is not None
+        self._link(reinforce, link_ev)
+        for _ in range(3):
+            self._evidence(user, phase_a, after_q, "correct")
+        outcome = reinforce_service.phase_reinforce_outcome(
+            self.session, user.id, phase_a.id
+        )
+        self.assertEqual(outcome["before"]["evidenceCount"], 12)
+        self.assertEqual(outcome["after"]["evidenceCount"], 3)
+        self.assertEqual(outcome["after"]["correctCount"], 3)
+        self.assertEqual(outcome["after"]["percent"], 100)
+        self.assertEqual(
+            outcome["overall"]["evidenceCount"],
+            outcome["before"]["evidenceCount"] + outcome["after"]["evidenceCount"],
+        )
+        # (6*100 + 6*0 + 3*100) / 15 = 60
+        self.assertEqual(outcome["overall"]["percent"], 60)
+        self.assertNotEqual(outcome["overall"]["percent"], 100)
+
+    def test_overall_empty_percent_is_none(self) -> None:
+        user = self._user()
+        plan, phase_a, phase_b = self._plan_two_phases(user)
+        reinforce = self._task(plan, phase_a, "补强任务", status="pending")
+        # Evidence on phase_b so phase_a has zero scored rows.
+        q = self._question(user, reinforce, "外阶段证据")
+        ev = self._evidence(user, phase_b, q, "wrong")
+        self._link(reinforce, ev)
+        outcome = reinforce_service.phase_reinforce_outcome(
+            self.session, user.id, phase_a.id
+        )
+        self.assertEqual(outcome["overall"]["evidenceCount"], 0)
+        self.assertIsNone(outcome["overall"]["percent"])
+        self.assertIsNot(outcome["overall"]["percent"], 0)
 
     def test_outcome_includes_evidence_outside_week_window(self) -> None:
         user = self._user()
