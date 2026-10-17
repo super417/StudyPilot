@@ -3,14 +3,14 @@
     "schema_version": "1.0.0",
     "collected_at": "2026-10-13",
     "collector": "StudyPilot 竞赛版",
-    "verification": "synthetic_from_curriculum",
-    "verification_note": "⚠️ 重要：本文件中的岗位记录【不是】从招聘平台采集的真实职位。它们是依据 data/courses.json 的课程技能标签、以及公开招聘分类推导出的技能画像，用于让方向推荐与差距分析流水线先跑通。",
-    "known_limitation": "真实招聘数据涉及平台条款、反爬与合规问题。本项目规则为「宁可功能不完整，不可任何一条记录造假」，因此所有合成记录均显式标记，演示时不得宣称为采集数据。",
+    "verification": "mixed",
+    "verification_note": "本文件两类记录并存，每条岗位的 verification 字段各自标明：collected = 从智联招聘逐条采集、可点开 source_url 核对原文的真实岗位；synthetic_from_curriculum = 依据 courses.json 技能标签推导的合成画像，不是真实招聘信息。截至 2026-10-17，ai-finance 方向 8 条已全部替换为 collected，ai-education 方向仍为合成，待替换。",
+    "known_limitation": "一、采集范围仅限智联招聘公开页面，未覆盖国家大学生就业服务平台等渠道。二、技能标签只保留 courses.json 中已有课程覆盖的项：JD 中提到的 Power BI、Tableau、用友/金蝶/SAP、RPA、CPA 等因课程库无对应课程而未收录，故技能画像比真实 JD 窄——这是刻意取舍，避免「诊断出缺 X 但无课可补」的闭环断裂。三、面向大二至大四学生的岗位本就偏少：按「财务数据分析」检索到的结果中，应届与 1-3 年经验岗多偏出纳、核算、单据事务，真正带数据分析成分的是少数。本文件只收应届/初级为主、技能可诊断的岗位，未为凑数收录资深岗。",
     "replace_before_submission": [
-      "1. 从公开渠道人工整理 30-50 条真实岗位记录（每方向 15-25 条）",
-      "2. 每条必须填写 source_platform、source_url、collected_at",
-      "3. 把 verification 改为 collected",
-      "4. 运行 node scripts/validate-data.mjs 校验",
+      "1. ai-finance 方向已完成替换（8 条 collected），可逐条点开 source_url 核对",
+      "2. ai-education 方向 5 条仍为 synthetic_from_curriculum，提交前必须替换为 collected",
+      "3. 新增记录必须填写 source_platform、source_url、collected_at 三项，缺一不可",
+      "4. 运行 node scripts/validate-data.mjs 校验，确认「真实采集 N 条，合成 0 条」",
       "5. 全库搜索 synthetic_from_curriculum，确认演示路径中不再出现"
     ],
     "skill_vocabulary_note": "skills 数组的取值必须与 courses.json 中各课程的 skills 取并集一致，否则差距分析无法匹配。",
@@ -20,7 +20,6 @@
       "人社部新职业目录 / 紧缺人才目录"
     ]
   },
-
   "directions": [
     {
       "id": "ai-finance",
@@ -28,82 +27,230 @@
       "jobs": [
         {
           "job_id": "job-fin-001",
-          "title": "财务数据分析师",
-          "company_type": "企业财务共享中心 / 集团财务部",
-          "city": ["杭州", "上海", "深圳"],
+          "title": "财务信息化与数据分析专员",
+          "company_type": "口岸综合贸易物流企业（外高桥保税区，1000-9999 人）",
+          "city": [
+            "上海"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["会计学", "财务管理", "经济统计学", "经管类"],
-          "skills_required": ["pandas", "Excel", "数据清洗", "财务分析", "数据可视化"],
-          "skills_preferred": ["SQL", "Python"],
-          "source_platform": null,
-          "source_url": null,
-          "collected_at": null,
-          "verification": "synthetic_from_curriculum"
+          "major_pref": [
+            "会计学",
+            "财务管理",
+            "审计",
+            "统计学",
+            "大数据管理",
+            "信息管理",
+            "计算机"
+          ],
+          "skills_required": [
+            "Excel",
+            "数据清洗",
+            "数据可视化",
+            "财务分析"
+          ],
+          "skills_preferred": [
+            "SQL",
+            "Python",
+            "报表分析"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CC409452310J40943948912.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
         },
         {
           "job_id": "job-fin-002",
-          "title": "经营分析专员",
-          "company_type": "零售 / 制造业集团",
-          "city": ["杭州", "广州", "成都"],
+          "title": "财务助理",
+          "company_type": "电子元器件代理销售企业（20-99 人）",
+          "city": [
+            "苏州"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["经管类", "统计学"],
-          "skills_required": ["Excel", "数据可视化", "报表分析", "统计分析"],
-          "skills_preferred": ["Python", "SQL", "pandas"],
-          "source_platform": null,
-          "source_url": null,
-          "collected_at": null,
-          "verification": "synthetic_from_curriculum"
+          "major_pref": [
+            "财务",
+            "会计",
+            "财务管理"
+          ],
+          "skills_required": [
+            "Excel"
+          ],
+          "skills_preferred": [
+            "报表分析"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CC193347710J40928469003.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
         },
         {
           "job_id": "job-fin-003",
-          "title": "审计数据分析助理",
-          "company_type": "会计师事务所",
-          "city": ["北京", "上海"],
+          "title": "财务实习生",
+          "company_type": "商业航天民营企业（A 轮，100-299 人）",
+          "city": [
+            "北京"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["会计学", "审计学"],
-          "skills_required": ["Excel", "数据清洗", "报表分析"],
-          "skills_preferred": ["Python", "SQL", "pandas"],
-          "source_platform": null,
-          "source_url": null,
-          "collected_at": null,
-          "verification": "synthetic_from_curriculum"
+          "major_pref": [
+            "财务",
+            "会计",
+            "审计"
+          ],
+          "skills_required": [
+            "Excel",
+            "财务分析"
+          ],
+          "skills_preferred": [
+            "报表分析"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CCL1486085580J40904555005.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
         },
         {
           "job_id": "job-fin-004",
-          "title": "商业数据运营",
-          "company_type": "互联网 / 电商",
-          "city": ["杭州", "北京", "深圳"],
+          "title": "电商财务专员",
+          "company_type": "信息技术服务企业（500-999 人，人力资源机构代招）",
+          "city": [
+            "广州"
+          ],
           "seniority": "应届 / 初级",
-          "education": "本科",
-          "major_pref": ["不限（经管类优先）"],
-          "skills_required": ["SQL", "Excel", "数据可视化"],
-          "skills_preferred": ["Python", "pandas", "统计分析"],
-          "source_platform": null,
-          "source_url": null,
-          "collected_at": null,
-          "verification": "synthetic_from_curriculum"
+          "education": "大专",
+          "major_pref": [
+            "会计学",
+            "财务管理",
+            "经济学",
+            "统计学"
+          ],
+          "skills_required": [
+            "Excel",
+            "统计分析"
+          ],
+          "skills_preferred": [
+            "报表分析"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CCL1283957410J40905037805.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
         },
         {
           "job_id": "job-fin-005",
-          "title": "金融风控数据分析（初级）",
-          "company_type": "银行 / 消费金融",
-          "city": ["上海", "深圳", "杭州"],
-          "seniority": "应届 / 初级",
+          "title": "电商财务专员",
+          "company_type": "互联网电商与新零售企业（人力资源机构代招）",
+          "city": [
+            "广州"
+          ],
+          "seniority": "初级",
+          "education": "大专",
+          "major_pref": [
+            "财务",
+            "会计",
+            "税务",
+            "经济管理"
+          ],
+          "skills_required": [
+            "Excel",
+            "统计分析"
+          ],
+          "skills_preferred": [
+            "数据清洗",
+            "报表分析"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CCL1301763320J40928527903.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
+        },
+        {
+          "job_id": "job-fin-006",
+          "title": "管理会计",
+          "company_type": "上市高新技术制造企业（新能源与电力电子设备，500-999 人）",
+          "city": [
+            "深圳"
+          ],
+          "seniority": "初级",
           "education": "本科",
-          "major_pref": ["金融学", "统计学", "数学"],
-          "skills_required": ["SQL", "统计分析", "Excel"],
-          "skills_preferred": ["Python", "pandas"],
-          "source_platform": null,
-          "source_url": null,
-          "collected_at": null,
-          "verification": "synthetic_from_curriculum"
+          "major_pref": [
+            "财务",
+            "会计",
+            "审计",
+            "统计"
+          ],
+          "skills_required": [
+            "Excel",
+            "财务分析",
+            "报表分析",
+            "统计分析"
+          ],
+          "skills_preferred": [
+            "数据可视化"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CC000254640J40892597414.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
+        },
+        {
+          "job_id": "job-fin-007",
+          "title": "会计",
+          "company_type": "财务管理与代账服务企业（100-299 人，人力资源机构代招）",
+          "city": [
+            "上海"
+          ],
+          "seniority": "初级",
+          "education": "大专",
+          "major_pref": [
+            "会计",
+            "财务"
+          ],
+          "skills_required": [
+            "财务分析",
+            "报表分析"
+          ],
+          "skills_preferred": [
+            "Excel"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CC810733640J40914692513.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
+        },
+        {
+          "job_id": "job-fin-008",
+          "title": "财务数据分析师",
+          "company_type": "中外合资人力资源服务企业派驻央企建材项目（驻场）",
+          "city": [
+            "池州"
+          ],
+          "seniority": "中级",
+          "education": "本科",
+          "major_pref": [
+            "财务",
+            "统计学",
+            "经济学",
+            "金融学"
+          ],
+          "skills_required": [
+            "Excel",
+            "统计分析",
+            "财务分析",
+            "报表分析"
+          ],
+          "skills_preferred": [
+            "数据可视化",
+            "数据清洗"
+          ],
+          "source_platform": "智联招聘",
+          "source_url": "http://www.zhaopin.com/jobdetail/CC138117190J40904064605.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
         }
       ]
     },
-
     {
       "id": "ai-education",
       "name": "AI+教育",
@@ -112,12 +259,29 @@
           "job_id": "job-edu-001",
           "title": "教育科技产品助理",
           "company_type": "教育科技公司",
-          "city": ["北京", "上海", "杭州", "深圳"],
+          "city": [
+            "北京",
+            "上海",
+            "杭州",
+            "深圳"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["教育学", "教育技术学", "不限"],
-          "skills_required": ["AI教育应用", "教学设计", "提示词工程"],
-          "skills_preferred": ["智能学伴", "课件制作", "学情分析"],
+          "major_pref": [
+            "教育学",
+            "教育技术学",
+            "不限"
+          ],
+          "skills_required": [
+            "AI教育应用",
+            "教学设计",
+            "提示词工程"
+          ],
+          "skills_preferred": [
+            "智能学伴",
+            "课件制作",
+            "学情分析"
+          ],
           "source_platform": null,
           "source_url": null,
           "collected_at": null,
@@ -127,12 +291,25 @@
           "job_id": "job-edu-002",
           "title": "中小学人工智能课程教师",
           "company_type": "中小学 / 民办学校",
-          "city": ["各省市"],
+          "city": [
+            "各省市"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科及以上",
-          "major_pref": ["师范类", "教育技术学", "计算机相关"],
-          "skills_required": ["AI教育应用", "教学设计", "课件制作"],
-          "skills_preferred": ["提示词工程", "教育伦理"],
+          "major_pref": [
+            "师范类",
+            "教育技术学",
+            "计算机相关"
+          ],
+          "skills_required": [
+            "AI教育应用",
+            "教学设计",
+            "课件制作"
+          ],
+          "skills_preferred": [
+            "提示词工程",
+            "教育伦理"
+          ],
           "source_platform": null,
           "source_url": null,
           "collected_at": null,
@@ -142,12 +319,27 @@
           "job_id": "job-edu-003",
           "title": "教学设计专员（AI 方向）",
           "company_type": "在线教育 / 出版社",
-          "city": ["北京", "武汉", "成都"],
+          "city": [
+            "北京",
+            "武汉",
+            "成都"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["教育学", "汉语言文学", "新闻传播"],
-          "skills_required": ["教学设计", "课件制作", "AI教育应用"],
-          "skills_preferred": ["提示词工程", "教育数据采集"],
+          "major_pref": [
+            "教育学",
+            "汉语言文学",
+            "新闻传播"
+          ],
+          "skills_required": [
+            "教学设计",
+            "课件制作",
+            "AI教育应用"
+          ],
+          "skills_preferred": [
+            "提示词工程",
+            "教育数据采集"
+          ],
           "source_platform": null,
           "source_url": null,
           "collected_at": null,
@@ -157,12 +349,24 @@
           "job_id": "job-edu-004",
           "title": "教师培训与教研支持",
           "company_type": "教师发展中心 / 教育服务商",
-          "city": ["各省市"],
+          "city": [
+            "各省市"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科及以上",
-          "major_pref": ["师范类", "教育学"],
-          "skills_required": ["AI教育应用", "教学设计", "教育伦理"],
-          "skills_preferred": ["学情分析", "智能学伴"],
+          "major_pref": [
+            "师范类",
+            "教育学"
+          ],
+          "skills_required": [
+            "AI教育应用",
+            "教学设计",
+            "教育伦理"
+          ],
+          "skills_preferred": [
+            "学情分析",
+            "智能学伴"
+          ],
           "source_platform": null,
           "source_url": null,
           "collected_at": null,
@@ -172,12 +376,28 @@
           "job_id": "job-edu-005",
           "title": "教育数据分析",
           "company_type": "在线教育 / 学校信息化部门",
-          "city": ["北京", "杭州", "广州"],
+          "city": [
+            "北京",
+            "杭州",
+            "广州"
+          ],
           "seniority": "应届 / 初级",
           "education": "本科",
-          "major_pref": ["教育技术学", "统计学", "计算机相关"],
-          "skills_required": ["教育数据采集", "学情分析", "Excel"],
-          "skills_preferred": ["SQL", "Python", "数据可视化"],
+          "major_pref": [
+            "教育技术学",
+            "统计学",
+            "计算机相关"
+          ],
+          "skills_required": [
+            "教育数据采集",
+            "学情分析",
+            "Excel"
+          ],
+          "skills_preferred": [
+            "SQL",
+            "Python",
+            "数据可视化"
+          ],
           "source_platform": null,
           "source_url": null,
           "collected_at": null,
