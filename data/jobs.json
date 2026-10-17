@@ -5,13 +5,14 @@
     "collector": "StudyPilot 竞赛版",
     "verification": "collected",
     "verification_note": "本文件全部 12 条岗位均为 verification=collected，从智联招聘岗位详情页逐条采集，每条带 source_platform / source_url / collected_at，可点开原文核对。已无 synthetic_from_curriculum 合成记录。",
-    "known_limitation": "一、采集范围仅限智联招聘公开页面，未覆盖国家大学生就业服务平台等渠道。二、技能标签只保留 courses.json 中已有课程覆盖的 8 个标签：JD 中提到的 Power BI、Tableau、用友/金蝶/SAP、RPA、CPA、Axure 等因课程库无对应课程而未收录，故技能画像比真实 JD 窄——这是刻意取舍，避免「诊断出缺 X 但无课可补」的闭环断裂。三、面向大二至大四学生的岗位本就偏少：按「财务数据分析」检索到的应届岗多偏出纳、核算、单据事务；「学情分析」「教育数据分析」在杭州/上海几乎搜不到对应岗位，返回的是财务、医药、运营类。本文件只收应届/初级为主、技能可诊断的岗位，未为凑数收录资深岗或销售客服岗。四、job-edu-002（产品经理-体育教育）与 job-edu-003 之外的技能项、job-edu-004 的硕士学历要求，与目标用户（大二至大四本科生）不完全匹配，演示时须说明这是真实岗位分布，不是系统缺陷。",
+    "known_limitation": "一、采集范围仅限智联招聘公开页面，未覆盖国家大学生就业服务平台等渠道。BOSS 直聘已尝试：搜索 API 返回 code=37「您的环境存在异常」，详情页 302 跳转滑块验证页，headless 与常规抓取均被拦。未绕过风控，按止损线放弃。二、技能标签只保留 courses.json 中已有课程覆盖的 8 个标签，且仅接受括号/语序差异的命中（判断标准：答辩时能否指着 JD 原文说「这里写了这个词」）。JD 中的 Power BI、Tableau、用友/金蝶/SAP、RPA、CPA、Axure、PRD 等因课程库无对应课程而未收录，故技能画像比真实 JD 窄——这是刻意取舍，避免「诊断出缺 X 但无课可补」的闭环断裂。三、教育方向真实可诊断岗位稀少：「学情分析」「教育数据分析」在智联杭州/上海搜不到对应岗位，返回的是财务、医药、运营类；命中的教育岗多为教研、课程设计类，硬技能集中在校件制作。因此 ai-education 仅 3 条，少于 ai-finance 的 8 条——这是真实岗位分布，不是采集遗漏。四、已移除两条技能为空的岗位（产品经理-体育教育、教育产品研发）：空技能岗位不产生任何差距诊断，留在演示路径上会显示「你什么都不缺」，闭环断裂。五、job-edu-004 要求硕士学历且为兼职，与目标用户（大二至大四本科生）不完全匹配，演示时须说明。",
     "replace_before_submission": [
-      "1. ai-finance 方向 8 条、ai-education 方向 4 条，均已替换为 collected",
+      "1. ai-finance 8 条、ai-education 3 条，均已为 collected",
       "2. 新增记录必须填写 source_platform、source_url、collected_at 三项，缺一不可",
-      "3. 运行 node scripts/validate-data.mjs 校验，确认「合成 0 条」",
-      "4. 全库搜索 synthetic_from_curriculum，确认无残留",
-      "5. 注意 job-edu-002 的 skills_required 为空数组：该岗位真实硬技能为 Axure/PRD，课程库无对应课程，故留空——空技能意味着该岗位不产生差距诊断，演示路径上应避开或说明"
+      "3. 技能标签只从 courses.json 已有的 8 个教育标签 / 9 个财务标签中选，且必须能在 JD 原文中找到对应词（仅接受括号、语序差异）",
+      "4. 运行 node scripts/validate-data.mjs 校验，确认「合成 0 条」",
+      "5. 全库搜索 synthetic_from_curriculum，确认无残留",
+      "6. 若要扩充教育方向，唯一未试的合法路径是在浏览器登录 BOSS 后由人工导出，不得绕过验证码或风控"
     ],
     "skill_vocabulary_note": "skills 数组的取值必须与 courses.json 中各课程的 skills 取并集一致，否则差距分析无法匹配。",
     "source_platforms_expected": [
@@ -266,50 +267,11 @@
           "education": "本科",
           "major_pref": [],
           "skills_required": [
-            "课件制作",
-            "教学设计"
+            "课件制作"
           ],
           "skills_preferred": [],
           "source_platform": "智联招聘",
           "source_url": "https://www.zhaopin.com/jobdetail/CCL1494285510J40914092013.htm",
-          "collected_at": "2026-10-17",
-          "verification": "collected"
-        },
-        {
-          "job_id": "job-edu-002",
-          "title": "产品经理（体育教育）",
-          "company_type": "智慧教育硬件 / 教育科技公司",
-          "city": [
-            "杭州"
-          ],
-          "seniority": "初级",
-          "education": "本科",
-          "major_pref": [],
-          "skills_required": [],
-          "skills_preferred": [],
-          "source_platform": "智联招聘",
-          "source_url": "https://www.zhaopin.com/jobdetail/CC451534410J40840140814.htm",
-          "collected_at": "2026-10-17",
-          "verification": "collected"
-        },
-        {
-          "job_id": "job-edu-003",
-          "title": "教育产品研发",
-          "company_type": "K12 课后托管机构",
-          "city": [
-            "上海"
-          ],
-          "seniority": "应届",
-          "education": "本科",
-          "major_pref": [
-            "教育学"
-          ],
-          "skills_required": [
-            "教学设计"
-          ],
-          "skills_preferred": [],
-          "source_platform": "智联招聘",
-          "source_url": "https://www.zhaopin.com/jobdetail/CCL1485902110J40893234814.htm",
           "collected_at": "2026-10-17",
           "verification": "collected"
         },
@@ -329,6 +291,25 @@
           "skills_preferred": [],
           "source_platform": "智联招聘",
           "source_url": "https://www.zhaopin.com/jobdetail/CCL1480431760J40975209015.htm",
+          "collected_at": "2026-10-17",
+          "verification": "collected"
+        },
+        {
+          "job_id": "job-edu-005",
+          "title": "课程设计",
+          "company_type": "K12 素质教育培训机构",
+          "city": [
+            "杭州"
+          ],
+          "seniority": "初级",
+          "education": "本科",
+          "major_pref": [],
+          "skills_required": [
+            "课件制作"
+          ],
+          "skills_preferred": [],
+          "source_platform": "智联招聘",
+          "source_url": "https://www.zhaopin.com/jobdetail/CCL1494285510J40914031113.htm",
           "collected_at": "2026-10-17",
           "verification": "collected"
         }
