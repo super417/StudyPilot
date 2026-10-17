@@ -10,12 +10,24 @@ import {
   listPractice,
   setPracticeStatus,
   type PracticeQuestion,
+  type PracticeSourceRef,
 } from '@/lib/practiceApi';
 import { todayISO } from '@/lib/dates';
 
 export interface PracticeBoardProps {
   tab: 'today' | 'review';
   onWrong: () => void;
+}
+
+/** True only when the card should render a source block (never show empty兜底). */
+export function hasVisibleSourceRefs(
+  refs: PracticeSourceRef[] | null | undefined,
+): boolean {
+  return Array.isArray(refs) && refs.length > 0;
+}
+
+export function sourceRefSummary(ref: PracticeSourceRef): string {
+  return `出自《${ref.filename}》第 ${ref.chunkIndex + 1} 段`;
 }
 
 function PracticeCard({
@@ -70,6 +82,8 @@ function PracticeCard({
     }
   };
 
+  const showSources = hasVisibleSourceRefs(item.sourceRefs);
+
   return (
     <article className="rounded-3xl bg-card p-4 text-brandDark">
       <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
@@ -78,6 +92,18 @@ function PracticeCard({
         <div className="mt-3 rounded-2xl bg-brandFaint px-3 py-2 text-sm">
           <p>答案：{item.answer || '（无）'}</p>
           {item.explanation ? <p className="mt-1 text-gray-600">解析：{item.explanation}</p> : null}
+          {showSources ? (
+            <ul className="mt-2 space-y-1 text-xs text-brandDark/80">
+              {item.sourceRefs!.map((ref) => (
+                <li key={`${ref.docId}-${ref.chunkIndex}`}>
+                  <details>
+                    <summary className="cursor-pointer">{sourceRefSummary(ref)}</summary>
+                    <p className="mt-1 whitespace-pre-wrap text-gray-600">{ref.snippet}</p>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
       <label className="mt-3 block text-xs text-gray-500">

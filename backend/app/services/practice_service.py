@@ -76,6 +76,7 @@ def _question_json(row: PracticeQuestion) -> dict:
         "createdAt": row.created_at.isoformat(),
         "sourceTaskId": str(row.source_task_id) if row.source_task_id else None,
         "sourceMistakeId": str(row.source_mistake_id) if row.source_mistake_id else None,
+        "sourceRefs": row.source_refs,
     }
 
 
@@ -294,15 +295,14 @@ async def generate_for_day(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context = (
-        document_service.retrieve_document_chunks(
-            session, user_id, doc_ids, "\n".join(lines)
-        )
+    context, hits = (
+        document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
         if doc_ids
-        else ""
+        else ("", [])
     )
     if context == "":
         return []
+    source_refs = list(hits) if hits else None
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)
@@ -325,6 +325,7 @@ async def generate_for_day(
             answer=item["answer"],
             explanation=item["explanation"],
             source_task_id=task_id,
+            source_refs=source_refs,
             status="pending",
         )
         for item in questions
@@ -384,15 +385,14 @@ async def generate_reinforce_retest(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context = (
-        document_service.retrieve_document_chunks(
-            session, user_id, doc_ids, "\n".join(lines)
-        )
+    context, hits = (
+        document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
         if doc_ids
-        else ""
+        else ("", [])
     )
     if context == "":
         return []
+    source_refs = list(hits) if hits else None
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)
@@ -415,6 +415,7 @@ async def generate_reinforce_retest(
             answer=item["answer"],
             explanation=item["explanation"],
             source_task_id=reinforce_tasks[index % len(reinforce_tasks)].id,
+            source_refs=source_refs,
             status="pending",
         )
         for index, item in enumerate(questions)

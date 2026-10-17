@@ -1,5 +1,13 @@
 import { apiRequest } from './httpClient';
 
+export interface PracticeSourceRef {
+  docId: string;
+  filename: string;
+  chunkIndex: number;
+  snippet: string;
+  score?: number;
+}
+
 export interface PracticeQuestion {
   id: string;
   source: 'generated' | 'uploaded';
@@ -11,6 +19,8 @@ export interface PracticeQuestion {
   createdAt: string;
   sourceTaskId?: string | null;
   sourceMistakeId?: string | null;
+  /** 生成时检索命中；旧题 / 上传题为 null */
+  sourceRefs?: PracticeSourceRef[] | null;
 }
 
 export interface PracticeListResponse {
