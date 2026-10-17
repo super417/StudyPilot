@@ -251,6 +251,8 @@ class PracticeQuestion(Base):
     source_mistake_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("mistakes.id", ondelete="SET NULL"), nullable=True
     )
+    # Hits from build_context at generation time; null for old / uploaded rows.
+    source_refs: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
