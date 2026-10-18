@@ -8,6 +8,11 @@ backend/.sessions.json
 backend/.sessions.json.tmp
 backend/_latest_plan.txt
 backend/scripts/_*.py
+# 一次性验证脚本与产物：会话令牌、接口原始输出、临时抓取目录，一律不进仓库
+backend/.verify_token
+backend/_verify*.py
+backend/_verify*.txt
+backend/_verify*_raw/
 **/.pytest_cache/
 **/.hypothesis/
 
