@@ -378,7 +378,8 @@ class ReinforceServiceTests(unittest.TestCase):
             if item.get("evidenceId")
         }
 
-    def test_preview_twice_does_not_repeat_same_evidence(self) -> None:
+    def test_preview_twice_supersedes_old_pending_and_reuses_evidence(self) -> None:
+        """Abandoned pending must not permanently block evidence; new preview replaces it."""
         user, plan, phase, question, evidence = self._divergent_with_wrong()
         first = reinforce_service.create_reinforce_preview(
             self.session, user.id, plan.id, today=self.today
@@ -388,8 +389,24 @@ class ReinforceServiceTests(unittest.TestCase):
         second = reinforce_service.create_reinforce_preview(
             self.session, user.id, plan.id, today=self.today
         )
+        self.session.refresh(first)
+        self.assertEqual(first.status, "rejected")
+        self.assertEqual(second.status, "pending")
         second_ids = self._task_evidence_ids(second)
-        self.assertNotIn(str(evidence.id), second_ids)
+        self.assertIn(str(evidence.id), second_ids)
+        pending = list(
+            self.session.scalars(
+                select(PlanAdjustment).where(
+                    PlanAdjustment.plan_id == plan.id,
+                    PlanAdjustment.status == "pending",
+                )
+            )
+        )
+        reinforce_pending = [
+            row for row in pending if (row.proposal or {}).get("kind") == "reinforce"
+        ]
+        self.assertEqual(len(reinforce_pending), 1)
+        self.assertEqual(reinforce_pending[0].id, second.id)
 
     def test_preview_after_confirm_does_not_repeat_same_evidence(self) -> None:
         user, plan, phase, question, evidence = self._divergent_with_wrong()

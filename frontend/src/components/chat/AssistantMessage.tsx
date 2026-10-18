@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Copy,
@@ -11,6 +11,9 @@ import {
   Volume2,
 } from 'lucide-react';
 import { AssistantMarkdown, stripAssistantMarkup } from '@/lib/assistantMarkdown';
+import { extractChatPractice } from '@/lib/chatPracticeExtract';
+import { ApiError } from '@/lib/httpClient';
+import { savePracticeFromChat } from '@/lib/practiceApi';
 import { selectActiveMessages, useAssistantStore, type ChatMessage } from '@/store';
 
 const REGENERATE_TIP = '点击将重新生成内容，此会话后的内容都将被覆盖，请谨慎操作';
@@ -42,9 +45,31 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
   const [openCitation, setOpenCitation] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [savePhase, setSavePhase] = useState<'idle' | 'confirm' | 'saving' | 'done'>('idle');
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | null>(null);
+
+  // 启发式：同时含「题」「答案」且能切出段落才显示；可能误判，宁可少显示。
+  const practiceParts = useMemo(
+    () => (message.streaming ? null : extractChatPractice(message.content)),
+    [message.content, message.streaming],
+  );
+
+  // 同一份资料（按 docId）只保留一条，避免多 chunk 重复列出文件名
+  const uniqueCitations = useMemo(() => {
+    const list = message.citations ?? [];
+    const seen = new Set<string>();
+    const out: NonNullable<ChatMessage['citations']> = [];
+    for (const item of list) {
+      const key = item.docId || item.filename;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }, [message.citations]);
 
   const closeMore = () => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -118,6 +143,26 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
     setFeedbackSent(true);
   };
 
+  const confirmSavePractice = async () => {
+    if (!practiceParts || savePhase === 'saving' || savePhase === 'done') return;
+    setSavePhase('saving');
+    setSaveMsg(null);
+    try {
+      await savePracticeFromChat({
+        question: practiceParts.question,
+        answer: practiceParts.answer,
+        explanation: '',
+        subject: '',
+        sourceRefs: null,
+      });
+      setSavePhase('done');
+      setSaveMsg('已存入今日练习，去习题本作答');
+    } catch (err) {
+      setSavePhase('confirm');
+      setSaveMsg(err instanceof ApiError ? err.message : '存入失败，请稍后重试');
+    }
+  };
+
   const iconBtn =
     'rounded-full p-1 text-brandDark/55 hover:bg-white/80 hover:text-brandDark';
   const shown = plainAssistant(message.content);
@@ -127,25 +172,84 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
       <div className={`${bubbleClassName} max-w-full overflow-hidden break-words [overflow-wrap:anywhere]`}>
         <AssistantMarkdown text={message.content} />
         {message.streaming ? <span className="ml-0.5 animate-pulse">▋</span> : null}
-      </div>
-      {message.citations?.length ? (
-        <ul className="mt-2 w-full space-y-1">
-          {message.citations.map((item, index) => (
-            <li key={`${item.docId}-${item.chunkIndex}`} className="rounded-2xl bg-white/70 px-3 py-2 text-xs text-brandDark">
+        {uniqueCitations.length ? (
+          <div className="mt-3 border-t border-brandDark/10 pt-2">
+            <p className="mb-1 text-[11px] font-medium text-brandDark/50">资料来源</p>
+            <ul className="space-y-1">
+              {uniqueCitations.map((item, index) => (
+                <li key={item.docId || item.filename} className="text-xs text-brandDark/80">
+                  <button
+                    type="button"
+                    className="font-medium underline-offset-2 hover:underline"
+                    onClick={() => setOpenCitation((current) => (current === index ? null : index))}
+                  >
+                    {item.filename}
+                  </button>
+                  {openCitation === index ? (
+                    <p className="mt-1 whitespace-pre-wrap text-brandDark/70">{item.snippet}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {practiceParts ? (
+          <div className="mt-3 border-t border-brandDark/10 pt-2 text-xs">
+            {savePhase === 'done' ? (
               <button
                 type="button"
-                className="font-medium"
-                onClick={() => setOpenCitation((current) => (current === index ? null : index))}
+                disabled
+                className="rounded-lg bg-brandDark/5 px-3 py-1.5 text-xs font-medium text-brandDark/50"
               >
-                {item.filename}
+                已存入 ✓
               </button>
-              {openCitation === index ? (
-                <p className="mt-1 whitespace-pre-wrap text-brandDark/80">{item.snippet}</p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+            ) : savePhase === 'confirm' || savePhase === 'saving' ? (
+              <div className="space-y-2">
+                <p className="leading-relaxed text-brandDark/70">
+                  存入后请在习题本作答，答对计入完成，答错自动进入错题本。
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={savePhase === 'saving'}
+                    onClick={() => void confirmSavePractice()}
+                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    {savePhase === 'saving' ? '存入中…' : '确认存入'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savePhase === 'saving'}
+                    onClick={() => {
+                      setSavePhase('idle');
+                      setSaveMsg(null);
+                    }}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-brandDark/60 hover:bg-brandDark/5 disabled:opacity-50"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSavePhase('confirm');
+                  setSaveMsg(null);
+                }}
+                className="rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand hover:bg-brand/15"
+              >
+                存入今日练习
+              </button>
+            )}
+            {saveMsg ? (
+              <p className="mt-1.5 text-brandDark/60" role="status">
+                {saveMsg}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       {message.streaming ? null : (
         <div className="mt-1 flex items-center gap-0.5 px-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <button

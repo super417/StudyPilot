@@ -7,8 +7,9 @@ Separate from ``remedy_service`` by name and kind.
 
 from __future__ import annotations
 
+import re
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
@@ -23,6 +24,7 @@ from app.models.entities import (
     PracticeQuestion,
     ReinforceTaskEvidence,
     UserDocument,
+    utc_now,
 )
 from app.services import adjustment_service, planner_service, weekly_review_service
 from app.services.adjustment_service import (
@@ -148,6 +150,28 @@ def list_reinforce_outcomes(session: Session, user_id: uuid.UUID) -> list[dict]:
     ]
 
 
+def _supersede_pending_reinforce(
+    session: Session, plan_id: uuid.UUID
+) -> None:
+    """Invalidate prior pending reinforce previews so they stop blocking evidence.
+
+    Status CHECK only allows pending/confirmed/rejected/conflict/undone — use
+    ``rejected`` (no ``superseded`` value). Does not touch remedy or other kinds.
+    """
+    stale = session.scalars(
+        select(PlanAdjustment).where(
+            PlanAdjustment.plan_id == plan_id,
+            PlanAdjustment.status == "pending",
+        )
+    )
+    for adj in stale:
+        if (adj.proposal or {}).get("kind") == "reinforce":
+            adj.status = "rejected"
+            adj.steps = list(adj.steps or []) + [
+                {"step": "supersede", "result": "ok", "reason": "replaced_by_new_preview"}
+            ]
+
+
 def create_reinforce_preview(
     session: Session,
     user_id: uuid.UUID,
@@ -158,6 +182,9 @@ def create_reinforce_preview(
     plan = planner_service._owned_plan(session, user_id, plan_id)
     day = today or local_today()
     week_start, week_end = weekly_review_service.week_bounds(day)
+    # Release evidence held by abandoned pending reinforce previews first.
+    _supersede_pending_reinforce(session, plan.id)
+    session.flush()  # so _blocked_evidence_ids in _build sees rejected, not stale pending
     built = _build(session, user_id, plan, week_start, week_end, day)
     row = PlanAdjustment(
         user_id=user_id,
@@ -323,6 +350,9 @@ def _build(
     tasks: list[dict] = []
     evidence_refs: list[dict] = []
     seen_evidence: set[str] = set()
+    # 重读按 source_ref 去重；重做按 question_id 去重（同一题多次答错只出一条）
+    seen_reread_refs: set[str] = set()
+    seen_redo_questions: set[str] = set()
     blocked = _blocked_evidence_ids(session, plan.id)
 
     for item in detail:
@@ -356,23 +386,30 @@ def _build(
                         "result": row.result,
                     }
                 )
-            question_text = _question_text(session, row)
-            tasks.append(
-                {
-                    "actionId": f"redo-{evidence_id}",
-                    "kind": "redo",
-                    "phaseId": str(phase_id),
-                    "phaseName": phase.name,
-                    "taskDate": today.isoformat(),
-                    "description": f"重做错题：{question_text}",
-                    "status": "pending",
-                    "estimatedMinutes": None,
-                    "evidenceId": evidence_id,
-                    "questionId": str(row.question_id) if row.question_id else None,
-                    "sourceRef": None,
-                }
-            )
-            if row.source_ref:
+            # 重做：有 question_id 时整预览只保留第一次；无 question_id 则按证据各出一条
+            qid = str(row.question_id) if row.question_id else None
+            if qid is None or qid not in seen_redo_questions:
+                if qid is not None:
+                    seen_redo_questions.add(qid)
+                question_text = _question_text(session, row)
+                tasks.append(
+                    {
+                        "actionId": f"redo-{evidence_id}",
+                        "kind": "redo",
+                        "phaseId": str(phase_id),
+                        "phaseName": phase.name,
+                        "taskDate": today.isoformat(),
+                        "description": f"重做错题：{question_text}",
+                        "status": "pending",
+                        "estimatedMinutes": None,
+                        "evidenceId": evidence_id,
+                        "questionId": qid,
+                        "sourceRef": None,
+                    }
+                )
+            # 重读与重做独立去重：跳过重做时仍可能生成重读
+            if row.source_ref and row.source_ref not in seen_reread_refs:
+                seen_reread_refs.add(row.source_ref)
                 tasks.append(
                     {
                         "actionId": f"reread-{evidence_id}",
@@ -480,12 +517,19 @@ def _covered_evidence_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID
 
 
 def _blocked_evidence_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID]:
-    """Skip evidence already reinforced (table) or reserved by a pending reinforce preview."""
+    """Skip evidence already reinforced (table) or reserved by a pending reinforce preview.
+
+    Only pending reinforce previews created within the last 24 hours reserve
+    evidence — older leftovers must not permanently block new previews.
+    """
     blocked = _covered_evidence_ids(session, plan_id)
+    # 24h：避免历史遗留 pending 预览永久占用证据
+    cutoff = utc_now() - timedelta(hours=24)
     pending = session.scalars(
         select(PlanAdjustment).where(
             PlanAdjustment.plan_id == plan_id,
             PlanAdjustment.status == "pending",
+            PlanAdjustment.created_at >= cutoff,
         )
     )
     for adjustment in pending:
@@ -498,13 +542,21 @@ def _blocked_evidence_ids(session: Session, plan_id: uuid.UUID) -> set[uuid.UUID
     return blocked
 
 
+def _clean_question_text(text: str) -> str:
+    """Strip markdown emphasis markers that leak from generated questions."""
+    cleaned = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    cleaned = re.sub(r"\*(.+?)\*", r"\1", cleaned)
+    cleaned = re.sub(r"^[#>\-\*\s]+", "", cleaned)
+    return cleaned.strip()
+
+
 def _question_text(session: Session, evidence: MasteryEvidence) -> str:
     if evidence.question_id is None:
         return "（无题目原文）"
     question = session.get(PracticeQuestion, evidence.question_id)
     if question is None or not (question.question or "").strip():
         return "（无题目原文）"
-    return question.question.strip()
+    return _clean_question_text(question.question.strip())
 
 
 def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:

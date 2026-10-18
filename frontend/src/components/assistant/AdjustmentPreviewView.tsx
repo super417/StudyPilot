@@ -67,6 +67,10 @@ export function AdjustmentPreviewView({
   const proposed = pending?.diff.proposedPending ?? [];
   const rows = pending ? effectivePreviewTasks(pending) : [];
   const remedy = pending?.diff.remedy;
+  // 后端：proposal.kind / validation.contract / diff.reinforce；公开 API 不透出 proposal.kind
+  const isReinforcePreview = Boolean(
+    pending?.diff.reinforce || pending?.validation?.contract === 'reinforce',
+  );
   const serverIds = remedy
     ? remedy.candidates
         .map((item) => item.sourceId)
@@ -99,7 +103,8 @@ export function AdjustmentPreviewView({
     | undefined;
 
   return (
-    <div className="shrink-0 space-y-2 border-t border-brandFaint bg-white/70 px-3 py-2 text-xs text-brandDark">
+    // 整块预览封顶并自滚动，避免 max-h 只加在任务列表时把消息区 flex-1 挤成 0 高、聊天划不动
+    <div className="min-h-0 max-h-[40vh] shrink-0 space-y-2 overflow-y-auto border-t border-brandFaint bg-white/70 px-3 py-2 text-xs text-brandDark">
       {pending ? (
         <>
           <p className="font-medium">调整预览（尚未写入）· 计划 {pending.planId.slice(0, 8)}…</p>
@@ -217,7 +222,7 @@ export function AdjustmentPreviewView({
             </div>
           ) : null}
 
-          <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg bg-brandFaint/40 p-2">
+          <div className="space-y-1 rounded-lg bg-brandFaint/40 p-2">
             <p className="font-medium text-brandDark/90">将替换的任务</p>
             {pending.diff.removedOrReplaced.length === 0 ? (
               <p className="text-brandDark/60">无</p>
@@ -264,19 +269,23 @@ export function AdjustmentPreviewView({
                       <span>
                         {item.taskDate} · {item.description}
                         {item.estimatedMinutes == null
-                          ? ' · 预计未知'
+                          ? isReinforcePreview
+                            ? ''
+                            : ' · 预计未知'
                           : ` · 预计 ${item.estimatedMinutes} 分钟`}
                       </span>
-                      <input
-                        className="w-16 rounded border border-brand/30 px-1 py-0.5"
-                        inputMode="numeric"
-                        aria-label={`${item.description} 预计分钟`}
-                        aria-invalid={minuteInvalid}
-                        placeholder="分钟"
-                        value={minuteText}
-                        onChange={(event) => onMinutes?.(actionId, event.target.value)}
-                      />
-                      {minuteInvalid ? (
+                      {!isReinforcePreview ? (
+                        <input
+                          className="w-16 rounded border border-brand/30 px-1 py-0.5"
+                          inputMode="numeric"
+                          aria-label={`${item.description} 预计分钟`}
+                          aria-invalid={minuteInvalid}
+                          placeholder="分钟"
+                          value={minuteText}
+                          onChange={(event) => onMinutes?.(actionId, event.target.value)}
+                        />
+                      ) : null}
+                      {!isReinforcePreview && minuteInvalid ? (
                         <span className="text-red-700">预计分钟必须是正整数</span>
                       ) : null}
                     </label>

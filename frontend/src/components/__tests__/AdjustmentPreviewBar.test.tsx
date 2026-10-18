@@ -586,6 +586,38 @@ describe('AdjustmentPreviewView R8', () => {
     expect(afterSave).not.toContain('预计未知');
   });
 
+  it('reinforce preview hides minute inputs and 预计未知', () => {
+    const markup = renderToStaticMarkup(
+      createElement(AdjustmentPreviewView, {
+        pending: {
+          ...samplePending,
+          validation: { ok: true, contract: 'reinforce', checks: { divergence: 'pass' } },
+          diff: {
+            ...samplePending.diff,
+            removedOrReplaced: [],
+            proposedPending: [
+              {
+                actionId: 'redo-1',
+                taskDate: '2026-10-18',
+                description: '重做错题：栈',
+                status: 'pending',
+                estimatedMinutes: null,
+              },
+            ],
+            reinforce: { taskCount: 1, evidenceCount: 1 },
+          },
+        },
+        showUndo: false,
+        onConfirm: () => undefined,
+        onReject: () => undefined,
+        onUndo: () => undefined,
+      }),
+    );
+    expect(markup).not.toMatch(/inputmode="numeric"/i);
+    expect(markup).not.toContain('预计未知');
+    expect(markup).toContain('重做错题：栈');
+  });
+
   it('checkLabel maps unverified distinctly from pass', () => {
     expect(checkLabel('pass')).toBe('通过');
     expect(checkLabel('unverified')).toBe('未验证');

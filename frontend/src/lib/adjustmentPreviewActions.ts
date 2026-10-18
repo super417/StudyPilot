@@ -21,6 +21,12 @@ export function isRemedyConfirmContract(
   );
 }
 
+export function isReinforceConfirmContract(
+  validation: { ok?: unknown; checks?: Record<string, unknown>; contract?: unknown } | null | undefined,
+): boolean {
+  return Boolean(validation && validation.contract === 'reinforce');
+}
+
 export function adjustmentCanConfirm(
   validation: { ok?: unknown; checks?: Record<string, unknown>; contract?: unknown } | null | undefined,
 ): boolean {
@@ -28,7 +34,9 @@ export function adjustmentCanConfirm(
   const checks = validation.checks ?? {};
   const keys = isRemedyConfirmContract(validation)
     ? (['capacity', 'selection'] as const)
-    : ORDINARY_CONFIRM_KEYS;
+    : isReinforceConfirmContract(validation)
+      ? (['divergence'] as const)
+      : ORDINARY_CONFIRM_KEYS;
   for (const key of keys) {
     const value = checks[key];
     if (value == null || BLOCKED.has(String(value))) return false;

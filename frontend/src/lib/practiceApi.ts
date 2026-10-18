@@ -61,6 +61,26 @@ export function createPractice(input: {
   });
 }
 
+/** 聊天题存入今日练习（pending，绑定今日 DailyTask；不写掌握度证据） */
+export function savePracticeFromChat(input: {
+  question: string;
+  answer: string;
+  explanation?: string;
+  subject?: string;
+  sourceRefs?: PracticeSourceRef[] | null;
+}): Promise<{ status: string; question: PracticeQuestion }> {
+  return apiRequest('/api/practice/from-chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      question: input.question,
+      answer: input.answer,
+      explanation: input.explanation ?? '',
+      subject: input.subject ?? '',
+      sourceRefs: input.sourceRefs ?? null,
+    }),
+  });
+}
+
 export interface PracticeGradeResponse {
   status: string;
   result: 'correct' | 'partial' | 'wrong';

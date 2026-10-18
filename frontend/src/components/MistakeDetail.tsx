@@ -247,7 +247,7 @@ function MistakeDetail({
               onClick={handleBack}
               className="btn-pill px-6 py-3 text-sm font-semibold"
             >
-              回到学习助手重新做一道
+              学习助手分析错题
             </button>
           </Magnet>
           {onApplyExplain ? (
@@ -260,24 +260,29 @@ function MistakeDetail({
               把讲解填进这条错题
             </button>
           ) : null}
-          {onSave ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-full border border-brandFaint px-4 py-2 text-sm font-medium text-brandDark hover:bg-brandFaint"
-            >
-              编辑
-            </button>
-          ) : null}
-          {onDelete ? (
-            <button
-              type="button"
-              disabled={deleting}
-              onClick={onDelete}
-              className="rounded-full border border-danger/40 px-4 py-2 text-sm font-medium text-dangerText hover:bg-danger disabled:opacity-60"
-            >
-              {deleting ? '删除中…' : '删除这条错题'}
-            </button>
+          {/* 左侧主按钮有 Magnet 右移（约数十 px），预留间距避免盖住编辑/删除 */}
+          {(onSave || onDelete) ? (
+            <div className="ml-16 flex flex-wrap items-center gap-2 sm:ml-20">
+              {onSave ? (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="rounded-full border border-brandFaint px-4 py-2 text-sm font-medium text-brandDark hover:bg-brandFaint"
+                >
+                  编辑
+                </button>
+              ) : null}
+              {onDelete ? (
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={onDelete}
+                  className="rounded-full border border-danger/40 px-4 py-2 text-sm font-medium text-dangerText hover:bg-danger disabled:opacity-60"
+                >
+                  {deleting ? '删除中…' : '删除这条错题'}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
 

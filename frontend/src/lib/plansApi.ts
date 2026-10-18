@@ -87,6 +87,8 @@ export interface PlanAdjustmentDiff {
     overLimit: boolean;
     phaseHistoryUnchanged: boolean;
   };
+  /** 补强预览专有摘要；后端 reinforce_service 写入 */
+  reinforce?: { taskCount?: number; evidenceCount?: number };
 }
 
 export interface EvidenceRef {

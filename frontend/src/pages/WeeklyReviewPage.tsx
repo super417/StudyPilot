@@ -55,7 +55,7 @@ function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
   const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
   const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
-  const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
+  const startConversation = useAssistantStore((s) => s.startConversation);
   const [review, setReview] = useState<WeeklyReview | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -122,7 +122,9 @@ function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
       const preview = await createReinforcePreview(planId);
       if (planId !== 'derived-latest') setActivePlanId(planId);
       setPendingAdjustment(preview);
-      openAssistantWithContext({ type: 'free', hint: '查看补强预览' });
+      // 新开会话再看预览，避免把无关聊天记录叠在补强预览上面
+      useAssistantStore.setState({ open: true, composerDraft: '' });
+      await startConversation({ type: 'free', hint: '查看补强预览' });
       setReinforceMsg(
         preview.validation?.ok === false
           ? preview.decisionSummary || '没有可生成的补强任务'

@@ -126,6 +126,61 @@ def create_uploaded(
     return row
 
 
+def save_from_chat(
+    session: Session,
+    user_id: uuid.UUID,
+    *,
+    question: str,
+    answer: str,
+    explanation: str,
+    subject: str,
+    source_refs: list | None = None,
+    today: date | None = None,
+) -> PracticeQuestion:
+    """Save a chat-generated question into today's practice list.
+
+    Does NOT grade and does NOT write mastery evidence — the learner answers
+    it in the practice book, where grade_answer supplies the evidence with a
+    real source_ref. Keeping chat questions pending preserves the evidence
+    chain (no untraceable rows).
+    """
+    text = question.strip()
+    if not text:
+        raise PracticeValidationError("题目不能为空")
+
+    day = today or date.today()
+    # DailyTask 无 created_at；按 id 取当天最早一条以绑定 source_task_id
+    task = session.scalar(
+        select(DailyTask)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .where(
+            Plan.user_id == user_id,
+            DailyTask.task_date == day,
+        )
+        .order_by(DailyTask.id.asc())
+        .limit(1)
+    )
+    if task is None:
+        raise PracticeValidationError("今天没有学习任务，无法存入")
+
+    subject_text = (subject or "").strip() or "综合"
+    row = PracticeQuestion(
+        user_id=user_id,
+        source="uploaded",
+        subject=subject_text[:64],
+        question=text,
+        answer=(answer or "").strip(),
+        explanation=(explanation or "").strip(),
+        source_task_id=task.id,
+        source_refs=source_refs,
+        status="pending",
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
 def set_status(
     session: Session,
     user_id: uuid.UUID,

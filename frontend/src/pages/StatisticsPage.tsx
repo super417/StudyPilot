@@ -28,13 +28,11 @@ import {
   fetchStatisticsOverview,
   type DailyActivityItem,
   type MasteryDistribution,
-  type PhaseDistributionItem,
   type StatisticsOverview,
   type TopMistakeItem,
 } from '@/lib/statisticsApi';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 
-const PHASE_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#06B6D4', '#8B5CF6', '#F43F5E'];
 const MASTERY_COLORS = {
   correct: '#10B981',
   partial: '#F59E0B',
@@ -51,6 +49,8 @@ type TipState = {
   x: number;
   y: number;
   unitLabel: string;
+  /** 有则覆盖默认「label: value unit (percent%)」文案 */
+  text?: string;
 } | null;
 
 function ChartTooltip({ tip }: { tip: TipState }) {
@@ -67,8 +67,12 @@ function ChartTooltip({ tip }: { tip: TipState }) {
         borderColor: tip.color,
       }}
     >
-      {tip.label}: {tip.value}
-      {tip.unitLabel} ({tip.percent}%)
+      {tip.text ?? (
+        <>
+          {tip.label}: {tip.value}
+          {tip.unitLabel} ({tip.percent}%)
+        </>
+      )}
     </div>
   );
 }
@@ -226,19 +230,6 @@ function AnimatedRing({
   );
 }
 
-function DonutChart({ items }: { items: PhaseDistributionItem[] }) {
-  if (!items.length) {
-    return <p className="py-10 text-center text-sm text-slate-400">暂无数据</p>;
-  }
-  const slices: RingSlice[] = items.map((item, i) => ({
-    key: item.name,
-    label: item.name,
-    value: item.count,
-    color: PHASE_COLORS[i % PHASE_COLORS.length],
-  }));
-  return <AnimatedRing slices={slices} unitLabel="次" />;
-}
-
 function BarChart({ items }: { items: DailyActivityItem[] }) {
   const max = Math.max(1, ...items.map((d) => d.count));
   const w = 420;
@@ -250,48 +241,108 @@ function BarChart({ items }: { items: DailyActivityItem[] }) {
   const innerW = w - padL - padR;
   const innerH = h - padB - padT;
   const barW = innerW / Math.max(items.length, 1);
+  const barColor = '#3B82F6';
+  const [tip, setTip] = useState<TipState>(null);
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
   const hasData = items.some((d) => d.count > 0);
   if (!hasData) {
     return <p className="py-10 text-center text-sm text-slate-400">暂无数据，继续加油</p>;
   }
   const labelEvery = Math.max(1, Math.ceil(items.length / 6));
+  const total = items.reduce((s, d) => s + d.count, 0);
+
+  const onBarMove = (
+    event: ReactMouseEvent<SVGRectElement>,
+    d: DailyActivityItem,
+  ) => {
+    const host = event.currentTarget.ownerSVGElement?.parentElement;
+    if (!host) return;
+    const box = host.getBoundingClientRect();
+    const dayLabel = d.date.slice(5); // MM-DD
+    setHoverKey(d.date);
+    setTip({
+      label: dayLabel,
+      value: d.count,
+      percent: total ? Math.round((100 * d.count) / total) : 0,
+      color: barColor,
+      unitLabel: '道题',
+      text: `${dayLabel}: 完成 ${d.count} 道题`,
+      x: event.clientX - box.left,
+      y: event.clientY - box.top,
+    });
+  };
+
+  const clearHover = () => {
+    setTip(null);
+    setHoverKey(null);
+  };
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full max-w-full">
-      {items.map((d, i) => {
-        const bh = (d.count / max) * innerH;
-        const x = padL + i * barW + barW * 0.15;
-        const y = padT + innerH - bh;
-        return (
-          <rect
-            key={d.date}
-            x={x}
-            y={y}
-            width={barW * 0.7}
-            height={Math.max(bh, d.count > 0 ? 2 : 0)}
-            rx={2}
-            fill="#3B82F6"
-            opacity={0.85}
-          />
-        );
-      })}
-      {items.map((d, i) =>
-        i % labelEvery === 0 || i === items.length - 1 ? (
-          <text
-            key={`t-${d.date}`}
-            x={padL + i * barW + barW / 2}
-            y={h - 8}
-            textAnchor="middle"
-            className="fill-slate-400"
-            fontSize={9}
-          >
-            {d.date.slice(5)}
-          </text>
-        ) : null,
-      )}
-      <text x={4} y={padT + 8} className="fill-slate-400" fontSize={9}>
-        {max}
-      </text>
-    </svg>
+    <div className="relative w-full">
+      <ChartTooltip tip={tip} />
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="h-auto w-full max-w-full overflow-visible"
+        onMouseLeave={clearHover}
+      >
+        {items.map((d, i) => {
+          const hovered = hoverKey === d.date;
+          const baseW = barW * 0.7;
+          const bw = hovered ? baseW * 1.35 : baseW;
+          const bhRaw = (d.count / max) * innerH;
+          const bh = Math.max(bhRaw * (hovered ? 1.08 : 1), d.count > 0 ? 2 : 0);
+          const x = padL + i * barW + (barW - bw) / 2;
+          const y = padT + innerH - bh;
+          // 整列透明热区，零作答日也能悬停
+          const hitX = padL + i * barW;
+          return (
+            <g key={d.date}>
+              <rect
+                x={hitX}
+                y={padT}
+                width={barW}
+                height={innerH}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={(e) => onBarMove(e, d)}
+                onMouseMove={(e) => onBarMove(e, d)}
+              />
+              <rect
+                x={x}
+                y={y}
+                width={bw}
+                height={bh}
+                rx={hovered ? 4 : 2}
+                fill={barColor}
+                opacity={hovered ? 1 : 0.85}
+                style={{
+                  pointerEvents: 'none',
+                  transition: 'x 0.18s ease-out, y 0.18s ease-out, width 0.18s ease-out, height 0.18s ease-out, opacity 0.18s ease-out',
+                  filter: hovered ? 'drop-shadow(0 2px 4px rgba(59,130,246,0.35))' : undefined,
+                }}
+              />
+            </g>
+          );
+        })}
+        {items.map((d, i) =>
+          i % labelEvery === 0 || i === items.length - 1 ? (
+            <text
+              key={`t-${d.date}`}
+              x={padL + i * barW + barW / 2}
+              y={h - 8}
+              textAnchor="middle"
+              className="fill-slate-400"
+              fontSize={9}
+            >
+              {d.date.slice(5)}
+            </text>
+          ) : null,
+        )}
+        <text x={4} y={padT + 8} className="fill-slate-400" fontSize={9}>
+          {max}
+        </text>
+      </svg>
+    </div>
   );
 }
 
@@ -366,6 +417,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
+  const startConversation = useAssistantStore((s) => s.startConversation);
 
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
@@ -419,7 +471,8 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPlanId]);
 
-  const planId = activePlanId ?? lastPlanId;
+  // 优先用 overview 接口返回的计划 id（store 无持久化，直进本页时可能为空）
+  const planId = data?.activePlanId ?? activePlanId ?? lastPlanId;
 
   const reinforceOutcomesByPhase = useMemo(() => {
     const map: Record<string, ReinforceOutcome> = {};
@@ -437,7 +490,9 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       const preview = await createReinforcePreview(planId);
       if (planId !== 'derived-latest') setActivePlanId(planId);
       setPendingAdjustment(preview);
-      openAssistantWithContext({ type: 'free', hint: '查看补强预览' });
+      // 新开会话再看预览，避免把无关聊天记录叠在补强预览上面
+      useAssistantStore.setState({ open: true, composerDraft: '' });
+      await startConversation({ type: 'free', hint: '查看补强预览' });
       setReinforceMsg(
         preview.validation?.ok === false
           ? preview.decisionSummary || '没有可生成的补强任务'
@@ -512,46 +567,57 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         })}
       </div>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-800">阶段双环</h2>
-        {reviewError ? (
-          <div role="alert" className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {reviewError}
-            <button type="button" className="ml-3 underline" onClick={() => void reloadReview()}>
-              重试
-            </button>
-          </div>
-        ) : null}
-        {reviewLoading ? <p className="text-sm text-slate-400">加载阶段双环…</p> : null}
-        {!reviewLoading && !reviewError ? (
-          reviewEmpty || !review ? (
-            <p className="rounded-xl bg-white px-4 py-8 text-center text-sm text-slate-500 shadow-sm ring-1 ring-slate-100">
-              完成一周学习后，这里会显示各阶段的完成度与掌握度双环。
+      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              某阶段完成度明显高于掌握度时，可生成补强任务，重做错题并重读原文。
             </p>
-          ) : (
-            <>
-              {reinforceMsg ? (
-                <p className="text-sm text-gray-500" role="status">
-                  {reinforceMsg}
-                </p>
-              ) : null}
-              <PhaseRings
-                items={review.masteryDetail}
-                onRequestReinforce={planId ? () => void handleRequestReinforce() : undefined}
-                reinforceBusy={reinforceBusy}
-                reinforceOutcomesByPhase={reinforceOutcomesByPhase}
-                onRequestRetest={(phaseId) => void handleRequestRetest(phaseId)}
-                retestBusyPhaseId={retestBusyPhaseId}
-              />
-            </>
-          )
+          </div>
+          <button
+            type="button"
+            disabled={!planId || reinforceBusy}
+            onClick={() => void handleRequestReinforce()}
+            className="shrink-0 rounded-xl bg-purple px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-purple/90 disabled:opacity-50"
+          >
+            {reinforceBusy ? '正在生成补强预览…' : '生成补强任务'}
+          </button>
+        </div>
+        {!planId ? (
+          <p className="mt-2 text-xs text-slate-400">还没有学习计划，请先在总览页生成规划</p>
+        ) : null}
+        {reinforceMsg ? (
+          <p className="mt-3 text-sm text-gray-500" role="status">
+            {reinforceMsg}
+          </p>
         ) : null}
       </section>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">阶段分布</h2>
-          <DonutChart items={data?.phaseDistribution ?? []} />
+          <h2 className="mb-4 text-base font-semibold text-slate-800">阶段双环</h2>
+          {reviewError ? (
+            <div role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {reviewError}
+              <button type="button" className="ml-3 underline" onClick={() => void reloadReview()}>
+                重试
+              </button>
+            </div>
+          ) : reviewLoading ? (
+            <p className="py-10 text-center text-sm text-slate-400">加载阶段双环…</p>
+          ) : reviewEmpty || !review ? (
+            <p className="py-10 text-center text-sm text-slate-400">
+              完成一周学习后，这里会显示各阶段的完成度与掌握度双环。
+            </p>
+          ) : (
+            <PhaseRings
+              items={review.masteryDetail}
+              reinforceOutcomesByPhase={reinforceOutcomesByPhase}
+              onRequestRetest={(phaseId) => void handleRequestRetest(phaseId)}
+              retestBusyPhaseId={retestBusyPhaseId}
+            />
+          )}
         </article>
         <article className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-4 text-base font-semibold text-slate-800">近 30 日作答量</h2>

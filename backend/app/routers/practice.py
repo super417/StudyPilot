@@ -82,6 +82,16 @@ class PracticeGradePayload(BaseModel):
     answer_text: str = ""
 
 
+class PracticeFromChatPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    question: str = ""
+    answer: str = ""
+    explanation: str = ""
+    subject: str = ""
+    source_refs: list | None = None
+
+
 @router.get("")
 def list_practice_route(
     date: str | None = None,
@@ -167,6 +177,32 @@ def create_practice_route(
         return _json_error(400, error.code, str(error))
     return JSONResponse(
         status_code=201,
+        content={"status": "ok", "question": practice_service._question_json(row)},
+    )
+
+
+@router.post("/from-chat")
+def save_practice_from_chat_route(
+    payload: PracticeFromChatPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        row = practice_service.save_from_chat(
+            session,
+            user.id,
+            question=payload.question,
+            answer=payload.answer,
+            explanation=payload.explanation,
+            subject=payload.subject,
+            source_refs=payload.source_refs,
+        )
+    except PracticeValidationError as error:
+        message = str(error)
+        status_code = 409 if "今天没有学习任务" in message else 400
+        return _json_error(status_code, error.code, message)
+    return JSONResponse(
+        status_code=200,
         content={"status": "ok", "question": practice_service._question_json(row)},
     )
 
