@@ -16,6 +16,7 @@ from app.routers.phases import router as phases_router
 from app.routers.plans import router as plans_router
 from app.routers.practice import router as practice_router
 from app.routers.profile import router as profile_router
+from app.routers.statistics import router as statistics_router
 from app.routers.study import router as study_router
 from app.routers.weekly_reviews import router as weekly_reviews_router
 from app.services.session_service import COOKIE_NAME
@@ -35,6 +36,7 @@ app.include_router(mistakes_router)
 app.include_router(notes_router)
 app.include_router(courses_router)
 app.include_router(weekly_reviews_router)
+app.include_router(statistics_router, prefix="/api/statistics", tags=["statistics"])
 app.include_router(assistant_router)
 app.include_router(conversations_router)
 

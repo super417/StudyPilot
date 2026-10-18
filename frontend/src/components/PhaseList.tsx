@@ -153,7 +153,7 @@ function PhaseItem({
               onClick={onToggleExpand}
               className="shrink-0 rounded-full bg-white/80 px-3 py-0.5 text-xs font-medium text-brandDark ring-1 ring-brand/30 hover:bg-white"
             >
-              {expanded ? '收起' : '展开'}
+              {expanded ? '收起' : '进入详情'}
             </button>
           ) : null}
           {phase.isCurrent ? (

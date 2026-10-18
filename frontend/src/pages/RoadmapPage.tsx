@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import RoadmapHeader from '@/components/RoadmapHeader';
 import PhaseList, { type PhaseEdit } from '@/components/PhaseList';
 import WeekTaskGroups from '@/components/WeekTaskGroups';
+import PhaseDetailPage from '@/pages/PhaseDetailPage';
 import type { DailyTask, Phase } from '@/mocks/types';
 import { currentWeekDates, todayISO } from '@/lib/dates';
 import {
   fetchDailyTasksForDates,
   fetchOverviewMetrics,
-  fetchPhaseTasks,
   addTodayTask,
   setDailyTaskStatus,
 } from '@/lib/studyApi';
@@ -35,9 +35,8 @@ function RoadmapPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [addingToday, setAddingToday] = useState(false);
-  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
-  const [phaseTasks, setPhaseTasks] = useState<DailyTask[]>([]);
-  const [phaseTasksLoading, setPhaseTasksLoading] = useState(false);
+  /** 全屏阶段详情（替代卡片内展开） */
+  const [detailPhaseId, setDetailPhaseId] = useState<string | null>(null);
   const [needsStartDate, setNeedsStartDate] = useState(false);
   const [startReply, setStartReply] = useState('');
   const [savingStart, setSavingStart] = useState(false);
@@ -126,24 +125,9 @@ function RoadmapPage() {
     }
   };
 
-  const handleTogglePhase = async (phaseId: string) => {
-    if (expandedPhaseId === phaseId) {
-      setExpandedPhaseId(null);
-      return;
-    }
-    setExpandedPhaseId(phaseId);
-    setPhaseTasks([]);
-    setPhaseTasksLoading(true);
+  const openPhaseDetail = (phaseId: string) => {
+    setDetailPhaseId(phaseId);
     setStatusMsg(null);
-    try {
-      const res = await fetchPhaseTasks(phaseId);
-      setPhaseTasks(res.tasks);
-    } catch (e) {
-      setExpandedPhaseId(null);
-      setStatusMsg(e instanceof ApiError ? e.message : '这个阶段的任务加载失败');
-    } finally {
-      setPhaseTasksLoading(false);
-    }
   };
 
   const handleToggle = async (task: DailyTask) => {
@@ -152,9 +136,6 @@ function RoadmapPage() {
     try {
       const res = await setDailyTaskStatus(task.id, next);
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
-      );
-      setPhaseTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
       );
       setStatusMsg(
@@ -259,11 +240,7 @@ function RoadmapPage() {
         <PhaseList
           phases={phases}
           onSavePhase={handleSavePhase}
-          expandedPhaseId={expandedPhaseId}
-          phaseTasks={phaseTasks}
-          phaseTasksLoading={phaseTasksLoading}
-          onTogglePhase={(id) => void handleTogglePhase(id)}
-          onToggleTask={(task) => void handleToggle(task)}
+          onTogglePhase={openPhaseDetail}
         />
         </>
       )}
@@ -280,6 +257,19 @@ function RoadmapPage() {
       ) : null}
 
       <WeekTaskGroups tasks={tasks} onToggleStatus={(t) => void handleToggle(t)} />
+
+      {detailPhaseId ? (
+        <PhaseDetailPage
+          key={detailPhaseId}
+          phaseId={detailPhaseId}
+          onClose={() => setDetailPhaseId(null)}
+          onAdjust={() => {
+            setDetailPhaseId(null);
+            setStatusMsg('请在列表中点「调整」修改该阶段名称或日期');
+          }}
+          onToggleTask={(task) => void handleToggle(task)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
   type PracticeQuestion,
   type PracticeSourceRef,
 } from '@/lib/practiceApi';
-import { todayISO } from '@/lib/dates';
+import { practiceDayISO } from '@/lib/dates';
 
 export interface PracticeBoardProps {
   tab: 'today' | 'review';
@@ -89,22 +89,30 @@ function PracticeCard({
       <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
       <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.question}</p>
       {showAnswer ? (
-        <div className="mt-3 rounded-2xl bg-brandFaint px-3 py-2 text-sm">
-          <p>答案：{item.answer || '（无）'}</p>
-          {item.explanation ? <p className="mt-1 text-gray-600">解析：{item.explanation}</p> : null}
+        <>
+          <div className="mt-3 rounded-2xl bg-brandFaint px-3 py-2 text-sm">
+            <p>答案：{item.answer || '（无）'}</p>
+            {item.explanation ? (
+              <p className="mt-1 text-gray-600">解析：{item.explanation}</p>
+            ) : null}
+          </div>
           {showSources ? (
-            <ul className="mt-2 space-y-1 text-xs text-brandDark/80">
+            <ul className="mt-2 space-y-1 text-xs text-slate-500">
               {item.sourceRefs!.map((ref) => (
                 <li key={`${ref.docId}-${ref.chunkIndex}`}>
                   <details>
-                    <summary className="cursor-pointer">{sourceRefSummary(ref)}</summary>
-                    <p className="mt-1 whitespace-pre-wrap text-gray-600">{ref.snippet}</p>
+                    <summary className="cursor-pointer text-slate-600 underline decoration-slate-400 underline-offset-2">
+                      {sourceRefSummary(ref)}
+                    </summary>
+                    <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-600">
+                      {ref.snippet}
+                    </pre>
                   </details>
                 </li>
               ))}
             </ul>
           ) : null}
-        </div>
+        </>
       ) : null}
       <label className="mt-3 block text-xs text-gray-500">
         我的作答
@@ -139,7 +147,8 @@ function PracticeCard({
 }
 
 function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
-  const today = todayISO();
+  // 必须与后端 list_practice 的 UTC 日分桶对齐，不能用本地 todayISO()
+  const practiceDay = practiceDayISO();
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [review, setReview] = useState<PracticeQuestion[]>([]);
   const [draft, setDraft] = useState('');
@@ -148,10 +157,10 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
   const [cameraOpen, setCameraOpen] = useState(false);
 
   const reload = useCallback(async () => {
-    const res = await listPractice(today);
+    const res = await listPractice(practiceDay);
     setQuestions(res.questions);
     setReview(res.review);
-  }, [today]);
+  }, [practiceDay]);
 
   useEffect(() => {
     void reload().catch((err) => {
@@ -163,8 +172,12 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await generatePractice(today);
+      const res = await generatePractice(practiceDay);
       setMessage(res.questions.length ? `已生成 ${res.questions.length} 题` : '今天还没有完成的任务，先去勾选今天的任务');
+      // 立刻用生成结果填列表，避免仅依赖 reload 时出现空窗
+      if (res.questions.length) {
+        setQuestions(res.questions);
+      }
       await reload();
     } catch (err) {
       setMessage(err instanceof ApiError ? err.message : '生成失败');

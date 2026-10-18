@@ -6,6 +6,15 @@ export function todayISO(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * 练习题列表 / 生成用的「日」：与后端 `list_practice` 一致。
+ * 后端按 `created_at` 转 UTC 后取 date 分桶；若前端传本地日，
+ * 在东八区凌晨会与 UTC 日错位，导致「已生成却今日为空」。
+ */
+export function practiceDayISO(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
 /** 周一为起点的本周 7 天 ISO 日期。 */
 export function currentWeekDates(d = new Date()): string[] {
   const day = d.getDay(); // 0 Sun

@@ -9,6 +9,13 @@
  */
 import { motion } from 'framer-motion';
 import { Bell, CalendarRange, MessageSquarePlus, Workflow, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { selectActiveMessages, useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
@@ -25,6 +32,20 @@ const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   plan: '学习规划',
   free: '自由提问',
 };
+
+const PANEL_MIN_W = 320;
+
+function panelMaxWidth(viewport = typeof window !== 'undefined' ? window.innerWidth : 1280): number {
+  return Math.min(720, Math.floor(viewport * 0.7));
+}
+
+function panelDefaultWidth(viewport = typeof window !== 'undefined' ? window.innerWidth : 1280): number {
+  return Math.min(560, Math.floor(viewport * 0.46));
+}
+
+function clampPanelWidth(width: number, viewport = window.innerWidth): number {
+  return Math.min(panelMaxWidth(viewport), Math.max(PANEL_MIN_W, Math.round(width)));
+}
 
 export interface ChatPanelProps {
   onClose: () => void;
@@ -50,6 +71,41 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const contentKey = `${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}`;
   const { listRef, onScroll, pinToBottom } = useStickToBottom(true, contentKey);
 
+  const [panelWidth, setPanelWidth] = useState(() =>
+    typeof window === 'undefined' ? 560 : clampPanelWidth(panelDefaultWidth()),
+  );
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    const onWinResize = () => setPanelWidth((w) => clampPanelWidth(w));
+    window.addEventListener('resize', onWinResize);
+    return () => window.removeEventListener('resize', onWinResize);
+  }, []);
+
+  const onPointerMove = useCallback((event: PointerEvent) => {
+    const drag = resizeRef.current;
+    if (!drag) return;
+    setPanelWidth(clampPanelWidth(drag.startWidth + (event.clientX - drag.startX)));
+  }, []);
+
+  const endResize = useCallback(() => {
+    resizeRef.current = null;
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', endResize);
+    document.body.style.removeProperty('cursor');
+    document.body.style.removeProperty('user-select');
+  }, [onPointerMove]);
+
+  const startResize = (event: ReactPointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeRef.current = { startX: event.clientX, startWidth: panelWidth };
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', endResize);
+  };
+
   const handleSend = () => {
     const text = input.trim();
     if (!text || (streaming && !isPauseRequest(text))) return;
@@ -70,13 +126,24 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -24 }}
       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-none fixed inset-y-0 left-0 z-20 w-full pt-20 pb-6 pl-6 pr-3 sm:w-[min(560px,46vw)]"
+      style={{ width: panelWidth }}
+      className="pointer-events-none fixed inset-y-0 left-0 z-20 max-w-[100vw] pt-20 pb-6 pl-6 pr-3"
     >
       {/*
         pointer-events：外层这圈 padding（顶部 80px）是留给顶部导航的，必须让点击穿过去。
         不透传的话，聊天框一开，左上角的 logo 和导航链接就全点不动了 —— 而且看不出原因。
       */}
-      <div className="liquid-glass pointer-events-auto flex h-full flex-col rounded-[28px]">
+      <div className="liquid-glass pointer-events-auto relative flex h-full min-w-0 flex-col rounded-[28px]">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整聊天框宽度"
+          aria-valuemin={PANEL_MIN_W}
+          aria-valuemax={panelMaxWidth()}
+          aria-valuenow={panelWidth}
+          onPointerDown={startResize}
+          className="absolute inset-y-4 -right-1 z-10 w-3 cursor-ew-resize touch-none rounded-full hover:bg-brandDark/10"
+        />
         <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-5">
           <div className="min-w-0">
             <h2 className="text-[15px] font-medium text-brandDark">学习助手</h2>

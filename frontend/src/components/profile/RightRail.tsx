@@ -223,10 +223,10 @@ function QuickActions({
       },
     },
     {
-      label: '生成本周复盘',
+      label: '打开数据统计',
       run: () => {
         onNavigate?.('weekly');
-        onAction('已打开本周复盘（有打卡记录时会惰性生成）');
+        onAction('已打开数据统计');
       },
     },
   ];

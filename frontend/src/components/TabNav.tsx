@@ -14,7 +14,7 @@ const TABS: readonly TabItem[] = [
   { key: 'overview', label: '总览' },
   { key: 'roadmap', label: 'Roadmap' },
   { key: 'mistakes', label: '习题本' },
-  { key: 'weekly', label: '本周复盘' },
+  { key: 'weekly', label: '数据统计' },
   { key: 'profile', label: '个人中心' },
 ];
 
