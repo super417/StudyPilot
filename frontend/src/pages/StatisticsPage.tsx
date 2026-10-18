@@ -23,7 +23,7 @@ import type { ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { useAssistantStore, usePlanSessionStore } from '@/store';
 import { ApiError } from '@/lib/httpClient';
 import { createReinforcePreview } from '@/lib/plansApi';
-import { generateReinforceRetest } from '@/lib/practiceApi';
+import { generateReinforceRetest, requestPracticeBoard } from '@/lib/practiceApi';
 import {
   fetchStatisticsOverview,
   type DailyActivityItem,
@@ -421,6 +421,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
 
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
+  const planDataEpoch = usePlanSessionStore((s) => s.planDataEpoch);
   const setPendingAdjustment = usePlanSessionStore((s) => s.setPendingAdjustment);
   const setActivePlanId = usePlanSessionStore((s) => s.setActivePlanId);
 
@@ -469,7 +470,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
     void reloadReview();
     // 规划生成后阶段数会变，双环依赖周报 masteryDetail。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastPlanId]);
+  }, [lastPlanId, planDataEpoch]);
 
   // 优先用 overview 接口返回的计划 id（store 无持久化，直进本页时可能为空）
   const planId = data?.activePlanId ?? activePlanId ?? lastPlanId;
@@ -480,6 +481,19 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       if (item.phaseId) map[item.phaseId] = item;
     }
     return map;
+  }, [review]);
+
+  /** 已有补强任务的阶段：重测入口挂在「触发补强」卡，不挂双环 */
+  const retestPhases = useMemo(() => {
+    const details = review?.masteryDetail ?? [];
+    return (review?.reinforceOutcomes ?? [])
+      .filter((item): item is ReinforceOutcome & { phaseId: string } => Boolean(item.phaseId))
+      .map((item) => ({
+        phaseId: item.phaseId,
+        name:
+          details.find((d) => d.phaseId === item.phaseId)?.subject ?? '已补强阶段',
+        pendingRetest: item.after.evidenceCount === 0,
+      }));
   }, [review]);
 
   const handleRequestReinforce = async () => {
@@ -514,10 +528,13 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       const count = res.questions?.length ?? 0;
       setReinforceMsg(
         count > 0
-          ? `已生成 ${count} 道重测题，请到习题本作答`
+          ? `已生成 ${count} 道重测题，请到习题本「今日练习」作答`
           : '没有生成重测题（可能缺少可检索资料）',
       );
-      if (count > 0) onNavigate?.('mistakes');
+      if (count > 0) {
+        requestPracticeBoard('today');
+        onNavigate?.('mistakes');
+      }
       await reloadReview();
     } catch (e) {
       setReinforceMsg(e instanceof ApiError ? e.message : '重测出题失败');
@@ -572,7 +589,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <div>
             <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
             <p className="mt-1 text-sm text-slate-500">
-              某阶段完成度明显高于掌握度时，可生成补强任务，重做错题并重读原文。
+              完成度明显高于掌握度时生成补强任务；确认后在此重测，再到下方双环看掌握度变化。
             </p>
           </div>
           <button
@@ -591,6 +608,37 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <p className="mt-3 text-sm text-gray-500" role="status">
             {reinforceMsg}
           </p>
+        ) : null}
+        {retestPhases.length > 0 ? (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <p className="text-sm font-medium text-slate-700">补强后重测</p>
+            <p className="mt-1 text-xs text-slate-400">
+              只为已确认补强的阶段出题；做完后看下方「阶段双环」的补强前/后变化。
+            </p>
+            <ul className="mt-3 space-y-2">
+              {retestPhases.map((phase) => (
+                <li
+                  key={phase.phaseId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{phase.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {phase.pendingRetest ? '尚未重测' : '已有重测作答'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={Boolean(retestBusyPhaseId)}
+                    onClick={() => void handleRequestRetest(phase.phaseId)}
+                    className="shrink-0 rounded-lg bg-purple px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-purple/90 disabled:opacity-50"
+                  >
+                    {retestBusyPhaseId === phase.phaseId ? '正在出重测题…' : '重测'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
       </section>
 
@@ -614,8 +662,6 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
             <PhaseRings
               items={review.masteryDetail}
               reinforceOutcomesByPhase={reinforceOutcomesByPhase}
-              onRequestRetest={(phaseId) => void handleRequestRetest(phaseId)}
-              retestBusyPhaseId={retestBusyPhaseId}
             />
           )}
         </article>

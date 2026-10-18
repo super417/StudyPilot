@@ -625,4 +625,9 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
         "createdCopies": created_copies,
     }
     row.steps = list(row.steps or []) + [{"step": "confirm", "result": "applied"}]
-    row.decision_summary = f"已确认补强：新增 {len(created_ids)} 条任务。尚未做重测。"
+    row.decision_summary = (
+        f"已确认补强：新增 {len(created_ids)} 条任务，已写入今日任务。\n"
+        "下一步：\n"
+        "1. 在「触发补强」卡片里点对应阶段的「重测」，开始本阶段的重测题\n"
+        "2. 做完后到「阶段双环」看「补强前/后」的掌握度变化"
+    )

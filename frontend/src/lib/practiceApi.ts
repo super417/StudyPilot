@@ -29,6 +29,21 @@ export interface PracticeListResponse {
   review: PracticeQuestion[];
 }
 
+const PRACTICE_BOARD_KEY = 'studypilot.practiceBoard';
+const PRACTICE_BOARD_EVENT = 'studypilot:practice-board';
+
+/** 切到习题本之前调用。页面还没挂载时先记下「今日练习」等意图，挂载时取走。 */
+export function requestPracticeBoard(tab: 'today' | 'review' = 'today') {
+  sessionStorage.setItem(PRACTICE_BOARD_KEY, tab);
+  window.dispatchEvent(new Event(PRACTICE_BOARD_EVENT));
+}
+
+export function takePracticeBoard(): 'today' | 'review' | null {
+  const value = sessionStorage.getItem(PRACTICE_BOARD_KEY);
+  sessionStorage.removeItem(PRACTICE_BOARD_KEY);
+  return value === 'today' || value === 'review' ? value : null;
+}
+
 export function listPractice(date: string): Promise<PracticeListResponse> {
   return apiRequest<PracticeListResponse>(`/api/practice?date=${encodeURIComponent(date)}`);
 }

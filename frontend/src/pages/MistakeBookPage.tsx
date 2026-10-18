@@ -25,6 +25,7 @@ import {
 } from '@/lib/mistakesApi';
 import { todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
+import { takePracticeBoard } from '@/lib/practiceApi';
 import type { MistakeEditValues } from '@/components/MistakeDetail';
 
 function MistakeBookPage() {
@@ -139,6 +140,18 @@ function MistakeBookPage() {
     apply();
     window.addEventListener('studypilot:mistake-filter', apply);
     return () => window.removeEventListener('studypilot:mistake-filter', apply);
+  }, []);
+
+  useEffect(() => {
+    const apply = () => {
+      const next = takePracticeBoard();
+      if (!next) return;
+      setBoard('practice');
+      setPracticeTab(next);
+    };
+    apply();
+    window.addEventListener('studypilot:practice-board', apply);
+    return () => window.removeEventListener('studypilot:practice-board', apply);
   }, []);
 
   useEffect(() => {

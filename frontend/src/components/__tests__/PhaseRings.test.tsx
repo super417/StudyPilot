@@ -102,7 +102,7 @@ describe('PhaseRings', () => {
     expect(markup).toContain('生成补强任务');
   });
 
-  it('有补强任务的阶段显示重测与 overall；after 无证据写尚未重测而不是 0%', () => {
+  it('有补强任务的阶段显示 overall；after 无证据写尚未重测而不是 0%；不挂重测按钮', () => {
     const phaseId = 'phase-a';
     const markup = renderToStaticMarkup(
       createElement(PhaseRings, {
@@ -125,10 +125,9 @@ describe('PhaseRings', () => {
             after: { percent: null, evidenceCount: 0, correctCount: 0 },
           },
         },
-        onRequestRetest: () => undefined,
       }),
     );
-    expect(markup).toContain('重测');
+    expect(markup).not.toContain('>重测<');
     expect(markup).toContain('阶段掌握度 40%（基于 2 次）');
     expect(markup).toContain('尚未重测');
     expect(markup).not.toContain('补强后 0%');
@@ -158,7 +157,6 @@ describe('PhaseRings', () => {
             after: { percent: 100, evidenceCount: 3, correctCount: 3 },
           },
         },
-        onRequestRetest: () => undefined,
       }),
     );
     expect(markup).toContain('阶段掌握度 63%（基于 15 次）');
@@ -166,7 +164,7 @@ describe('PhaseRings', () => {
     expect(markup).not.toContain('补强后 100%');
   });
 
-  it('没有补强任务的阶段不显示重测入口', () => {
+  it('没有补强任务的阶段不显示补强前后文案', () => {
     const markup = renderToStaticMarkup(
       createElement(PhaseRings, {
         items: [
@@ -181,10 +179,10 @@ describe('PhaseRings', () => {
           },
         ],
         reinforceOutcomesByPhase: {},
-        onRequestRetest: () => undefined,
       }),
     );
-    expect(markup).not.toContain('重测');
+    expect(markup).not.toContain('尚未重测');
+    expect(markup).not.toContain('阶段掌握度');
     expect(markup).not.toContain('补强前');
   });
 

@@ -114,6 +114,16 @@ function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
     return map;
   }, [review]);
 
+  const retestPhases = useMemo(() => {
+    const details = review?.masteryDetail ?? [];
+    return (review?.reinforceOutcomes ?? [])
+      .filter((item): item is ReinforceOutcome & { phaseId: string } => Boolean(item.phaseId))
+      .map((item) => ({
+        phaseId: item.phaseId,
+        name: details.find((d) => d.phaseId === item.phaseId)?.subject ?? '已补强阶段',
+      }));
+  }, [review]);
+
   const handleRequestReinforce = async () => {
     if (!planId || reinforceBusy) return;
     setReinforceBusy(true);
@@ -222,13 +232,34 @@ function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
                   {reinforceMsg}
                 </p>
               ) : null}
+              {retestPhases.length > 0 ? (
+                <section className="rounded-2xl border border-brandFaint bg-card px-4 py-3 shadow-card">
+                  <p className="text-sm font-medium text-brandDark">补强后重测</p>
+                  <ul className="mt-2 space-y-2">
+                    {retestPhases.map((phase) => (
+                      <li
+                        key={phase.phaseId}
+                        className="flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <span className="text-sm text-gray-600">{phase.name}</span>
+                        <button
+                          type="button"
+                          disabled={Boolean(retestBusyPhaseId)}
+                          onClick={() => void handleRequestRetest(phase.phaseId)}
+                          className="text-sm font-medium text-purple underline-offset-2 hover:underline disabled:opacity-50"
+                        >
+                          {retestBusyPhaseId === phase.phaseId ? '正在出重测题…' : '重测'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               <PhaseRings
                 items={review.masteryDetail}
                 onRequestReinforce={planId ? () => void handleRequestReinforce() : undefined}
                 reinforceBusy={reinforceBusy}
                 reinforceOutcomesByPhase={reinforceOutcomesByPhase}
-                onRequestRetest={(phaseId) => void handleRequestRetest(phaseId)}
-                retestBusyPhaseId={retestBusyPhaseId}
               />
             </>
           )}

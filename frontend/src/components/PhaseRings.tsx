@@ -18,10 +18,8 @@ export interface PhaseRingsProps {
   /** 背离出现时，由页面发起补强预览。不传则不显示入口。 */
   onRequestReinforce?: () => void;
   reinforceBusy?: boolean;
-  /** 按 phaseId 索引；有条目才显示重测与前后对比。 */
+  /** 按 phaseId 索引；有条目才显示补强前后对比（重测入口在页面「触发补强」卡片）。 */
   reinforceOutcomesByPhase?: Record<string, ReinforceOutcome>;
-  onRequestRetest?: (phaseId: string) => void;
-  retestBusyPhaseId?: string | null;
 }
 
 function formatOverall(outcome: ReinforceOutcome): string {
@@ -169,15 +167,11 @@ function PhaseRing({
   onRequestReinforce,
   reinforceBusy,
   outcome,
-  onRequestRetest,
-  retestBusy,
 }: {
   item: MasteryDetailItem;
   onRequestReinforce?: () => void;
   reinforceBusy?: boolean;
   outcome?: ReinforceOutcome;
-  onRequestRetest?: (phaseId: string) => void;
-  retestBusy?: boolean;
 }) {
   const completion = item.completionRate ?? null;
   const mastery = item.percent;
@@ -185,8 +179,6 @@ function PhaseRing({
   const masteryMissing = mastery == null;
   const gap = completion != null && mastery != null ? completion - mastery : null;
   const diverged = gap != null && gap >= DIVERGENCE_THRESHOLD;
-  const phaseId = item.phaseId;
-  const canRetest = Boolean(outcome && phaseId && onRequestRetest);
 
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-slate-100 bg-white p-4 sm:flex-row sm:items-center">
@@ -236,16 +228,6 @@ function PhaseRing({
             {reinforceBusy ? '正在生成补强预览…' : '生成补强任务'}
           </button>
         ) : null}
-        {canRetest && phaseId ? (
-          <button
-            type="button"
-            className="mt-1 ml-0 block text-sm font-medium text-purple underline-offset-2 hover:underline disabled:opacity-50 sm:ml-3 sm:inline"
-            disabled={retestBusy}
-            onClick={() => onRequestRetest?.(phaseId)}
-          >
-            {retestBusy ? '正在出重测题…' : '重测'}
-          </button>
-        ) : null}
       </div>
     </li>
   );
@@ -256,8 +238,6 @@ function PhaseRings({
   onRequestReinforce,
   reinforceBusy,
   reinforceOutcomesByPhase,
-  onRequestRetest,
-  retestBusyPhaseId,
 }: PhaseRingsProps) {
   if (items.length === 0) {
     return <p className="text-sm text-gray-400">本周期暂无掌握度证据</p>;
@@ -277,8 +257,6 @@ function PhaseRings({
             onRequestReinforce={onRequestReinforce}
             reinforceBusy={reinforceBusy}
             outcome={outcome}
-            onRequestRetest={onRequestRetest}
-            retestBusy={Boolean(phaseId && retestBusyPhaseId === phaseId)}
           />
         );
       })}
