@@ -9,7 +9,7 @@ import { AssistantWidget } from '@/components/assistant';
 import OverviewPage from '@/pages/OverviewPage';
 import RoadmapPage from '@/pages/RoadmapPage';
 import MistakeBookPage from '@/pages/MistakeBookPage';
-import WeeklyReviewPage from '@/pages/WeeklyReviewPage';
+import StatisticsPage from '@/pages/StatisticsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import MainframePage from '@/pages/MainframePage';
 import {
@@ -23,7 +23,7 @@ const PAGES: Record<TabKey, () => JSX.Element> = {
   overview: OverviewPage,
   roadmap: RoadmapPage,
   mistakes: MistakeBookPage,
-  weekly: WeeklyReviewPage,
+  weekly: StatisticsPage,
   profile: ProfilePage,
 };
 
@@ -130,7 +130,7 @@ function App() {
               ) : activeTab === 'overview' ? (
                 <OverviewPage onNavigate={setActiveTab} />
               ) : activeTab === 'weekly' ? (
-                <WeeklyReviewPage onNavigate={setActiveTab} />
+                <StatisticsPage onNavigate={setActiveTab} />
               ) : (
                 <CurrentPage />
               )}
