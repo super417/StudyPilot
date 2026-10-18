@@ -13,6 +13,10 @@ backend/.verify_token
 backend/_verify*.py
 backend/_verify*.txt
 backend/_verify*_raw/
+backend/_v13*.py
+backend/_v13*.json
+backend/_v13*.txt
+backend/_v13*_raw/
 **/.pytest_cache/
 **/.hypothesis/
 
