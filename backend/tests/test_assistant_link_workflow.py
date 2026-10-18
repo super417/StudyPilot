@@ -147,6 +147,21 @@ def test_draft_question_keeps_study_and_read_material_context(chat):
     assert chat["fetched"] == [URL_A]
 
 
+def test_save_to_practice_intent_uses_local_reply_not_model(chat):
+    chat["reply"](URL_A)  # leave a draft so link branch would otherwise compete
+    before = len(chat["payloads"])
+    text = chat["reply"]("打错了，存入习题本")
+    assert "存入今日练习" in text
+    assert "没有按钮" in text or "识别成一道题" in text
+    assert len(chat["payloads"]) == before
+
+
+def test_save_to_practice_question_still_calls_model(chat):
+    before = len(chat["payloads"])
+    assert chat["reply"]("怎么存入习题本？") == "正常回答"
+    assert len(chat["payloads"]) == before + 1
+
+
 def test_draft_expires_after_30_minutes_and_cannot_schedule(chat):
     video_draft_store.put(VideoDraft(
         user_id=chat["user"].id, material=material(), url=URL_A,

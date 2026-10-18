@@ -101,6 +101,17 @@ _LINK_UNREADABLE_REPLY = (
     "试试单独发一条只含链接的消息，或者把标题和章节发我。"
 )
 
+# 存题走消息下方按钮，不经模型；避免模型谎称「没有存题库能力」。
+_SAVE_TO_PRACTICE_REPLY = (
+    "存入习题本请点我上一条出题回复下方的「存入今日练习」按钮。"
+    "如果那条回复下方没有按钮，说明我没能把它识别成一道题，"
+    "请让我按「题目 / 参考答案」两段重新给一次。"
+)
+
+_SAVE_TO_PRACTICE = re.compile(
+    r"存入习题本|存进习题本|存成错题|加进错题本|记到错题本|存到习题本|加入习题本"
+)
+
 # Strip leaked chain-of-thought wrappers some models put into `content`.
 _THINK_BLOCK = re.compile(
     r"<think>[\s\S]*?</think>|<thinking>[\s\S]*?</thinking>",
@@ -115,6 +126,14 @@ ChatStreamFactory = Callable[
 
 def is_off_topic(message: str) -> bool:
     return bool(_OFF_TOPIC.search(message or ""))
+
+
+def wants_to_save_practice(text: str) -> bool:
+    """True only for execute-intent save phrases; questions are not hits."""
+    raw = text or ""
+    if re.search(r"吗|[？?]|是否|怎么|如何|怎样", raw):
+        return False
+    return bool(_SAVE_TO_PRACTICE.search(raw))
 
 
 def extract_assistant_content_delta(choice: dict) -> str:
@@ -339,6 +358,15 @@ async def stream_assistant_reply(
     if is_off_topic(text):
         async for frame in stream_ai_sse(
             lambda: _local_text_stream(_DOMAIN_REFUSAL),
+            is_disconnected,
+        ):
+            yield frame
+        return
+
+    # 优先于链接/草稿分支，避免被 wants_to_adopt 等抢走。
+    if wants_to_save_practice(text):
+        async for frame in stream_ai_sse(
+            lambda: _local_text_stream(_SAVE_TO_PRACTICE_REPLY),
             is_disconnected,
         ):
             yield frame

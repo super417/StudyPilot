@@ -19,7 +19,7 @@ from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
 from app.routers.assistant import get_assistant_stream_factory
-from app.services.assistant_service import is_off_topic
+from app.services.assistant_service import is_off_topic, wants_to_save_practice
 from app.services.session_service import session_store
 
 
@@ -55,6 +55,15 @@ class AssistantServiceUnitTests(unittest.TestCase):
     def test_off_topic_detection(self) -> None:
         self.assertTrue(is_off_topic("推荐个炒股荐股软件"))
         self.assertFalse(is_off_topic("帮我梳理高等数学二重积分"))
+
+    def test_wants_to_save_practice_hits_execute_phrases(self) -> None:
+        self.assertTrue(wants_to_save_practice("存入习题本"))
+        self.assertTrue(wants_to_save_practice("打错了，存进习题本"))
+        self.assertTrue(wants_to_save_practice("帮我加进错题本"))
+        self.assertFalse(wants_to_save_practice("怎么存入习题本？"))
+        self.assertFalse(wants_to_save_practice("可以存入习题本吗"))
+        self.assertFalse(wants_to_save_practice("如何记到错题本"))
+        self.assertFalse(wants_to_save_practice("帮我讲这道题"))
 
 
 class AssistantRouteTests(unittest.TestCase):
