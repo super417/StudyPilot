@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import cloud from '@/assets/journey/cloud.webp';
-import mapSky from '@/assets/journey/map-sky.webp';
-import vineA from '@/assets/journey/vine-a.webp';
-import vineB from '@/assets/journey/vine-b.webp';
-import wood from '@/assets/journey/wood.webp';
-import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import mapPlate from '@/assets/journey/map-plate.jpg';
+import { SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
   climbSpan,
   columnCenterX,
   contentHeight,
+  DESKTOP_STEP,
   layoutDays,
+  MOBILE_STEP,
   primaryTag,
   scrollTopForToday,
   vinePath,
-  visibleIndices,
   type NodePoint,
 } from '@/journey/layout';
+import { coverPoint, PLATE_SLOTS } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
@@ -41,13 +39,6 @@ function spinePoints(points: NodePoint[], width: number, compact: boolean) {
     ...point,
     x: columnCenterX(point.index, width, compact),
   }));
-}
-
-function fruitSize(day: JourneyDay): number {
-  if (day.state === 'future' || day.loaded === false) return 46;
-  if (day.state === 'empty') return 40;
-  const base = day.stars === 4 ? 72 : day.stars === 3 ? 64 : day.stars === 2 ? 56 : 48;
-  return day.state === 'today' ? base + 22 : base;
 }
 
 export default function VineMap({
@@ -88,45 +79,15 @@ export default function VineMap({
   const dates = useMemo(() => days.map((day) => day.date), [days]);
   const points = useMemo(() => layoutDays(dates, width, compact), [dates, width, compact]);
   const height = contentHeight(days.length, compact);
-  const phaseStart = useMemo(() => new Map(phases.map((phase) => [phase.startDate, phase.name])), [phases]);
   const todayIndex = days.findIndex((day) => day.date === today);
   const span = climbSpan(todayIndex);
   const climbPath = span
     ? vinePath(spinePoints(points.slice(span.start, span.end + 1), width, compact))
     : '';
-  const anchor = scrollTop ?? Math.max(0, (points[todayIndex]?.y ?? 0) - viewport * 0.6);
-  const visible = useMemo(
-    () => new Set(visibleIndices(points.map((point) => point.y), anchor, viewport)),
-    [anchor, points, viewport],
-  );
-  const vineTiles = useMemo(() => {
-    const frames = [
-      { src: vineA, ratio: 1280 / 386 },
-      { src: vineB, ratio: 1280 / 527 },
-    ];
-    const segW = width * (compact ? 0.7 : 0.52);
-    const tiles: { key: number; src: string; x: number; y: number; w: number; h: number }[] = [];
-    let y = -segW;
-    let n = 0;
-    while (y < height && n < 240) {
-      const frame = frames[n % frames.length];
-      const segH = segW * frame.ratio;
-      if (y > anchor - viewport - segH && y < anchor + viewport * 2) {
-        const approx = Math.max(0, Math.round((height - y) / (compact ? 110 : 140)));
-        tiles.push({
-          key: n,
-          src: frame.src,
-          x: columnCenterX(approx, width, compact),
-          y,
-          w: segW,
-          h: segH,
-        });
-      }
-      y += segH * 0.84;
-      n += 1;
-    }
-    return tiles;
-  }, [anchor, compact, height, viewport, width]);
+  const step = compact ? MOBILE_STEP : DESKTOP_STEP;
+  const maxScroll = Math.max(0, height - viewport);
+  const origin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
+  const dayShift = scrollTop == null ? 0 : Math.round((scrollTop - origin) / step);
 
   useEffect(() => {
     const path = pathRef.current;
@@ -159,21 +120,29 @@ export default function VineMap({
     const node = scroller.current;
     if (!node || todayIndex < 0) return undefined;
     const onScroll = () => {
-      const y = points[todayIndex]?.y ?? 0;
       const top = node.scrollTop;
-      const view = node.clientHeight;
       setScrollTop(top);
-      setShowReturn(y < top + 40 || y > top + view - 80);
+      setShowReturn(Math.round((top - origin) / step) !== 0);
     };
     onScroll();
     node.addEventListener('scroll', onScroll, { passive: true });
     return () => node.removeEventListener('scroll', onScroll);
-  }, [points, todayIndex]);
+  }, [origin, points, step, todayIndex]);
+
+  const plateDays = useMemo(
+    () =>
+      PLATE_SLOTS.map((slot) => {
+        const index = todayIndex + slot.delta + dayShift;
+        const day = index >= 0 && index < days.length ? days[index] : undefined;
+        return { slot, index, day, at: coverPoint(slot.fx, slot.fy, width, viewport) };
+      }),
+    [dayShift, days, todayIndex, viewport, width],
+  );
 
   useEffect(() => {
-    const missing = days.find((day, index) => visible.has(index) && day.loaded === false);
-    if (missing) onNeed?.(missing.date);
-  }, [days, onNeed, visible]);
+    const missing = plateDays.find((item) => item.day && item.day.loaded === false);
+    if (missing?.day) onNeed?.(missing.day.date);
+  }, [onNeed, plateDays]);
 
   const jumpToday = () => {
     const node = scroller.current;
@@ -184,97 +153,40 @@ export default function VineMap({
 
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
-      <div className="relative" style={{ height, width: '100%' }} onClick={() => onBlank?.()}>
-        <div className="pointer-events-none sticky top-0 z-0 h-[100dvh] overflow-hidden">
-          <img src={mapSky} alt="" className="h-full w-full object-cover object-top" />
-          <img src={cloud} alt="" draggable={false} className="journey-drift absolute left-[4%] top-[6%] w-[min(34vw,280px)]" />
-          <img
-            src={cloud}
-            alt=""
-            draggable={false}
-            className="journey-drift absolute left-[36%] top-[16%] w-[min(30vw,240px)]"
-            style={{ animationDelay: '-5s' }}
-          />
-          <img
-            src={cloud}
-            alt=""
-            draggable={false}
-            className="journey-drift absolute right-[4%] top-[8%] w-[min(28vw,220px)]"
-            style={{ animationDelay: '-11s' }}
-          />
-        </div>
-        <div className="absolute inset-0">
+      <div className="relative" style={{ height, width: '100%' }}>
         <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
           <path ref={pathRef} d={climbPath} />
         </svg>
-        {vineTiles.map((tile) => (
-          <img
-            key={tile.key}
-            src={tile.src}
-            alt=""
-            draggable={false}
-            className="journey-vine-tile pointer-events-none absolute"
-            style={{ left: tile.x - tile.w / 2, top: tile.y, width: tile.w, height: tile.h }}
-          />
-        ))}
-        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
-          <g transform={`translate(${width / 2 - 90} ${height - 108})`}>
-            <ellipse cx="90" cy="48" rx="110" ry="26" fill="#5c8a3a" />
-            <ellipse cx="90" cy="40" rx="96" ry="22" fill="#8d6240" />
-            <ellipse cx="90" cy="34" rx="96" ry="20" fill="#a87548" />
-            <path d="M18 34 q8 -16 4 -2 M40 30 q6 -18 2 -2 M150 32 q-8 -16 -2 -2" fill="none" stroke="#67b34a" strokeWidth="3" strokeLinecap="round" />
-            <text x="90" y="38" textAnchor="middle" fill="#fff6e4" fontSize="14" fontWeight="700">
-              起点
-            </text>
-          </g>
-        </svg>
-        <div className="pointer-events-none absolute left-1/2 top-3 z-[2] w-[min(46vw,240px)] -translate-x-1/2">
-          <img src={cloud} alt="" draggable={false} className="w-full" />
-          <div className="absolute inset-0 grid place-items-center px-6 text-center text-[13px] font-bold text-[#166534]">
-            {goalName.slice(0, 12)}
-          </div>
-        </div>
-        {points.map((point, index) => {
-          if (!visible.has(index)) return null;
-          const day = days[index];
-          const tag = day.loaded === false ? null : primaryTag(day.tags);
-          const showStars = day.state === 'past' || day.state === 'today';
-          const size = fruitSize(day);
-          const kind = day.state === 'future' || day.loaded === false ? 'bud' : day.state === 'empty' ? 'sprout' : 'fruit';
-          const month = day.date.endsWith('-01');
-          const phaseName = phaseStart.get(day.date);
-          const outward = point.x > width / 2 ? { left: '108%' } : { right: '108%' };
-          return (
-            <div
-              key={day.date}
-              className="absolute"
-              style={{ left: point.x, top: point.y, transform: 'translate(-50%, -50%)', zIndex: day.state === 'today' ? 5 : 1 }}
-            >
-              <div className="relative flex items-center justify-center">
+        <div className="sticky top-0 z-0 h-[100dvh] overflow-hidden" onClick={() => onBlank?.()}>
+          <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+          {plateDays.map(({ slot, day, at }) => {
+            if (!day) return null;
+            const tag = day.loaded === false ? null : primaryTag(day.tags);
+            const showStars = day.state === 'past' || day.state === 'today';
+            const outward = at.x > width / 2 ? { left: '108%' } : { right: '108%' };
+            return (
+              <div
+                key={slot.delta}
+                className="absolute"
+                style={{ left: at.x, top: at.y, transform: 'translate(-50%, -50%)', zIndex: day.state === 'today' ? 5 : 1 }}
+              >
                 {showStars ? (
-                  <div className="absolute bottom-[78%] left-1/2 -translate-x-1/2">
+                  <div className="pointer-events-none absolute bottom-[70%] left-1/2 -translate-x-1/2">
                     <div className={day.state === 'today' && celebrate ? 'journey-star-pop' : undefined}>
-                      <StarCrown
-                        filled={day.stars ?? 0}
-                        color={day.starColor}
-                        preview={day.state === 'today'}
-                        compact={compact}
-                      />
+                      <StarCrown filled={day.stars ?? 0} color={day.starColor} preview={day.state === 'today'} compact={compact} />
                     </div>
                   </div>
                 ) : null}
                 {day.state === 'today' ? (
                   <button
                     type="button"
-                    className="absolute bottom-[118%] left-1/2 z-30 min-h-11 min-w-11 -translate-x-1/2"
+                    className="absolute bottom-[120%] left-1/2 z-30 min-h-11 min-w-11 -translate-x-1/2"
                     aria-label="今天的芽苗"
                     onClick={(event) => {
                       event.stopPropagation();
                       onBlank?.();
                     }}
-                  >
-                    {climber ? null : <SproutAvatar size={compact ? 64 : 78} />}
-                  </button>
+                  />
                 ) : null}
                 {tag ? (
                   <button
@@ -292,9 +204,9 @@ export default function VineMap({
                 ) : null}
                 <button
                   type="button"
-                  className="relative grid min-h-11 min-w-11 place-items-center"
-                  style={{ width: Math.max(44, size), height: Math.max(44, size) }}
-                  aria-label={`${day.date.slice(5)} ${day.state === 'today' ? '今天' : ''}`}
+                  className="relative grid min-h-11 min-w-11 place-items-center rounded-full"
+                  style={{ width: day.state === 'today' ? 84 : 64, height: day.state === 'today' ? 84 : 64 }}
+                  aria-label={`${day.date.slice(5)}${day.state === 'today' ? ' 今天' : ''}`}
                   aria-current={day.state === 'today' ? 'date' : undefined}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -302,75 +214,34 @@ export default function VineMap({
                   }}
                 >
                   {day.state === 'today' ? (
-                    <>
-                      <span
-                        className="journey-breathe pointer-events-none absolute rounded-full"
-                        style={{
-                          inset: '-30%',
-                          background:
-                            'radial-gradient(circle, rgba(255,246,170,0.98) 0%, rgba(255,206,50,0.55) 42%, rgba(255,206,50,0) 72%)',
-                        }}
-                      />
-                      <span
-                        className="pointer-events-none absolute rounded-full border-4 border-[#ffe56a]"
-                        style={{ inset: '-12%', boxShadow: '0 0 0 6px rgba(255,214,60,0.55)' }}
-                      />
-                    </>
-                  ) : null}
-                  {day.state === 'today' && day.rate === 100 ? (
-                    <span className="journey-ring pointer-events-none absolute inset-[-4px] rounded-full border-[3px] border-dashed border-[#ffe08a]" />
-                  ) : null}
-                  <span className={`relative block h-full w-full ${day.state === 'today' ? 'journey-breathe' : ''}`}>
-                    <FruitGlyph
-                      color={day.starColor}
-                      kind={kind}
-                      cleared={day.rate === 100 && day.stars === 4}
+                    <span
+                      className="pointer-events-none absolute rounded-full border-4 border-[#ffe56a]"
+                      style={{ inset: '-8%', boxShadow: '0 0 0 6px rgba(255,214,60,0.45)' }}
                     />
-                  </span>
+                  ) : null}
                 </button>
-                {day.rate === 100 && showStars ? (
-                  <span className="absolute -right-2 top-0 rounded-full bg-[#ffe08a] px-1.5 py-0.5 text-[10px] font-bold text-[#7a4b00]">
-                    全清
-                  </span>
-                ) : null}
-              </div>
-              <div className={`journey-date pointer-events-none mx-auto mt-1 px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-60' : ''}`}>
-                {day.date.slice(5)}
-                {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
-              </div>
-              {month ? (
-                <div className="pointer-events-none mx-auto mt-1 w-max rounded bg-[#fff4d2] px-1.5 py-0.5 text-[10px] font-bold text-[#9a5b00]">
-                  {day.date.slice(5, 7) === '01' ? `${day.date.slice(0, 4)} · 1月` : `${Number(day.date.slice(5, 7))}月`}
+                <div className={`journey-date pointer-events-none absolute left-1/2 top-[78%] -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-70' : ''}`}>
+                  {day.date.slice(5)}
+                  {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
                 </div>
-              ) : null}
-              {phaseName ? (
-                <div className="pointer-events-none absolute top-8 w-[168px]" style={outward}>
-                  <img src={wood} alt="" draggable={false} className="w-full" />
-                  <div className="absolute inset-y-[16%] left-[26%] right-[6%] flex items-center justify-center text-center text-[12px] font-black leading-4 text-[#5a3412]">
-                    {phaseName}
-                  </div>
-                </div>
-              ) : null}
+              </div>
+            );
+          })}
+          {climber ? (
+            <div className="pointer-events-none absolute z-20" style={{ left: climber.x, top: climber.y, transform: 'translate(-50%, -110%)' }}>
+              <SproutAvatar size={compact ? 64 : 78} />
             </div>
-          );
-        })}
-        {climber ? (
-          <div className="pointer-events-none absolute z-20" style={{ left: climber.x, top: climber.y, transform: 'translate(-50%, -110%)' }}>
-            <SproutAvatar size={compact ? 64 : 78} />
-          </div>
-        ) : null}
+          ) : null}
         </div>
       </div>
       {showReturn ? (
-        <button
-          type="button"
-          onClick={jumpToday}
-          className="journey-chip fixed right-3 top-16 z-30 px-3 py-2 text-xs font-bold"
-        >
+        <button type="button" onClick={jumpToday} className="journey-chip fixed right-3 top-16 z-30 px-3 py-2 text-xs font-bold">
           回到今天
         </button>
       ) : null}
-      <span className="sr-only">视口 {viewport}px，已画 {visible.size} 个节点</span>
+      <span className="sr-only">
+        {goalName}，{phases.length} 个阶段，视口 {viewport}px，已画 {plateDays.filter((item) => item.day).length} 个节点
+      </span>
     </div>
   );
 }
