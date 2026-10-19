@@ -277,7 +277,11 @@ export default function VineMap({
           const phaseName = phaseStart.get(day.date);
           const towardCenter = point.x > width / 2 ? { right: '112%' } : { left: '112%' };
           return (
-            <div key={day.date} className="absolute" style={{ left: point.x, top: point.y, transform: 'translate(-50%, -50%)' }}>
+            <div
+              key={day.date}
+              className="absolute"
+              style={{ left: point.x, top: point.y, transform: 'translate(-50%, -50%)', zIndex: day.state === 'today' ? 5 : 1 }}
+            >
               <div className="relative flex items-center justify-center">
                 {showStars ? (
                   <div className="absolute bottom-[78%] left-1/2 -translate-x-1/2">
