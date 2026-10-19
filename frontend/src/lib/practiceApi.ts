@@ -64,6 +64,15 @@ export function generateReinforceRetest(
   });
 }
 
+export function generatePhaseQuiz(
+  phaseId: string,
+): Promise<{ status: string; questions: PracticeQuestion[] }> {
+  return apiRequest('/api/practice/phase-quiz', {
+    method: 'POST',
+    body: JSON.stringify({ phaseId }),
+  });
+}
+
 export function createPractice(input: {
   question: string;
   answer?: string;

@@ -22,6 +22,23 @@ export interface TopMistakeItem {
   count: number;
 }
 
+export interface StarDayItem {
+  date: string;
+  answered: number;
+  accuracy: number | null;
+  star: 'gold' | 'blue' | 'gray' | 'none';
+}
+
+export interface RoutePhaseItem {
+  phaseId: string;
+  name: string;
+  index: number;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  isCurrent: boolean;
+}
+
 export interface StatisticsOverview {
   status: string;
   /** 用户当前最新计划 id；无计划则为 null */
@@ -34,6 +51,11 @@ export interface StatisticsOverview {
   dailyActivity: DailyActivityItem[];
   masteryDistribution: MasteryDistribution;
   topMistakes: TopMistakeItem[];
+  stars: StarDayItem[];
+  route: RoutePhaseItem[];
+  overdueCount: number;
+  todayTasksDone: number;
+  todayTasksTotal: number;
 }
 
 export function fetchStatisticsOverview(): Promise<StatisticsOverview> {

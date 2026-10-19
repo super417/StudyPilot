@@ -22,12 +22,18 @@ import type { TabKey } from '@/components/TabNav';
 import type { ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { useAssistantStore, usePlanSessionStore } from '@/store';
 import { ApiError } from '@/lib/httpClient';
-import { createReinforcePreview } from '@/lib/plansApi';
-import { generateReinforceRetest, requestPracticeBoard } from '@/lib/practiceApi';
+import { createReinforcePreview, createRemedyPreview } from '@/lib/plansApi';
+import {
+  generatePhaseQuiz,
+  generateReinforceRetest,
+  requestPracticeBoard,
+} from '@/lib/practiceApi';
 import {
   fetchStatisticsOverview,
   type DailyActivityItem,
   type MasteryDistribution,
+  type RoutePhaseItem,
+  type StarDayItem,
   type StatisticsOverview,
   type TopMistakeItem,
 } from '@/lib/statisticsApi';
@@ -226,6 +232,214 @@ function AnimatedRing({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+const STAR_FILL: Record<StarDayItem['star'], string> = {
+  gold: '#F59E0B',
+  blue: '#3B82F6',
+  gray: '#94A3B8',
+  none: '#475569',
+};
+
+function StarFace({ star, size = 28 }: { star: StarDayItem['star']; size?: number }) {
+  const fill = STAR_FILL[star];
+  const cry = star === 'none';
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="14" fill={fill} opacity={cry ? 0.55 : 0.95} />
+      <circle cx="11" cy="13" r="1.6" fill="#fff" />
+      <circle cx="21" cy="13" r="1.6" fill="#fff" />
+      {cry ? (
+        <path d="M11 22c2-2 8-2 10 0" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      ) : (
+        <path d="M11 20c2 2.5 8 2.5 10 0" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+function StarMap({ items }: { items: StarDayItem[] }) {
+  const [tip, setTip] = useState<TipState>(null);
+  const hasData = items.some((d) => d.answered > 0);
+  if (!hasData) {
+    return <p className="py-10 text-center text-sm text-slate-400">近 30 天还没有掌握度证据</p>;
+  }
+
+  return (
+    <div className="relative w-full" onMouseLeave={() => setTip(null)}>
+      <ChartTooltip tip={tip} />
+      <div className="mx-auto grid max-w-xl grid-cols-10 gap-1.5">
+        {items.map((d) => {
+          const label = d.date.slice(5);
+          const text =
+            d.star === 'none'
+              ? `${label}：这天没有作答`
+              : `${label}：${d.answered} 道 · 正确率 ${d.accuracy}%`;
+          return (
+            <button
+              key={d.date}
+              type="button"
+              title={text}
+              className="flex items-center justify-center rounded-md p-0.5 hover:bg-slate-50"
+              onMouseEnter={(e) => {
+                const host = e.currentTarget.parentElement?.parentElement;
+                if (!host) return;
+                const box = host.getBoundingClientRect();
+                setTip({
+                  label,
+                  value: d.answered,
+                  percent: d.accuracy ?? 0,
+                  color: STAR_FILL[d.star],
+                  unitLabel: '道',
+                  text,
+                  x: e.clientX - box.left,
+                  y: e.clientY - box.top,
+                });
+              }}
+              onMouseMove={(e) => {
+                const host = e.currentTarget.parentElement?.parentElement;
+                if (!host) return;
+                const box = host.getBoundingClientRect();
+                setTip((prev) =>
+                  prev
+                    ? { ...prev, x: e.clientX - box.left, y: e.clientY - box.top }
+                    : prev,
+                );
+              }}
+            >
+              <StarFace star={d.star} size={28} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function buildFeedbackLines(data: StatisticsOverview): string[] {
+  const lines: string[] = [];
+  const done = data.todayTasksDone ?? 0;
+  const total = data.todayTasksTotal ?? 0;
+  if (total > 0) {
+    if (done === total) lines.push(`今天 ${total} 项任务全部完成`);
+    else lines.push(`今天已完成 ${done}/${total} 项任务`);
+  }
+
+  const withEvidence = (data.stars ?? []).filter((d) => d.accuracy != null);
+  if (withEvidence.length >= 3) {
+    const last3 = withEvidence.slice(-3);
+    const first = last3[0].accuracy as number;
+    const last = last3[last3.length - 1].accuracy as number;
+    if (first !== last) {
+      lines.push(`这三天正确率从 ${first}% 到 ${last}%`);
+    }
+  }
+
+  const finished = (data.route ?? []).filter((p) => p.progress === 100);
+  if (finished.length > 0) {
+    const names = finished.map((p) => p.name).join('、');
+    lines.push(`${names}已完成`);
+  }
+  return lines;
+}
+
+function RouteTrack({
+  items,
+  busyPhaseId,
+  onQuiz,
+  message,
+}: {
+  items: RoutePhaseItem[];
+  busyPhaseId: string | null;
+  onQuiz: (phaseId: string) => void;
+  message: string | null;
+}) {
+  if (items.length === 0) {
+    return <p className="py-10 text-center text-sm text-slate-400">还没有学习规划阶段</p>;
+  }
+  return (
+    <div className="space-y-3">
+      <ol className="flex flex-wrap gap-3">
+        {items.map((phase) => {
+          const done = phase.progress === 100;
+          const canQuiz = done;
+          return (
+            <li
+              key={phase.phaseId}
+              className={`min-w-[9.5rem] flex-1 rounded-xl border p-3 ${
+                phase.isCurrent
+                  ? 'border-blue-400 bg-blue-50'
+                  : done
+                    ? 'border-emerald-200 bg-emerald-50/60'
+                    : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-slate-800">
+                {phase.index}. {phase.name}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">进度 {phase.progress}%</p>
+              <button
+                type="button"
+                disabled={!canQuiz || busyPhaseId === phase.phaseId}
+                title={canQuiz ? '开始该阶段测验' : '该阶段完成后才能测验'}
+                onClick={() => onQuiz(phase.phaseId)}
+                className="mt-2 w-full rounded-lg bg-slate-800 px-2 py-1.5 text-xs text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {busyPhaseId === phase.phaseId ? '出题中…' : '开始测验'}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {message ? <p className="text-sm text-dangerText">{message}</p> : null}
+    </div>
+  );
+}
+
+function FeedbackAndRemedy({
+  data,
+  planId,
+  onRemedy,
+  remedyBusy,
+  remedyMsg,
+}: {
+  data: StatisticsOverview;
+  planId: string | null;
+  onRemedy: () => void;
+  remedyBusy: boolean;
+  remedyMsg: string | null;
+}) {
+  const lines = buildFeedbackLines(data);
+  const overdue = data.overdueCount ?? 0;
+  return (
+    <div className="space-y-4">
+      {lines.length > 0 ? (
+        <ul className="space-y-1.5 text-sm text-slate-700">
+          {lines.map((line) => (
+            <li key={line}>· {line}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-slate-400">暂无可用的正反馈（需要真实完成或掌握度证据）</p>
+      )}
+      {overdue > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p>
+            你有 {overdue} 项任务未完成，建议顺延到明天，确认后即可生效
+          </p>
+          <button
+            type="button"
+            disabled={!planId || remedyBusy}
+            onClick={onRemedy}
+            className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+          >
+            {remedyBusy ? '生成预览中…' : '生成顺延预览'}
+          </button>
+          {remedyMsg ? <p className="mt-2 text-xs">{remedyMsg}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -432,6 +646,10 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
   const [reinforceMsg, setReinforceMsg] = useState<string | null>(null);
   const [reinforceBusy, setReinforceBusy] = useState(false);
   const [retestBusyPhaseId, setRetestBusyPhaseId] = useState<string | null>(null);
+  const [quizBusyPhaseId, setQuizBusyPhaseId] = useState<string | null>(null);
+  const [quizMsg, setQuizMsg] = useState<string | null>(null);
+  const [remedyBusy, setRemedyBusy] = useState(false);
+  const [remedyMsg, setRemedyMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -540,6 +758,44 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       setReinforceMsg(e instanceof ApiError ? e.message : '重测出题失败');
     } finally {
       setRetestBusyPhaseId(null);
+    }
+  };
+
+  const handlePhaseQuiz = async (phaseId: string) => {
+    if (!phaseId || quizBusyPhaseId) return;
+    setQuizBusyPhaseId(phaseId);
+    setQuizMsg(null);
+    try {
+      const res = await generatePhaseQuiz(phaseId);
+      const count = res.questions?.length ?? 0;
+      if (count > 0) {
+        requestPracticeBoard('today');
+        onNavigate?.('mistakes');
+        setQuizMsg(`已生成 ${count} 道阶段测验题，请到习题本「今日练习」作答`);
+      } else {
+        setQuizMsg('没有生成测验题（可能缺少可检索资料）');
+      }
+    } catch (e) {
+      setQuizMsg(e instanceof ApiError ? e.message : '阶段测验出题失败');
+    } finally {
+      setQuizBusyPhaseId(null);
+    }
+  };
+
+  const handleRemedyPreview = async () => {
+    if (!planId || remedyBusy) return;
+    setRemedyBusy(true);
+    setRemedyMsg(null);
+    try {
+      const preview = await createRemedyPreview(planId);
+      if (planId !== 'derived-latest') setActivePlanId(planId);
+      setPendingAdjustment(preview);
+      openAssistantWithContext({ type: 'free', hint: '查看顺延预览' });
+      setRemedyMsg('已生成顺延预览，确认前不会改正式计划');
+    } catch (e) {
+      setRemedyMsg(e instanceof ApiError ? e.message : '没有可安排的待补任务');
+    } finally {
+      setRemedyBusy(false);
     }
   };
 
@@ -678,6 +934,36 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         <article className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-4 text-base font-semibold text-slate-800">高频错题 TOP5</h2>
           <TopMistakesList items={data?.topMistakes ?? []} />
+        </article>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6">
+        <article className="rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-base font-semibold text-slate-800">近 30 日星图</h2>
+          <StarMap items={data?.stars ?? []} />
+        </article>
+        <article className="rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-base font-semibold text-slate-800">学习航线</h2>
+          <RouteTrack
+            items={data?.route ?? []}
+            busyPhaseId={quizBusyPhaseId}
+            onQuiz={(id) => void handlePhaseQuiz(id)}
+            message={quizMsg}
+          />
+        </article>
+        <article className="rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-base font-semibold text-slate-800">正反馈与顺延</h2>
+          {data ? (
+            <FeedbackAndRemedy
+              data={data}
+              planId={planId}
+              onRemedy={() => void handleRemedyPreview()}
+              remedyBusy={remedyBusy}
+              remedyMsg={remedyMsg}
+            />
+          ) : (
+            <p className="py-6 text-center text-sm text-slate-400">加载统计后显示</p>
+          )}
         </article>
       </div>
 
