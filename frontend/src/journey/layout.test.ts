@@ -29,6 +29,8 @@ describe('journey layout', () => {
     expect(new Set(points.map((point) => point.date)).size).toBe(dates.length);
     expect(points[0].y).toBeGreaterThan(points[points.length - 1].y);
     expect(points[1].x).not.toBe(points[0].x);
+    expect(Math.abs(points[0].x - 400)).toBeLessThan(180);
+    expect(Math.sign(points[0].x - 400)).not.toBe(Math.sign(points[1].x - 400));
   });
 
   it('builds a cubic path from the node coordinates', () => {

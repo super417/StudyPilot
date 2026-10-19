@@ -22,15 +22,25 @@ export function isCompactViewport(width: number, height: number): boolean {
   return width < 900 || height < 640;
 }
 
+/** 豆藤柱的中轴。只轻轻拧动，避免整条藤甩成宽 S。 */
+export function columnCenterX(index: number, width: number, compact: boolean): number {
+  const sway = width * (compact ? 0.04 : 0.045);
+  return width / 2 + sway * Math.sin((index * Math.PI) / 4.2);
+}
+
+/** 柱体半径。日期节点贴在这个半径附近的藤面上。 */
+export function columnRadius(width: number, compact: boolean): number {
+  return width * (compact ? 0.2 : 0.16);
+}
+
 export function layoutDays(dates: string[], width: number, compact: boolean): NodePoint[] {
   const step = compact ? MOBILE_STEP : DESKTOP_STEP;
-  const amp = width * (compact ? MOBILE_AMP : DESKTOP_AMP);
-  const center = width / 2;
+  const radius = columnRadius(width, compact);
   const count = dates.length;
   return dates.map((date, index) => ({
     date,
     index,
-    x: center + amp * Math.sin((index * Math.PI) / 3.5),
+    x: columnCenterX(index, width, compact) + (index % 2 === 0 ? -1 : 1) * radius * 0.86,
     y: PAD_TOP + (count - 1 - index) * step,
   }));
 }
