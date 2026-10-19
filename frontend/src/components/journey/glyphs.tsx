@@ -52,7 +52,7 @@ export function FruitGlyph({
   cleared: boolean;
 }) {
   const stops = FRUIT_STOPS[color ?? 'gray'];
-  const gid = useId();
+  const gid = useId().replace(/:/g, '');
   if (kind === 'bud') {
     return (
       <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
@@ -131,7 +131,7 @@ export function StarCrown({
 }) {
   const stops = FRUIT_STOPS[color ?? 'gray'];
   const scale = compact ? 0.78 : 1;
-  const gid = useId();
+  const gid = useId().replace(/:/g, '');
   return (
     <svg width={84 * scale} height={32 * scale} viewBox="0 0 84 32" aria-hidden="true">
       <defs>

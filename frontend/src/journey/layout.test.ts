@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { climbSpan, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
 import type { JourneyDay } from './types';
 
 function day(partial: Partial<JourneyDay> & Pick<JourneyDay, 'date'>): JourneyDay {
@@ -57,6 +57,12 @@ describe('journey layout', () => {
   it('shows at most one tag, boss first', () => {
     expect(primaryTag(['carried', 'boss', 'reinforce'])).toBe('boss');
     expect(primaryTag(['carried'])).toBe('carried');
+  });
+
+  it('climbs at most ten nodes from the root', () => {
+    expect(climbSpan(0)).toBeNull();
+    expect(climbSpan(10)).toEqual({ start: 0, end: 10 });
+    expect(climbSpan(11)).toBeNull();
   });
 
   it('keeps a one-screen buffer around the viewport', () => {

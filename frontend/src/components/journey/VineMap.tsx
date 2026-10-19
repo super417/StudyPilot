@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { FruitGlyph, LeafMark, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
+  climbSpan,
   contentHeight,
   layoutDays,
   primaryTag,
@@ -26,6 +27,7 @@ export interface VineMapProps {
   onBoss: (day: JourneyDay) => void;
   onNeed?: (date: string) => void;
   onBlank?: () => void;
+  climb?: boolean;
 }
 
 function curvePoint(from: { x: number; y: number }, to: { x: number; y: number }, t: number) {
@@ -58,7 +60,7 @@ function VineStrand({
   width: number;
   compact: boolean;
 }) {
-  const gid = useId();
+  const gid = useId().replace(/:/g, '');
   const main = vinePath(points);
   const wrap = vinePath(side);
   const y0 = Math.min(points[0].y, points[points.length - 1].y) - 48;
@@ -80,12 +82,14 @@ function VineStrand({
   );
 }
 
-export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed, onBlank }: VineMapProps) {
+export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed, onBlank, climb = false }: VineMapProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [viewport, setViewport] = useState(640);
   const [scrollTop, setScrollTop] = useState<number | null>(null);
   const [showReturn, setShowReturn] = useState(false);
+  const [climber, setClimber] = useState<{ x: number; y: number } | null>(null);
+  const pathRef = useRef<SVGPathElement>(null);
   const positioned = useRef(false);
 
   useEffect(() => {
@@ -106,6 +110,8 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
   const height = contentHeight(days.length, compact);
   const phaseStart = useMemo(() => new Map(phases.map((phase) => [phase.startDate, phase.name])), [phases]);
   const todayIndex = days.findIndex((day) => day.date === today);
+  const span = climbSpan(todayIndex);
+  const climbPath = span ? vinePath(points.slice(span.start, span.end + 1)) : '';
   const anchor = scrollTop ?? Math.max(0, (points[todayIndex]?.y ?? 0) - viewport * 0.6);
   const visible = useMemo(
     () => new Set(visibleIndices(points.map((point) => point.y), anchor, viewport)),
@@ -118,6 +124,25 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
     }
     return chunks.filter((chunk) => chunk.some((point) => visible.has(point.index)));
   }, [points, visible]);
+
+  useEffect(() => {
+    const path = pathRef.current;
+    if (!climb || !path || !climbPath) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const length = path.getTotalLength();
+    if (length <= 0) return undefined;
+    let frame = 0;
+    const started = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / 1100);
+      const point = path.getPointAtLength(length * t);
+      setClimber({ x: point.x, y: point.y });
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else setClimber(null);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [climb, climbPath]);
 
   useEffect(() => {
     const node = scroller.current;
@@ -168,6 +193,9 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
           <path d={`M0 150 L${width * 0.18} 92 L${width * 0.34} 140 L${width * 0.52} 70 L${width * 0.7} 138 L${width * 0.86} 96 L${width} 150 V220 H0 Z`} fill="#8ea4c8" opacity="0.55" />
           <path d={`M0 176 L${width * 0.22} 120 L${width * 0.4} 168 L${width * 0.58} 108 L${width * 0.78} 164 L${width} 124 V220 H0 Z`} fill="#6e8cb4" opacity="0.72" />
           <circle cx={width * 0.78} cy="36" r="10" fill="#f7f3d2" />
+        </svg>
+        <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
+          <path ref={pathRef} d={climbPath} />
         </svg>
         {segments.map((chunk) => (
           <VineStrand
@@ -255,7 +283,7 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
                       onBlank?.();
                     }}
                   >
-                    <SproutAvatar size={compact ? 46 : 54} />
+                    {climber ? null : <SproutAvatar size={compact ? 46 : 54} />}
                   </button>
                 ) : null}
                 {tag ? (
@@ -323,6 +351,11 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
             </div>
           );
         })}
+        {climber ? (
+          <div className="pointer-events-none absolute z-20" style={{ left: climber.x, top: climber.y, transform: 'translate(-50%, -110%)' }}>
+            <SproutAvatar size={compact ? 46 : 54} />
+          </div>
+        ) : null}
       </div>
       {showReturn ? (
         <button

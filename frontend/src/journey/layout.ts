@@ -124,6 +124,12 @@ export function scrollTopForToday(todayY: number, viewport: number, maxScroll: n
   return Math.min(maxScroll, Math.max(0, todayY - viewport * 0.6));
 }
 
+/** 从藤根爬到今天。超过 10 节就不爬，直接落在今天。 */
+export function climbSpan(todayIndex: number): { start: number; end: number } | null {
+  if (todayIndex <= 0 || todayIndex > 10) return null;
+  return { start: 0, end: todayIndex };
+}
+
 /** 视口上下各多留一屏。 */
 export function visibleIndices(ys: number[], scrollTop: number, viewport: number): number[] {
   const min = scrollTop - viewport;

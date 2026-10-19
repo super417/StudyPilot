@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { EntranceTree, type EntranceFruit } from '@/components/journey/EntranceTree';
 import { CheerCard, DayDrawer } from '@/components/journey/Feedback';
 import VineMap from '@/components/journey/VineMap';
 import '@/components/journey/journey.css';
@@ -42,6 +43,11 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const [tasks, setTasks] = useState<JourneyTask[]>([]);
   const [cheer, setCheer] = useState<CheerResponse | null>(null);
   const [dayCheer, setDayCheer] = useState<CheerResponse | null>(null);
+  const [scene, setScene] = useState<'entrance' | 'leaving' | 'map'>('entrance');
+  const [climb, setClimb] = useState(false);
+  const leaveTimer = useRef(0);
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   useEffect(() => {
     const onResize = () => setBox({ w: window.innerWidth, h: window.innerHeight });
@@ -117,7 +123,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   );
 
   useEffect(() => {
-    if (!data?.plan || armed.current) return undefined;
+    if (scene !== 'map' || !data?.plan || armed.current) return undefined;
     armed.current = true;
     const today = data.today;
     const stars = data.days.find((day) => day.date === today)?.stars;
@@ -138,7 +144,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       void showWeek(usedCheerRules(today));
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [data, showWeek]);
+  }, [data, scene, showWeek]);
 
   useEffect(() => {
     if (!data || !cheer || cheerSource.current !== 'auto') return;
@@ -173,6 +179,34 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
     };
   }, [data, demo, selected]);
 
+  const reducedMotion = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  const entranceFruits = useMemo<EntranceFruit[]>(() => {
+    if (!data) return [];
+    return days
+      .filter((day) => day.date <= data.today && day.loaded !== false)
+      .slice(-7)
+      .map((day) => ({
+        date: day.date,
+        color: day.starColor,
+        kind: day.total > 0 && day.state !== 'empty' ? 'fruit' : 'sprout',
+        cleared: day.rate === 100 && day.stars === 4,
+      }));
+  }, [data, days]);
+
+  const begin = () => {
+    if (scene !== 'entrance') return;
+    if (!data) return;
+    if (!data.plan || error) {
+      setScene('map');
+      return;
+    }
+    setScene('leaving');
+    leaveTimer.current = window.setTimeout(() => {
+      setScene('map');
+      setClimb(true);
+    }, reducedMotion ? 180 : 900);
+  };
+
   const onBlank = () => {
     if (!data) return;
     const now = Date.now();
@@ -192,7 +226,9 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   };
 
   return (
-    <div className="journey-root relative h-[100dvh] overflow-hidden" data-scene="map">
+    <div className="journey-root relative h-[100dvh] overflow-hidden" data-scene={scene === 'map' ? 'map' : 'entrance'}>
+      {scene !== 'entrance' ? (
+        <>
       <div className="journey-sky-clouds pointer-events-none absolute inset-0" />
       {error ? (
         <div className="grid h-full place-items-center p-6 text-center">
@@ -229,8 +265,10 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           onBoss={openPractice}
           onNeed={loadAround}
           onBlank={onBlank}
+          climb={climb}
         />
       )}
+      {scene === 'map' ? (
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto journey-chip max-w-[60%] px-3 py-2 text-xs font-bold leading-5">
           <div className="truncate">{data?.plan?.goalName ?? '星藤航图'}</div>
@@ -275,6 +313,21 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           }}
           onPractice={openPractice}
           onRoadmap={openRoadmap}
+        />
+      ) : null}
+      ) : null}
+      </>
+      ) : null}
+      {scene !== 'map' ? (
+        <EntranceTree
+          streakDays={data?.summary.streakDays ?? null}
+          weekStars={data?.summary.weekStars ?? null}
+          fruits={entranceFruits}
+          compact={compact}
+          leaving={scene === 'leaving'}
+          reducedMotion={reducedMotion}
+          onStart={begin}
+          onBack={onBack}
         />
       ) : null}
     </div>
