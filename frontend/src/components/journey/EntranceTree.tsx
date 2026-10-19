@@ -238,14 +238,19 @@ export function EntranceTree({
                 </span>
               );
             })}
-            <div className="journey-sign absolute bottom-[16%] left-1/2 w-max -translate-x-1/2 px-3 py-1.5 text-center text-xs font-black leading-5">
-              {sign}
-            </div>
+            {compact ? null : (
+              <div className="journey-sign absolute bottom-[18%] left-1/2 w-max -translate-x-1/2 px-3 py-1.5 text-center text-xs font-black leading-5">
+                {sign}
+              </div>
+            )}
           </span>
         </button>
       </div>
       <div className="journey-ripple" />
-      <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute inset-x-0 bottom-3 z-20 flex items-end justify-center gap-3 px-3 pb-[env(safe-area-inset-bottom)]">
+        {compact ? (
+          <div className="journey-sign px-3 py-1.5 text-center text-xs font-black leading-5">{sign}</div>
+        ) : null}
         <button type="button" className="journey-cta px-6 py-3 text-base font-black" onClick={onStart}>
           点击大树 开始今日航线
         </button>
