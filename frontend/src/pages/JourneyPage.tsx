@@ -273,26 +273,16 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       )}
       {scene === 'map' ? (
       <>
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
-        <div className="pointer-events-auto journey-chip max-w-[60%] px-3 py-2 text-xs font-bold leading-5">
-          <div className="truncate">{data?.plan?.goalName ?? '星藤航图'}</div>
-          {data?.plan ? <div>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</div> : null}
-          {compact && data?.summary ? (
-            <div>
-              本周 {data.summary.weekStars} ★ · 连续 {data.summary.streakDays} 天
-            </div>
-          ) : null}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center p-3">
+        <div className="journey-status pointer-events-auto px-4 py-2 text-xs font-black text-[#14532d]">
+          <span className="max-w-[9rem] truncate">{data?.plan?.goalName ?? '星藤航图'}</span>
+          {data?.plan ? <span>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</span> : null}
+          {data?.summary ? <span>本周 {data.summary.weekStars} ★</span> : null}
+          {data?.summary ? <span>连续 {data.summary.streakDays} 天</span> : null}
         </div>
-        <div className="pointer-events-auto flex items-center gap-2">
-          {data?.summary && !compact ? (
-            <div className="journey-chip px-3 py-2 text-xs font-bold">
-              本周 {data.summary.weekStars} ★ · 连续 {data.summary.streakDays} 天
-            </div>
-          ) : null}
-          <button type="button" className="journey-chip px-3 py-2 text-xs font-bold" onClick={onBack}>
-            返回
-          </button>
-        </div>
+        <button type="button" className="journey-chip pointer-events-auto absolute right-3 top-3 px-3 py-2 text-xs font-bold" onClick={onBack}>
+          返回
+        </button>
       </header>
       {data?.plan ? (
         <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">

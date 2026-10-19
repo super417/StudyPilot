@@ -363,7 +363,7 @@ export default function VineMap({
               ) : null}
               {phaseName ? (
                 <div
-                  className="absolute top-8 w-max max-w-[140px] rounded-md bg-[#f0d7a2] px-2 py-1 text-[11px] font-bold text-[#6b3e12] shadow"
+                  className="journey-wood absolute top-8 w-max max-w-[150px] px-2 py-1 text-[11px] font-bold"
                   style={towardCenter}
                 >
                   {phaseName}
