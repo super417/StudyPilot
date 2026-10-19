@@ -107,7 +107,7 @@ export function EntranceTree({
       <button type="button" className="journey-chip absolute left-3 top-3 z-20 px-3 py-2 text-xs font-bold" onClick={onBack}>
         返回
       </button>
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center px-16">
         <div className="journey-plaque px-5 py-2 text-lg font-black">星藤航图</div>
       </div>
       <div
@@ -116,7 +116,7 @@ export function EntranceTree({
       >
         <button
           type="button"
-          className="journey-tree-hover absolute left-1/2 top-1/2 h-[min(62dvh,560px)] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2"
+          className={`journey-tree-hover absolute left-1/2 top-[46%] -translate-x-1/2 -translate-y-1/2 ${compact ? 'h-[min(46dvh,380px)] w-[min(72vw,320px)]' : 'h-[min(62dvh,560px)] w-[min(46vw,460px)]'}`}
           onClick={onStart}
           aria-label="点击大树 开始今日航线"
         >
@@ -155,13 +155,21 @@ export function EntranceTree({
             })}
           </span>
         </button>
-        <div className="journey-sign absolute bottom-2 left-[8%] px-3 py-2 text-sm font-bold leading-6">
-          <div>{streakDays === null ? '连续打卡 —' : `连续打卡 ${streakDays} 天`}</div>
-          <div>{weekStars === null ? '本周 — ★' : `本周 ${weekStars} ★`}</div>
-        </div>
+        {compact ? null : (
+          <div className="journey-sign absolute bottom-4 left-[6%] px-3 py-2 text-sm font-bold leading-6">
+            <div>{streakDays === null ? '连续打卡 —' : `连续打卡 ${streakDays} 天`}</div>
+            <div>{weekStars === null ? '本周 — ★' : `本周 ${weekStars} ★`}</div>
+          </div>
+        )}
       </div>
       <div className="journey-ripple" />
-      <div className="absolute inset-x-0 bottom-4 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute inset-x-0 bottom-3 z-20 flex items-end justify-center gap-3 px-3 pb-[env(safe-area-inset-bottom)]">
+        {compact ? (
+          <div className="journey-sign px-3 py-2 text-xs font-bold leading-5">
+            <div>{streakDays === null ? '连续打卡 —' : `连续打卡 ${streakDays} 天`}</div>
+            <div>{weekStars === null ? '本周 — ★' : `本周 ${weekStars} ★`}</div>
+          </div>
+        ) : null}
         <button type="button" className="journey-pill px-5 py-3 text-base font-black" onClick={onStart}>
           点击大树 开始今日航线
         </button>
