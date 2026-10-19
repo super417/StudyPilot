@@ -10,6 +10,7 @@ export interface PlanGoalFields {
   completionCriterion?: string;
   documentIds?: string[];
   reasoningStrength?: string;
+  directionId?: string;
   message?: string;
 }
 

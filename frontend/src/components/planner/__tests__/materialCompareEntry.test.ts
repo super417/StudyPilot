@@ -76,6 +76,8 @@ describe('GoalSubmitForm material compare', () => {
             '学过矩阵',
             '45',
             '能独立证明秩不等式',
+            '',
+            [],
             null,
             'https://example.com/course',
             comparison,
@@ -88,7 +90,7 @@ describe('GoalSubmitForm material compare', () => {
           (next: unknown) => {
             const value = typeof next === 'function' ? (next as (prev: unknown) => unknown)(boxes[current]) : next;
             boxes[current] = value;
-            if (current === 7 && value === null) calls.cleared += 1;
+            if (current === 9 && value === null) calls.cleared += 1;
           },
         ];
       },
@@ -97,7 +99,10 @@ describe('GoalSubmitForm material compare', () => {
     const mocks: Record<string, string> = {
       react: `
         export const useState=(initial)=>globalThis.__materialForm.useState(initial);
-        export const useRef=(initial)=>({current:initial});`,
+        export const useRef=(initial)=>({current:initial});
+        export const useEffect=()=>{};`,
+      '@/lib/directionsApi': `
+        export const fetchDirections=()=>Promise.resolve({status:'ok',directions:[]});`,
       '@/store': `
         export const useAssistantStore=selector=>selector({
           addMessage(){}, appendStreamChunk(){}, setStreaming(){}, stopStreaming(){}, streaming:false

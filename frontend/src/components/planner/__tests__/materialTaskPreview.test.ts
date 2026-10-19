@@ -66,7 +66,10 @@ describe('GoalSubmitForm material task preview', () => {
     const mocks: Record<string, string> = {
       react: `
         export const useState=(value)=>globalThis.__materialTask.useState(value);
-        export const useRef=(value)=>globalThis.__materialTask.useRef(value);`,
+        export const useRef=(value)=>globalThis.__materialTask.useRef(value);
+        export const useEffect=()=>{};`,
+      '@/lib/directionsApi': `
+        export const fetchDirections=()=>Promise.resolve({status:'ok',directions:[]});`,
       '@/store': `
         export const useAssistantStore=selector=>selector({
           addMessage(){}, appendStreamChunk(){}, setStreaming(){}, stopStreaming(){}, streaming:false

@@ -34,7 +34,13 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
 from app.models.entities import DailyTask, Phase, Plan, PlanRevision
-from app.services import document_service, evidence_time, resource_links, task_service
+from app.services import (
+    direction_service,
+    document_service,
+    evidence_time,
+    resource_links,
+    task_service,
+)
 from app.services.ai_proxy import (
     CredentialUnavailableError,
     build_outbound_headers,
@@ -486,11 +492,63 @@ description 必须具体到可执行：写清「学科 + 章节/范围 + 动作 
 没有上传资料时用公开课纲或常见目录，不要编造页码。
 resource_url 是可选字段：只有确定是真实存在的公开平台地址时才填，且主机必须是下列之一：
 bilibili.com、icourse163.org、xuetangx.com、zhihuishu.com、chaoxing.com、open.163.com、
-coursera.org、zhihu.com、kaoyan.com、kaoyan365.cn、exam8.com、koolearn.com、chsi.com.cn，
+coursera.org、zhihu.com、kaoyan.com、kaoyan365.cn、exam8.com、koolearn.com、chsi.com.cn、
+smartedu.cn、rymooc.com，
 或高校/科研机构域名（edu.cn、ac.cn、mit.edu）。不确定具体课程页时填平台首页；拿不准就省略该
 字段或留空字符串——不要编造链接地址。后端会丢弃不在名单内的链接，编造没有收益。
+若本次另有一条「平台课程库候选」消息，则 resource_url 只能从该消息给出的 url 中原样选择，不得填平台首页。
 用户问「推荐课程 / 找资料 / 学习网站」时，在 description 里写清推荐的教材、课程名或平台名，
 resource_url 填对应平台地址即可，不要因为「没有上传资料」而拒绝规划。"""
+
+
+def _direction_id_from_fields(fields: dict[str, object]) -> str | None:
+    raw = fields.get("directionId")
+    if raw is None:
+        raw = fields.get("direction_id")
+    text = str(raw).strip() if raw is not None else ""
+    return text or None
+
+
+def _course_catalog_message(candidates: list[dict]) -> str:
+    """Separate user message: platform courses, never mixed into retrieval text."""
+    lines = [
+        "以下是平台课程库候选（与资料摘录无关）。"
+        "若填写 daily_tasks.resource_url，必须从下列 url 中原样复制其一；"
+        "禁止自造链接，拿不准就省略 resource_url。",
+    ]
+    for item in candidates:
+        lines.append(
+            f"- course_id={item.get('courseId', '')} | "
+            f"name={item.get('name', '')} | "
+            f"url={item.get('url', '')}"
+        )
+    return "\n".join(lines)
+
+
+def _resolve_task_resource_url(
+    raw: object, allowed_course_urls: frozenset[str] | None
+) -> str | None:
+    """Sanitize, then optionally require membership in this run's course set.
+
+    ``None`` means no direction was selected (sanitize-only). An empty frozenset
+    means a direction was selected but has no verified courses — drop every URL.
+    """
+    url = resource_links.sanitize_resource_url(raw)
+    if url is None:
+        return None
+    if allowed_course_urls is not None and url not in allowed_course_urls:
+        return None
+    return url
+
+
+def _allowed_course_urls_for_fields(
+    fields: dict[str, object],
+) -> frozenset[str] | None:
+    """``None`` when no direction; otherwise the candidate set (may be empty)."""
+    direction_id = _direction_id_from_fields(fields)
+    if not direction_id:
+        return None
+    return direction_service.allowed_course_urls(direction_id)
 
 
 def _build_plan_user_prompt(
@@ -499,6 +557,7 @@ def _build_plan_user_prompt(
     context_text: str,
     instruction: str,
 ) -> str:
+    """Goal + retrieval excerpt only. Course catalog is a separate message."""
     parts = [
         "请根据以下学习目标生成规划 JSON：",
         f"- 学习内容：{fields.get('goalName')}",
@@ -647,18 +706,28 @@ async def _generate_structure_via_ai_proxy(
     except Exception as error:
         raise PlanGenerationError() from error
 
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": _PLAN_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": _build_plan_user_prompt(
+                fields, used_docs, context_text, instruction
+            ),
+        },
+    ]
+    # Course catalog is a separate message — never spliced into context_text.
+    candidates = direction_service.verified_course_candidates(
+        _direction_id_from_fields(fields)
+    )
+    if candidates:
+        messages.append(
+            {"role": "user", "content": _course_catalog_message(candidates)}
+        )
+
     payload = {
         "model": credential.model_type,
         "stream": False,
-        "messages": [
-            {"role": "system", "content": _PLAN_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": _build_plan_user_prompt(
-                    fields, used_docs, context_text, instruction
-                ),
-            },
-        ],
+        "messages": messages,
     }
     strength = fields.get("reasoningStrength") or fields.get("reasoning_strength")
     apply_reasoning_strength(payload, str(strength) if strength is not None else "standard")
@@ -906,6 +975,7 @@ def _write_plan_structure(
     reason: str | None = None,
     *,
     exact: bool = False,
+    allowed_course_urls: frozenset[str] | None = None,
 ) -> None:
     """Replace replaceable phases and daily tasks with ``phases_data``.
 
@@ -984,8 +1054,8 @@ def _write_plan_structure(
             if isinstance(task_data, dict):
                 description = str(task_data.get("description", ""))
                 week_label = str(task_data.get("week_label", ""))
-                resource_url = resource_links.sanitize_resource_url(
-                    task_data.get("resource_url")
+                resource_url = _resolve_task_resource_url(
+                    task_data.get("resource_url"), allowed_course_urls
                 )
                 if "estimated_minutes" in task_data or "estimatedMinutes" in task_data:
                     estimated_minutes = evidence_time.parse_estimated_minutes(
@@ -1084,7 +1154,14 @@ def _persist_plan(
     session.add(plan)
     session.flush()  # assign plan.id before wiring phases/tasks
 
-    _write_plan_structure(session, plan, phases_data, today, reason=None)
+    _write_plan_structure(
+        session,
+        plan,
+        phases_data,
+        today,
+        reason=None,
+        allowed_course_urls=_allowed_course_urls_for_fields(fields),
+    )
 
     try:
         session.commit()
@@ -1283,7 +1360,14 @@ async def regenerate_plan(
         plan.completion_criterion = str(supplied).strip() if isinstance(supplied, str) else None
     session.flush()
 
-    _write_plan_structure(session, plan, phases_data, today, reason="regenerate")
+    _write_plan_structure(
+        session,
+        plan,
+        phases_data,
+        today,
+        reason="regenerate",
+        allowed_course_urls=_allowed_course_urls_for_fields(fields),
+    )
 
     try:
         session.commit()

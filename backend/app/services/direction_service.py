@@ -194,3 +194,47 @@ def compute_skill_gap(
 
 def skill_gap(direction_id: str, known_raw: str | None) -> dict[str, Any]:
     return compute_skill_gap(direction_id, parse_known(known_raw))
+
+
+def verified_course_candidates(
+    direction_id: str | None,
+    courses_data: dict | None = None,
+) -> list[dict[str, Any]]:
+    """Return ``{courseId, name, url}`` for ``url_verified is True`` courses.
+
+    Unknown or empty ``direction_id`` yields an empty list (plan generation
+    continues without course anchoring). Never invents URLs.
+    """
+    if not direction_id or not str(direction_id).strip():
+        return []
+    courses_data = courses_data if courses_data is not None else load_courses()
+    try:
+        course_dir = _course_direction(courses_data, str(direction_id).strip())
+    except DirectionNotFoundError:
+        return []
+    out: list[dict[str, Any]] = []
+    for course in course_dir.get("courses") or []:
+        if course.get("url_verified") is not True:
+            continue
+        url = str(course.get("url") or "").strip()
+        if not url:
+            continue
+        out.append(
+            {
+                "courseId": course.get("course_id", ""),
+                "name": course.get("name", ""),
+                "url": url,
+            }
+        )
+    return out
+
+
+def allowed_course_urls(
+    direction_id: str | None,
+    courses_data: dict | None = None,
+) -> frozenset[str]:
+    return frozenset(
+        item["url"]
+        for item in verified_course_candidates(direction_id, courses_data)
+        if item.get("url")
+    )

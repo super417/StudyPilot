@@ -20,6 +20,8 @@ describe('GoalSubmitForm preview', () => {
           '学过矩阵',
           '45',
           '能独立证明秩不等式',
+          '',
+          [],
           null,
         ];
         const value = review.index < values.length ? values[review.index] : initial;
@@ -70,7 +72,10 @@ describe('GoalSubmitForm preview', () => {
     const mocks: Record<string, string> = {
       react: `
         export const useState=(initial)=>globalThis.__goalFormPreview.useState(initial);
-        export const useRef=(initial)=>({current:initial});`,
+        export const useRef=(initial)=>({current:initial});
+        export const useEffect=()=>{};`,
+      '@/lib/directionsApi': `
+        export const fetchDirections=()=>Promise.resolve({status:'ok',directions:[]});`,
       '@/store': `
         export const useAssistantStore=selector=>selector(globalThis.__goalFormPreview.assistant);
         useAssistantStore.getState=()=>globalThis.__goalFormPreview.assistant;`,

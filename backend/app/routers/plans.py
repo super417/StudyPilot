@@ -119,6 +119,7 @@ class GeneratePayload(BaseModel):
     completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
+    direction_id: str | None = None
 
 
 class ClarifyPayload(BaseModel):
@@ -133,6 +134,7 @@ class ClarifyPayload(BaseModel):
     completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
+    direction_id: str | None = None
     message: str | None = None
 
 
@@ -154,6 +156,7 @@ class RegeneratePayload(BaseModel):
     completion_criterion: str | None = None
     document_ids: list[str] | None = None
     reasoning_strength: str | None = None
+    direction_id: str | None = None
 
 
 class ConfirmAdjustmentPayload(BaseModel):
@@ -303,6 +306,8 @@ def _fields_from(
     }
     if payload.reasoning_strength:
         fields["reasoningStrength"] = payload.reasoning_strength
+    if payload.direction_id:
+        fields["directionId"] = payload.direction_id
     return fields
 
 

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import DocumentPicker from './DocumentPicker';
 import { useDocumentsStore } from '@/store/documentsStore';
@@ -13,6 +13,7 @@ import {
 import { ApiError } from '@/lib/httpClient';
 import { validateGoalDraft } from '@/lib/goalDraft';
 import { resolvePlanTargetId } from '@/lib/planTarget';
+import { fetchDirections, type DirectionSummary } from '@/lib/directionsApi';
 import type { MaterialComparisonResponse, MaterialTaskPreviewResponse } from '@/lib/materialsApi';
 
 export interface PlanGeneratePayload {
@@ -22,6 +23,7 @@ export interface PlanGeneratePayload {
   dailyMinutes: number;
   completionCriterion: string;
   documentIds: string[];
+  directionId?: string;
 }
 
 export interface GoalSubmitFormProps {
@@ -55,6 +57,8 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
   const [currentLevel, setCurrentLevel] = useState('');
   const [dailyMinutes, setDailyMinutes] = useState('120');
   const [completionCriterion, setCompletionCriterion] = useState('');
+  const [directionId, setDirectionId] = useState('');
+  const [directions, setDirections] = useState<DirectionSummary[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [materialLink, setMaterialLink] = useState('');
   const [materialComparison, setMaterialComparison] = useState<MaterialComparisonResponse | null>(null);
@@ -83,6 +87,23 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     }
   }
   planSeen.current = currentPlanId;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDirections()
+      .then((res) => {
+        if (!cancelled) setDirections(res.directions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setDirections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedDirection =
+    directions.find((item) => item.id === directionId) ?? null;
 
   const pushAssistant = (content: string) => {
     addMessage({
@@ -282,6 +303,7 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
     const payload: PlanGeneratePayload = {
       ...checked.value,
       documentIds: getSelectedDocumentIds(),
+      ...(directionId ? { directionId } : {}),
     };
 
     if (onSubmitPayload) {
@@ -294,10 +316,13 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
       payload.documentIds.length > 0
         ? `已选 ${payload.documentIds.length} 份资料`
         : '未选资料';
+    const directionLabel = selectedDirection
+      ? `｜方向 ${selectedDirection.name}`
+      : '';
     addMessage({
       id: `u-plan-${Date.now()}`,
       role: 'user',
-      content: `【学习目标】${payload.goalName}｜期限 ${payload.goalDate}｜基础 ${payload.currentLevel}｜每日 ${payload.dailyMinutes} 分钟｜完成标准 ${payload.completionCriterion}｜${docs}`,
+      content: `【学习目标】${payload.goalName}｜期限 ${payload.goalDate}｜基础 ${payload.currentLevel}｜每日 ${payload.dailyMinutes} 分钟｜完成标准 ${payload.completionCriterion}${directionLabel}｜${docs}`,
     });
 
     const fields: PlanGoalFields = { ...payload };
@@ -406,6 +431,35 @@ function GoalSubmitForm({ onSubmitPayload, onDismiss }: GoalSubmitFormProps) {
         placeholder="要学的内容，如：线性代数证明入门"
         className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none placeholder:text-gray-400 focus:border-brand"
       />
+      {directions.length > 0 ? (
+        <div className="space-y-1">
+          <label className="block text-[11px] text-gray-500" htmlFor="goal-direction">
+            就业方向（可选，选定后路线可锚定课程库）
+          </label>
+          <select
+            id="goal-direction"
+            value={directionId}
+            onChange={(e) => {
+              setDirectionId(e.target.value);
+              forgetComparison();
+            }}
+            className="w-full rounded-lg border border-brandFaint bg-white px-2.5 py-1.5 text-xs text-brandDark outline-none focus:border-brand"
+          >
+            <option value="">不选方向</option>
+            {directions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          {selectedDirection ? (
+            <p className="text-[11px] leading-relaxed text-gray-500">
+              该方向技能：{selectedDirection.skills.join('、') || '暂无'}。
+              课程库覆盖 {selectedDirection.courseCount} 门（仅已核实链接）。
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-2">
         <input
           type="date"

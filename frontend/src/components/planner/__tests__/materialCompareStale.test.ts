@@ -59,7 +59,10 @@ describe('GoalSubmitForm stale material results', () => {
     const mocks: Record<string, string> = {
       react: `
         export const useState=(value)=>globalThis.__materialStale.useState(value);
-        export const useRef=(value)=>globalThis.__materialStale.useRef(value);`,
+        export const useRef=(value)=>globalThis.__materialStale.useRef(value);
+        export const useEffect=()=>{};`,
+      '@/lib/directionsApi': `
+        export const fetchDirections=()=>Promise.resolve({status:'ok',directions:[]});`,
       '@/store': `
         export const useAssistantStore=selector=>selector({
           addMessage(){}, appendStreamChunk(){}, setStreaming(){}, stopStreaming(){}, streaming:false
