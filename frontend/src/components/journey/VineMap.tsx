@@ -291,7 +291,8 @@ export default function VineMap({
                 {day.state === 'today' ? (
                   <button
                     type="button"
-                    className="absolute bottom-[108%] left-1/2 z-10 min-h-11 min-w-11 -translate-x-1/2"
+                    className="absolute top-1/2 z-20 min-h-11 min-w-11 -translate-y-1/2"
+                    style={point.x > width / 2 ? { right: '108%' } : { left: '108%' }}
                     aria-label="今天的芽苗"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -349,12 +350,12 @@ export default function VineMap({
                   </span>
                 ) : null}
               </div>
-              <div className={`journey-date mx-auto mt-1 px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-60' : ''}`}>
+              <div className={`journey-date pointer-events-none mx-auto mt-1 px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-60' : ''}`}>
                 {day.date.slice(5)}
                 {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
               </div>
               {month ? (
-                <div className="mx-auto mt-1 w-max rounded bg-[#fff4d2] px-1.5 py-0.5 text-[10px] font-bold text-[#9a5b00]">
+                <div className="pointer-events-none mx-auto mt-1 w-max rounded bg-[#fff4d2] px-1.5 py-0.5 text-[10px] font-bold text-[#9a5b00]">
                   {day.date.slice(5, 7) === '01' ? `${day.date.slice(0, 4)} · 1月` : `${Number(day.date.slice(5, 7))}月`}
                 </div>
               ) : null}
