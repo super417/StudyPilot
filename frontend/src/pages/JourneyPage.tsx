@@ -272,6 +272,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
         />
       )}
       {scene === 'map' ? (
+      <>
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto journey-chip max-w-[60%] px-3 py-2 text-xs font-bold leading-5">
           <div className="truncate">{data?.plan?.goalName ?? '星藤航图'}</div>
@@ -318,6 +319,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           onRoadmap={openRoadmap}
         />
       ) : null}
+      </>
       ) : null}
       </>
       ) : null}
