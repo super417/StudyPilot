@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
@@ -7,7 +7,9 @@ import {
   primaryTag,
   scrollTopForToday,
   vinePath,
+  visibleIndices,
   wrapPoints,
+  type NodePoint,
 } from '@/journey/layout';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
@@ -22,6 +24,7 @@ export interface VineMapProps {
   compact: boolean;
   onSelect: (day: JourneyDay) => void;
   onBoss: (day: JourneyDay) => void;
+  onNeed?: (date: string) => void;
 }
 
 function fruitSize(day: JourneyDay): number {
@@ -31,10 +34,44 @@ function fruitSize(day: JourneyDay): number {
   return day.state === 'today' ? base + 14 : base;
 }
 
-export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss }: VineMapProps) {
+function VineStrand({
+  points,
+  side,
+  width,
+  compact,
+}: {
+  points: NodePoint[];
+  side: Array<{ x: number; y: number }>;
+  width: number;
+  compact: boolean;
+}) {
+  const gid = useId();
+  const main = vinePath(points);
+  const wrap = vinePath(side);
+  const y0 = Math.min(points[0].y, points[points.length - 1].y) - 48;
+  const y1 = Math.max(points[0].y, points[points.length - 1].y) + 48;
+  return (
+    <svg className="pointer-events-none absolute left-0" style={{ top: y0, width: '100%', height: y1 - y0 }} viewBox={`0 ${y0} ${width} ${y1 - y0}`}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#b6f27a" />
+          <stop offset="45%" stopColor="#3cb85a" />
+          <stop offset="100%" stopColor="#1f8a3c" />
+        </linearGradient>
+      </defs>
+      <path d={main} stroke="#146b32" strokeWidth={compact ? 26 : 34} fill="none" strokeLinecap="round" />
+      <path d={main} stroke={`url(#${gid})`} strokeWidth={compact ? 18 : 24} fill="none" strokeLinecap="round" />
+      <path d={main} stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.38" transform="translate(-2 -3)" />
+      <path d={wrap} stroke="#7ed957" strokeWidth={compact ? 8 : 11} fill="none" strokeLinecap="round" opacity="0.9" />
+    </svg>
+  );
+}
+
+export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed }: VineMapProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [viewport, setViewport] = useState(640);
+  const [scrollTop, setScrollTop] = useState<number | null>(null);
   const [showReturn, setShowReturn] = useState(false);
   const positioned = useRef(false);
 
@@ -54,10 +91,20 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
   const dates = useMemo(() => days.map((day) => day.date), [days]);
   const points = useMemo(() => layoutDays(dates, width, compact), [dates, width, compact]);
   const height = contentHeight(days.length, compact);
-  const mainPath = useMemo(() => vinePath(points), [points]);
-  const sidePath = useMemo(() => vinePath(wrapPoints(points, width, compact)), [points, width, compact]);
   const phaseStart = useMemo(() => new Map(phases.map((phase) => [phase.startDate, phase.name])), [phases]);
   const todayIndex = days.findIndex((day) => day.date === today);
+  const anchor = scrollTop ?? Math.max(0, (points[todayIndex]?.y ?? 0) - viewport * 0.6);
+  const visible = useMemo(
+    () => new Set(visibleIndices(points.map((point) => point.y), anchor, viewport)),
+    [anchor, points, viewport],
+  );
+  const segments = useMemo(() => {
+    const chunks: NodePoint[][] = [];
+    for (let index = 0; index < points.length - 1; index += 7) {
+      chunks.push(points.slice(index, Math.min(points.length, index + 8)));
+    }
+    return chunks.filter((chunk) => chunk.some((point) => visible.has(point.index)));
+  }, [points, visible]);
 
   useEffect(() => {
     const node = scroller.current;
@@ -74,12 +121,18 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
       const y = points[todayIndex]?.y ?? 0;
       const top = node.scrollTop;
       const view = node.clientHeight;
+      setScrollTop(top);
       setShowReturn(y < top + 40 || y > top + view - 80);
     };
     onScroll();
     node.addEventListener('scroll', onScroll, { passive: true });
     return () => node.removeEventListener('scroll', onScroll);
   }, [points, todayIndex]);
+
+  useEffect(() => {
+    const missing = days.find((day, index) => visible.has(index) && day.loaded === false);
+    if (missing) onNeed?.(missing.date);
+  }, [days, onNeed, visible]);
 
   const jumpToday = () => {
     const node = scroller.current;
@@ -91,18 +144,16 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
       <div className="relative" style={{ height, width: '100%' }}>
-        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
-          <defs>
-            <linearGradient id="vine-body" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#b6f27a" />
-              <stop offset="45%" stopColor="#3cb85a" />
-              <stop offset="100%" stopColor="#1f8a3c" />
-            </linearGradient>
-          </defs>
-          <path d={mainPath} stroke="#146b32" strokeWidth={compact ? 26 : 34} fill="none" strokeLinecap="round" />
-          <path d={mainPath} stroke="url(#vine-body)" strokeWidth={compact ? 18 : 24} fill="none" strokeLinecap="round" />
-          <path d={mainPath} stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.38" transform="translate(-2 -3)" />
-          <path d={sidePath} stroke="#7ed957" strokeWidth={compact ? 8 : 11} fill="none" strokeLinecap="round" opacity="0.9" />
+        {segments.map((chunk) => (
+          <VineStrand
+            key={chunk[0].date}
+            points={chunk}
+            side={wrapPoints(chunk, width, compact)}
+            width={width}
+            compact={compact}
+          />
+        ))}
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
           <g transform={`translate(${width / 2 - 70} ${height - 92})`}>
             <ellipse cx="70" cy="36" rx="78" ry="22" fill="#6d4b2b" />
             <ellipse cx="70" cy="30" rx="78" ry="20" fill="#8d6240" />
@@ -120,6 +171,7 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
           </g>
         </svg>
         {points.map((point, index) => {
+          if (!visible.has(index)) return null;
           const day = days[index];
           const tag = day.loaded === false ? null : primaryTag(day.tags);
           const showStars = day.state === 'past' || day.state === 'today';
@@ -214,7 +266,7 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
           回到今天
         </button>
       ) : null}
-      <span className="sr-only" data-viewport={viewport} />
+      <span className="sr-only">视口 {viewport}px，已画 {visible.size} 个节点</span>
     </div>
   );
 }

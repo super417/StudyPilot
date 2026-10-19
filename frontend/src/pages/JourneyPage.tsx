@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import VineMap from '@/components/journey/VineMap';
 import '@/components/journey/journey.css';
@@ -21,6 +21,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const demo = isJourneyDemo();
   const [data, setData] = useState<JourneyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const requested = useRef(new Set<string>());
   const [box, setBox] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
 
   useEffect(() => {
@@ -49,6 +50,29 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   }, [demo]);
 
   const days = useMemo(() => (data ? spanDays(data) : []), [data]);
+  const loadAround = useCallback(
+    (date: string) => {
+      if (demo || !data?.plan || requested.current.has(date)) return;
+      requested.current.add(date);
+      const rawFrom = addDaysISO(date, -30);
+      const rawTo = addDaysISO(date, 30);
+      const from = rawFrom < data.plan.startDate ? data.plan.startDate : rawFrom;
+      const to = rawTo > data.plan.goalDate ? data.plan.goalDate : rawTo;
+      fetchJourney({ today: data.today, from, to })
+        .then((response) => {
+          setData((current) => {
+            if (!current) return response;
+            const merged = new Map(current.days.map((day) => [day.date, day]));
+            for (const day of response.days) merged.set(day.date, day);
+            return { ...current, days: [...merged.values()].sort((a, b) => a.date.localeCompare(b.date)) };
+          });
+        })
+        .catch(() => {
+          requested.current.delete(date);
+        });
+    },
+    [data, demo],
+  );
   const todayDay = days.find((day) => day.date === data?.today);
   const cta = todayCta(todayDay);
   const compact = isCompactViewport(box.w, box.h);
@@ -92,6 +116,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           compact={compact}
           onSelect={() => undefined}
           onBoss={openPractice}
+          onNeed={loadAround}
         />
       )}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
