@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
-import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import { FruitGlyph, LeafMark, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
   contentHeight,
   layoutDays,
@@ -26,6 +26,18 @@ export interface VineMapProps {
   onBoss: (day: JourneyDay) => void;
   onNeed?: (date: string) => void;
   onBlank?: () => void;
+}
+
+function curvePoint(from: { x: number; y: number }, to: { x: number; y: number }, t: number) {
+  const mid = (from.y + to.y) / 2;
+  const u = 1 - t;
+  const x = u * u * u * from.x + 3 * u * u * t * from.x + 3 * u * t * t * to.x + t * t * t * to.x;
+  const y = u * u * u * from.y + 3 * u * u * t * mid + 3 * u * t * t * mid + t * t * t * to.y;
+  const ahead = Math.min(1, t + 0.08);
+  const ua = 1 - ahead;
+  const x2 = ua * ua * ua * from.x + 3 * ua * ua * ahead * from.x + 3 * ua * ahead * ahead * to.x + ahead * ahead * ahead * to.x;
+  const y2 = ua * ua * ua * from.y + 3 * ua * ua * ahead * mid + 3 * ua * ahead * ahead * mid + ahead * ahead * ahead * to.y;
+  return { x, y, angle: (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI };
 }
 
 function fruitSize(day: JourneyDay): number {
@@ -145,6 +157,18 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
       <div className="relative" style={{ height, width: '100%' }} onClick={() => onBlank?.()}>
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, #1c245c 0%, #6a4d96 10%, #f0a06a 24%, #8fd4ff 46%, #c5ecff 68%, #d7f5c4 100%)',
+          }}
+        />
+        <svg className="pointer-events-none absolute inset-x-0 top-0 h-64 w-full" viewBox={`0 0 ${width} 220`} aria-hidden="true">
+          <path d={`M0 150 L${width * 0.18} 92 L${width * 0.34} 140 L${width * 0.52} 70 L${width * 0.7} 138 L${width * 0.86} 96 L${width} 150 V220 H0 Z`} fill="#8ea4c8" opacity="0.55" />
+          <path d={`M0 176 L${width * 0.22} 120 L${width * 0.4} 168 L${width * 0.58} 108 L${width * 0.78} 164 L${width} 124 V220 H0 Z`} fill="#6e8cb4" opacity="0.72" />
+          <circle cx={width * 0.78} cy="36" r="10" fill="#f7f3d2" />
+        </svg>
         {segments.map((chunk) => (
           <VineStrand
             key={chunk[0].date}
@@ -155,22 +179,49 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
           />
         ))}
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
-          <g transform={`translate(${width / 2 - 70} ${height - 92})`}>
-            <ellipse cx="70" cy="36" rx="78" ry="22" fill="#6d4b2b" />
-            <ellipse cx="70" cy="30" rx="78" ry="20" fill="#8d6240" />
-            <text x="70" y="34" textAnchor="middle" fill="#fff6e4" fontSize="14" fontWeight="700">
+          <g transform={`translate(${width / 2 - 90} ${height - 108})`}>
+            <ellipse cx="90" cy="48" rx="110" ry="26" fill="#5c8a3a" />
+            <ellipse cx="90" cy="40" rx="96" ry="22" fill="#8d6240" />
+            <ellipse cx="90" cy="34" rx="96" ry="20" fill="#a87548" />
+            <path d="M18 34 q8 -16 4 -2 M40 30 q6 -18 2 -2 M150 32 q-8 -16 -2 -2" fill="none" stroke="#67b34a" strokeWidth="3" strokeLinecap="round" />
+            <text x="90" y="38" textAnchor="middle" fill="#fff6e4" fontSize="14" fontWeight="700">
               起点
             </text>
           </g>
-          <g transform={`translate(${width / 2 - 90} 36)`}>
-            <ellipse cx="90" cy="28" rx="78" ry="24" fill="white" opacity="0.92" />
-            <ellipse cx="48" cy="24" rx="28" ry="18" fill="white" />
-            <ellipse cx="128" cy="24" rx="26" ry="16" fill="white" />
-            <text x="90" y="32" textAnchor="middle" fill="#166534" fontSize="13" fontWeight="700">
+          <g transform={`translate(${width / 2 - 110} 18)`}>
+            <ellipse cx="70" cy="34" rx="36" ry="22" fill="white" />
+            <ellipse cx="110" cy="30" rx="48" ry="26" fill="white" />
+            <ellipse cx="156" cy="36" rx="32" ry="18" fill="white" />
+            <ellipse cx="110" cy="44" rx="70" ry="18" fill="white" />
+            <text x="110" y="40" textAnchor="middle" fill="#166534" fontSize="13" fontWeight="700">
               {goalName.slice(0, 12)}
             </text>
           </g>
         </svg>
+        {segments.flatMap((chunk) =>
+          chunk.slice(0, -1).flatMap((point, index) => {
+            const next = chunk[index + 1];
+            if (!visible.has(point.index) && !visible.has(next.index)) return [];
+            return [0.34, 0.7].map((t, leaf) => {
+              const spot = curvePoint(point, next, t);
+              const side = leaf === 0 ? 1 : -1;
+              const rad = ((spot.angle + 90 * side) * Math.PI) / 180;
+              return (
+                <span
+                  key={`${point.date}-${t}`}
+                  className="pointer-events-none absolute"
+                  style={{
+                    left: spot.x + Math.cos(rad) * 20,
+                    top: spot.y + Math.sin(rad) * 16,
+                    transform: `translate(-50%, -50%) rotate(${spot.angle + 70 * side}deg)`,
+                  }}
+                >
+                  <LeafMark flip={side} />
+                </span>
+              );
+            });
+          }),
+        )}
         {points.map((point, index) => {
           if (!visible.has(index)) return null;
           const day = days[index];

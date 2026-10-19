@@ -56,45 +56,66 @@ export function FruitGlyph({
   if (kind === 'bud') {
     return (
       <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
-        <path d="M40 18 q2 10 -6 16" fill="none" stroke="#3d9a45" strokeWidth="3" strokeLinecap="round" />
-        <ellipse cx="40" cy="48" rx="16" ry="18" fill="#d9f5c4" stroke="#7dce55" strokeWidth="2" />
-        <path d="M40 34 q10 8 8 18 q-8 -2 -8 6 q-10 -8 -8 -18 q8 2 8 -6 z" fill="#fff4fb" stroke="#f3b7d8" strokeWidth="1.4" />
+        <path d="M40 16 q2 12 -8 20" fill="none" stroke="#2f8a3a" strokeWidth="3" strokeLinecap="round" />
+        <ellipse cx="34" cy="22" rx="9" ry="4" transform="rotate(-30 34 22)" fill="#9be36a" stroke="#3d9a45" strokeWidth="1" />
+        <ellipse cx="40" cy="50" rx="14" ry="18" fill="#c8efb0" stroke="#5cb84a" strokeWidth="2" />
+        <path d="M40 36 c8 4 12 12 8 20 c-6 -2 -8 2 -8 8 c-6 -6 -10 -12 -8 -20 c4 2 6 -4 8 -8 z" fill="#ffe4f2" stroke="#f0a8cc" strokeWidth="1.3" />
+        <ellipse cx="36" cy="44" rx="3" ry="5" fill="white" opacity="0.55" />
       </svg>
     );
   }
   if (kind === 'sprout') {
     return (
       <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
-        <path d="M40 58 V36" stroke="#3d9a45" strokeWidth="3" strokeLinecap="round" />
-        <path d="M40 42 C28 40 22 30 24 24 C34 26 40 34 40 42" fill="#8ed957" />
-        <path d="M40 40 C52 34 60 26 58 20 C48 24 42 32 40 40" fill="#c6f58a" />
+        <path d="M40 62 V34" stroke="#2f8a3a" strokeWidth="3.2" strokeLinecap="round" />
+        <path d="M40 44 C26 42 18 30 20 22 C32 24 40 34 40 44" fill="#7ed957" stroke="#3d9a45" strokeWidth="1" />
+        <path d="M40 42 C54 34 64 24 62 16 C50 20 42 32 40 42" fill="#d4f7a4" stroke="#6bb84a" strokeWidth="1" />
+        <ellipse cx="28" cy="30" rx="3" ry="1.6" fill="white" opacity="0.7" />
       </svg>
     );
   }
+  const ripe = color === 'vivid';
+  const warm = color === 'warm';
+  const cool = color === 'cool';
+  const gray = color === 'gray' || color === null;
+  const rx = cool ? 18 : gray ? 19 : ripe ? 23 : 21;
+  const ry = cool ? 24 : color === 'muted' ? 16 : gray ? 18 : 21;
   return (
     <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
       <defs>
-        <radialGradient id={gid} cx="35%" cy="32%" r="70%">
-          <stop offset="0%" stopColor="#fffef4" />
-          <stop offset="28%" stopColor={stops[0]} />
-          <stop offset="62%" stopColor={stops[1]} />
+        <radialGradient id={gid} cx="34%" cy="30%" r="72%">
+          <stop offset="0%" stopColor={gray ? '#f4f5f8' : '#fffef6'} />
+          <stop offset="22%" stopColor={stops[0]} />
+          <stop offset="58%" stopColor={stops[1]} />
           <stop offset="100%" stopColor={stops[2]} />
         </radialGradient>
       </defs>
-      {cleared ? <circle cx="40" cy="46" r="30" fill="none" stroke="#ffe08a" strokeWidth="3" /> : null}
-      <path d="M40 16 q3 8 -4 14" fill="none" stroke="#2f8a3a" strokeWidth="2.4" strokeLinecap="round" />
-      <ellipse cx="48" cy="20" rx="8" ry="4" transform="rotate(30 48 20)" fill="#8ed957" />
-      <ellipse cx="40" cy="48" rx="22" ry="20" fill={`url(#${gid})`} stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
-      <ellipse cx="32" cy="40" rx="8" ry="5" fill="white" opacity={color === 'gray' ? 0.35 : 0.62} />
+      {cleared ? <circle cx="40" cy="48" r="31" fill="none" stroke="#ffe08a" strokeWidth="3" /> : null}
+      <path d="M40 14 q4 8 -5 16" fill="none" stroke="#2f8a3a" strokeWidth="2.6" strokeLinecap="round" />
+      <ellipse cx="50" cy="18" rx="9" ry="4.2" transform="rotate(28 50 18)" fill={gray ? '#c5d0c0' : '#8ed957'} stroke="#3d9a45" strokeWidth="0.8" />
+      <ellipse cx="40" cy="48" rx={rx} ry={ry} fill={`url(#${gid})`} stroke={gray ? '#b7bdc8' : 'rgba(255,255,255,0.85)'} strokeWidth="1.6" />
+      {warm ? <ellipse cx="48" cy="56" rx="7" ry="4" fill="#ff8a3d" opacity="0.35" /> : null}
+      {cool ? <ellipse cx="46" cy="58" rx="5" ry="3" fill="#6f7cff" opacity="0.35" /> : null}
+      {ripe ? <path d={starPath(58, 30, 4, 1.6)} fill="#fff6c2" /> : null}
+      <ellipse cx="31" cy="40" rx={gray ? 5 : 8} ry={gray ? 3 : 5} fill="white" opacity={gray ? 0.16 : color === 'muted' ? 0.32 : 0.7} />
+    </svg>
+  );
+}
+
+export function LeafMark({ flip = 1 }: { flip?: number }) {
+  return (
+    <svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true" style={{ transform: `scaleX(${flip})` }}>
+      <path d="M2 8 C8 1 18 1 26 8 C18 15 8 15 2 8 Z" fill="#8fe05f" stroke="#2f8a3a" strokeWidth="1" />
+      <path d="M6 8 H22" stroke="#f4ffe8" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
   );
 }
 
 const CROWN = [
-  { x: 12, y: 18, size: 14, rot: -15 },
+  { x: 12, y: 14, size: 14, rot: -15 },
   { x: 30, y: 10, size: 18, rot: -4 },
   { x: 52, y: 10, size: 18, rot: 4 },
-  { x: 70, y: 18, size: 14, rot: 15 },
+  { x: 70, y: 14, size: 14, rot: 15 },
 ];
 
 export function StarCrown({
