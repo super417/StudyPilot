@@ -102,11 +102,12 @@ export function FruitGlyph({
   );
 }
 
-export function LeafMark({ flip = 1 }: { flip?: number }) {
+export function LeafMark({ flip = 1, size = 34 }: { flip?: number; size?: number }) {
   return (
-    <svg width="28" height="16" viewBox="0 0 28 16" aria-hidden="true" style={{ transform: `scaleX(${flip})` }}>
-      <path d="M2 8 C8 1 18 1 26 8 C18 15 8 15 2 8 Z" fill="#8fe05f" stroke="#2f8a3a" strokeWidth="1" />
-      <path d="M6 8 H22" stroke="#f4ffe8" strokeWidth="1.1" strokeLinecap="round" />
+    <svg width={size} height={size * 0.62} viewBox="0 0 34 21" aria-hidden="true" style={{ transform: `scaleX(${flip})` }}>
+      <path d="M2 11 C8 2 20 1 32 10 C22 19 10 20 2 11 Z" fill="#5dce62" stroke="#1f8a3c" strokeWidth="1.2" />
+      <path d="M8 11 C14 6 22 6 28 11 C22 15 14 15 8 11 Z" fill="#b6f07a" />
+      <path d="M6 11 H26" stroke="#f4ffe8" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   );
 }

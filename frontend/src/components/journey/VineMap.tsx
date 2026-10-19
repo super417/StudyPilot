@@ -9,7 +9,6 @@ import {
   scrollTopForToday,
   vinePath,
   visibleIndices,
-  wrapPoints,
   type NodePoint,
 } from '@/journey/layout';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
@@ -50,35 +49,56 @@ function fruitSize(day: JourneyDay): number {
   return day.state === 'today' ? base + 14 : base;
 }
 
+function tendrilPath(from: { x: number; y: number }, to: { x: number; y: number }, t: number, side: number): string {
+  const spot = curvePoint(from, to, t);
+  const rad = ((spot.angle + 90 * side) * Math.PI) / 180;
+  const x1 = spot.x + Math.cos(rad) * 22;
+  const y1 = spot.y + Math.sin(rad) * 16;
+  const x2 = x1 + Math.cos(rad + 0.8 * side) * 18;
+  const y2 = y1 + Math.sin(rad + 0.8 * side) * 12;
+  return `M ${spot.x.toFixed(1)} ${spot.y.toFixed(1)} Q ${x1.toFixed(1)} ${y1.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+}
+
 function VineStrand({
   points,
-  side,
   width,
   compact,
 }: {
   points: NodePoint[];
-  side: Array<{ x: number; y: number }>;
   width: number;
   compact: boolean;
 }) {
   const gid = useId().replace(/:/g, '');
   const main = vinePath(points);
-  const wrap = vinePath(side);
-  const y0 = Math.min(points[0].y, points[points.length - 1].y) - 48;
-  const y1 = Math.max(points[0].y, points[points.length - 1].y) + 48;
+  const y0 = Math.min(points[0].y, points[points.length - 1].y) - 64;
+  const y1 = Math.max(points[0].y, points[points.length - 1].y) + 64;
+  const body = compact ? 40 : 56;
   return (
     <svg className="pointer-events-none absolute left-0" style={{ top: y0, width: '100%', height: y1 - y0 }} viewBox={`0 ${y0} ${width} ${y1 - y0}`}>
       <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#b6f27a" />
-          <stop offset="45%" stopColor="#3cb85a" />
-          <stop offset="100%" stopColor="#1f8a3c" />
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#1f8a3c" />
+          <stop offset="38%" stopColor="#7ed957" />
+          <stop offset="70%" stopColor="#3cb85a" />
+          <stop offset="100%" stopColor="#146b32" />
         </linearGradient>
       </defs>
-      <path d={main} stroke="#146b32" strokeWidth={compact ? 26 : 34} fill="none" strokeLinecap="round" />
-      <path d={main} stroke={`url(#${gid})`} strokeWidth={compact ? 18 : 24} fill="none" strokeLinecap="round" />
-      <path d={main} stroke="white" strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.38" transform="translate(-2 -3)" />
-      <path d={wrap} stroke="#7ed957" strokeWidth={compact ? 8 : 11} fill="none" strokeLinecap="round" opacity="0.9" />
+      <path d={main} stroke="#0c5a28" strokeWidth={body + 14} fill="none" strokeLinecap="round" />
+      <path d={main} stroke={`url(#${gid})`} strokeWidth={body} fill="none" strokeLinecap="round" />
+      <path d={main} stroke="white" strokeWidth={compact ? 7 : 10} fill="none" strokeLinecap="round" opacity="0.42" transform="translate(-7 -8)" />
+      {points.slice(0, -1).map((point, index) => {
+        const next = points[index + 1];
+        return (
+          <path
+            key={point.date}
+            d={tendrilPath(point, next, 0.55, index % 2 === 0 ? 1 : -1)}
+            stroke="#8fe05f"
+            strokeWidth="4"
+            fill="none"
+            strokeLinecap="round"
+          />
+        );
+      })}
     </svg>
   );
 }
@@ -195,29 +215,12 @@ export default function VineMap({
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
       <div className="relative" style={{ height, width: '100%' }} onClick={() => onBlank?.()}>
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(180deg, #1c245c 0%, #6a4d96 10%, #f0a06a 24%, #8fd4ff 46%, #c5ecff 68%, #d7f5c4 100%)',
-          }}
-        />
-        <svg className="pointer-events-none absolute inset-x-0 top-0 h-64 w-full" viewBox={`0 0 ${width} 220`} aria-hidden="true">
-          <path d={`M0 150 L${width * 0.18} 92 L${width * 0.34} 140 L${width * 0.52} 70 L${width * 0.7} 138 L${width * 0.86} 96 L${width} 150 V220 H0 Z`} fill="#8ea4c8" opacity="0.55" />
-          <path d={`M0 176 L${width * 0.22} 120 L${width * 0.4} 168 L${width * 0.58} 108 L${width * 0.78} 164 L${width} 124 V220 H0 Z`} fill="#6e8cb4" opacity="0.72" />
-          <circle cx={width * 0.78} cy="36" r="10" fill="#f7f3d2" />
-        </svg>
+        <div className="journey-map-sky pointer-events-none absolute inset-0" />
         <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
           <path ref={pathRef} d={climbPath} />
         </svg>
         {segments.map((chunk) => (
-          <VineStrand
-            key={chunk[0].date}
-            points={chunk}
-            side={wrapPoints(chunk, width, compact)}
-            width={width}
-            compact={compact}
-          />
+          <VineStrand key={chunk[0].date} points={chunk} width={width} compact={compact} />
         ))}
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
           <g transform={`translate(${width / 2 - 90} ${height - 108})`}>
