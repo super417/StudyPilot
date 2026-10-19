@@ -109,20 +109,58 @@
 }
 
 .journey-plaque {
-  border: 3px solid #c4923a;
-  border-radius: 18px;
-  background: linear-gradient(#fff8dc, #f0d48a);
-  color: #6b3e12;
-  letter-spacing: 0.18em;
-  box-shadow: 0 8px 0 rgba(140, 80, 20, 0.18);
+  border: 4px solid #ffe9a0;
+  border-radius: 999px;
+  background: linear-gradient(#8ee06a, #2f9a3e);
+  color: white;
+  letter-spacing: 0.12em;
+  text-shadow: 0 2px 0 rgba(20, 90, 30, 0.35);
+  box-shadow:
+    0 6px 0 #1f7a32,
+    inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+
+.journey-cta {
+  border: 4px solid #f4fff8;
+  border-radius: 999px;
+  background: linear-gradient(#6ee7b0, #14a36a);
+  color: white;
+  text-shadow: 0 2px 0 rgba(8, 80, 40, 0.35);
+  box-shadow:
+    0 8px 0 #0c7a48,
+    inset 0 2px 0 rgba(255, 255, 255, 0.4);
+}
+
+.journey-cta:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 5px 0 #0c7a48,
+    inset 0 2px 0 rgba(255, 255, 255, 0.4);
 }
 
 .journey-sign {
-  border: 4px solid #6b3e12;
-  border-radius: 14px;
-  background: linear-gradient(#e0b06a, #a56b32);
-  color: #fff6e4;
-  text-shadow: 0 1px 0 rgba(80, 40, 8, 0.35);
+  border: 4px solid #8a5a28;
+  border-radius: 8px;
+  background: linear-gradient(#f0c27a, #c4843c);
+  color: #5a3412;
+  box-shadow:
+    0 5px 0 #7a4a22,
+    inset 0 2px 0 rgba(255, 255, 255, 0.35);
+}
+
+.journey-fall {
+  animation: journey-fall 11s linear infinite;
+}
+
+.journey-map-sky {
+  background-color: #79c8ff;
+  background-image:
+    radial-gradient(ellipse 90px 40px at 8% 20%, rgba(255, 255, 255, 0.95) 0 60%, transparent 62%),
+    radial-gradient(ellipse 120px 48px at 18% 28%, rgba(255, 255, 255, 0.9) 0 60%, transparent 62%),
+    radial-gradient(ellipse 70px 32px at 72% 12%, rgba(255, 255, 255, 0.95) 0 60%, transparent 62%),
+    radial-gradient(ellipse 110px 44px at 84% 22%, rgba(255, 255, 255, 0.88) 0 60%, transparent 62%);
+  background-size: 100% 520px;
+  background-repeat: repeat-y;
 }
 
 .journey-ripple {
@@ -216,6 +254,20 @@
   }
 }
 
+@keyframes journey-fall {
+  0% {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(24px, 78vh, 0) rotate(160deg);
+    opacity: 0;
+  }
+}
+
 @keyframes journey-fadeout {
   0%,
   55% {
@@ -234,7 +286,8 @@
   .journey-breathe,
   .journey-ring,
   .journey-star-pop,
-  .journey-heat {
+  .journey-heat,
+  .journey-fall {
     animation: none !important;
   }
 
