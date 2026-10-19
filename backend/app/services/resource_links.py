@@ -38,6 +38,9 @@ ALLOWED_RESOURCE_HOSTS = frozenset(
         "edu.cn",
         "ac.cn",
         "mit.edu",
+        # 国家高等教育智慧教育平台 / 人民邮电出版社 MOOC（15b 扩名单）
+        "smartedu.cn",
+        "rymooc.com",
     }
 )
 

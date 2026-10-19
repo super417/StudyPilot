@@ -70,6 +70,19 @@ class ResourceLinkWhitelistTests(unittest.TestCase):
         self.assertTrue(resource_links.is_allowed_host("tsinghua.edu.cn"))
         self.assertTrue(resource_links.is_allowed_host("EDU.CN"))
 
+    def test_smartedu_and_rymooc_hosts_allowed_with_label_boundary(self) -> None:
+        """15b：扩名单后子域放行，evil 后缀仍拒。"""
+        for url in (
+            "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+            "https://coursehome.zhihuishu.com/courseHome/1000095245",
+            "https://www.rymooc.com/course/show/1097",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(resource_links.sanitize_resource_url(url), url)
+        self.assertIsNone(
+            resource_links.sanitize_resource_url("https://bilibili.com.evil.example")
+        )
+
 
 class _DatabaseTestCase(unittest.IsolatedAsyncioTestCase):
     """Shared in-memory DB harness (mirrors the other service test modules)."""
