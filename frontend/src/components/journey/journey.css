@@ -85,6 +85,21 @@
   animation: journey-spin 42s linear infinite;
 }
 
+.journey-breathe {
+  transform-origin: center;
+  animation: journey-breathe 2.6s ease-in-out infinite;
+}
+
+.journey-ring {
+  transform-origin: center;
+  animation: journey-spin 7s linear infinite;
+}
+
+.journey-star-pop {
+  transform-origin: center;
+  animation: journey-star-pop 700ms ease-out both;
+}
+
 .journey-tree-hover {
   transition: transform 180ms ease;
 }
@@ -163,6 +178,33 @@
   }
 }
 
+@keyframes journey-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.9;
+  }
+}
+
+@keyframes journey-star-pop {
+  0% {
+    transform: scale(0.45);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @keyframes journey-ripple {
   0% {
     transform: scale(0.25);
@@ -190,6 +232,8 @@
   .journey-drift,
   .journey-spin,
   .journey-breathe,
+  .journey-ring,
+  .journey-star-pop,
   .journey-heat {
     animation: none !important;
   }

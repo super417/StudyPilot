@@ -45,6 +45,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const [dayCheer, setDayCheer] = useState<CheerResponse | null>(null);
   const [scene, setScene] = useState<'entrance' | 'leaving' | 'map'>('entrance');
   const [climb, setClimb] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
   const leaveTimer = useRef(0);
 
   useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
@@ -130,6 +131,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
     const previous = readStoredStars(today);
     if (stars !== null && stars !== undefined) {
       if (previous !== null && stars > previous) {
+        setCelebrate(true);
         setCheer({ ruleId: 'star', text: `第 ${stars} 颗星点亮！`, facts: { stars }, source: 'template' });
         writeStoredStars(today, stars);
         markAutoCheerShown(today);
@@ -266,6 +268,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           onNeed={loadAround}
           onBlank={onBlank}
           climb={climb}
+          celebrate={celebrate}
         />
       )}
       {scene === 'map' ? (

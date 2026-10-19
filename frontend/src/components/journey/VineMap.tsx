@@ -28,6 +28,7 @@ export interface VineMapProps {
   onNeed?: (date: string) => void;
   onBlank?: () => void;
   climb?: boolean;
+  celebrate?: boolean;
 }
 
 function curvePoint(from: { x: number; y: number }, to: { x: number; y: number }, t: number) {
@@ -82,7 +83,19 @@ function VineStrand({
   );
 }
 
-export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed, onBlank, climb = false }: VineMapProps) {
+export default function VineMap({
+  days,
+  phases,
+  today,
+  goalName,
+  compact,
+  onSelect,
+  onBoss,
+  onNeed,
+  onBlank,
+  climb = false,
+  celebrate = false,
+}: VineMapProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [viewport, setViewport] = useState(640);
@@ -265,12 +278,14 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
               <div className="relative flex items-center justify-center">
                 {showStars ? (
                   <div className="absolute bottom-[78%] left-1/2 -translate-x-1/2">
-                    <StarCrown
-                      filled={day.stars ?? 0}
-                      color={day.starColor}
-                      preview={day.state === 'today'}
-                      compact={compact}
-                    />
+                    <div className={day.state === 'today' && celebrate ? 'journey-star-pop' : undefined}>
+                      <StarCrown
+                        filled={day.stars ?? 0}
+                        color={day.starColor}
+                        preview={day.state === 'today'}
+                        compact={compact}
+                      />
+                    </div>
                   </div>
                 ) : null}
                 {day.state === 'today' ? (
@@ -313,11 +328,14 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
                 >
                   {day.state === 'today' ? (
                     <span
-                      className="absolute inset-[-10px] rounded-full"
+                      className="journey-breathe absolute inset-[-10px] rounded-full"
                       style={{ background: 'radial-gradient(circle, rgba(255,244,180,0.85), rgba(255,244,180,0))' }}
                     />
                   ) : null}
-                  <span className="relative block h-full w-full">
+                  {day.state === 'today' && day.rate === 100 ? (
+                    <span className="journey-ring pointer-events-none absolute inset-[-4px] rounded-full border-[3px] border-dashed border-[#ffe08a]" />
+                  ) : null}
+                  <span className={`relative block h-full w-full ${day.state === 'today' ? 'journey-breathe' : ''}`}>
                     <FruitGlyph
                       color={day.starColor}
                       kind={kind}
