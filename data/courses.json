@@ -34,7 +34,7 @@
         "报表分析"
       ],
       "courses": [
-        {
+{
           "course_id": "ai-fin-001",
           "name": "Python与财经大数据分析基础",
           "institution": "中央财经大学",
@@ -94,121 +94,176 @@
         {
           "course_id": "ai-fin-002",
           "name": "用Python玩转数据（Data Processing Using Python）",
-          "institution": "南京财经大学",
+          "institution": "南京大学",
           "provider": "中国大学MOOC（爱课程）",
-          "instructor": null,
-          "url": null,
-          "url_verified": false,
+          "instructor": "张莉",
+          "url": "https://www.icourse163.org/course/NJU-1001571005",
+          "url_verified": true,
           "hours": null,
           "level": "入门到进阶",
           "prereq": [],
           "skills": ["Python", "pandas", "numpy", "数据可视化", "统计分析", "网络爬虫"],
           "verified": "outline_published",
-          "verified_note": "课程以财经数据为案例背景，中英文双语版本均上线。演示前请补 course url。",
-          "source_url": "https://higher.smartedu.cn/course/69e156b6f1f512e4f2d37476",
-          "collected_at": "2026-10-13",
+          "verified_note": "2026-10-19 于 icourse163.org 打开课程页（标题「用Python玩转数据_南京大学_中国大学MOOC(慕课)」，讲师张莉），课程介绍称「5个学习模块和1个项目实战模块」；章节标题取自该课程当前学期（termId 1488129443）的公开课程大纲（免登录可访问），并与国家高等教育智慧教育平台同课程页 https://higher.smartedu.cn/course/agc3/69b56a1ff74ce762ce3526f5?type=training 的大纲逐条核对一致。原记录开课机构「南京财经大学」有误，已更正为南京大学；原第1、3、4、5章标题与平台不一致，已按平台更正。英文版另见 https://www.icourse163.org/course/NJU-1465357163（本条以中文版为准）。第八周「项目实践」模块未收录为章。",
+          "source_url": "https://www.icourse163.org/course/NJU-1001571005",
+          "collected_at": "2026-10-19",
           "chapters": [
             {
               "index": 1,
-              "title": "基础",
+              "title": "Python基础",
               "sections": [
-                "1.1 走近Python：简介、第一个程序、语法基础、数据类型、基本运算、函数模块和包",
-                "1.2 Python面面观：条件、range、循环、break/continue/else、自定义函数、递归、变量作用域"
+                "1.1 Python简介",
+                "1.2 第一个Python程序",
+                "1.3 Python语法基础",
+                "1.4 Python数据类型",
+                "1.5 Python基本运算",
+                "1.6 Python的函数、模块和包",
+                "2.1 条件",
+                "2.2 range函数",
+                "2.3 循环",
+                "2.4 循环中的break，continue和else",
+                "2.5 自定义函数",
+                "2.6 递归",
+                "2.7 变量作用域"
               ]
             },
-            {
-              "index": 2,
-              "title": "数据获取与表示",
-              "sections": [
-                "本地数据获取",
-                "网络数据获取",
-                "序列、字符串、列表、元组",
-                "拓展：RE 入门、动态网页爬取实例、IO 与函数式编程"
-              ]
-            },
+            { "index": 2, "title": "数据获取与表示", "sections": ["3.1 本地数据获取", "3.2 网络数据获取", "3.3 序列", "3.4 字符串", "3.5 列表", "3.6 元组"] },
             {
               "index": 3,
-              "title": "强大的数据结构和 Python 扩展库",
+              "title": "强大的数据结构和Python扩展库",
               "sections": [
-                "字典与集合",
-                "扩展库 SciPy、ndarray、Series、DataFrame",
-                "拓展：numpy 常见应用"
+                "4.1 为什么需要字典",
+                "4.2 字典的使用",
+                "4.3 集合",
+                "4.4 扩展库SciPy",
+                "4.5 ndarray",
+                "4.6 变长字典Series",
+                "4.7 DataFrame"
               ]
             },
             {
               "index": 4,
-              "title": "Python 数据统计与挖掘",
+              "title": "Python数据统计与挖掘",
               "sections": [
-                "4.1 便捷数据获取、绘图基础、数据清洗、数据变换、数据规约",
-                "4.2 基本数据特征分析、基于 pandas 的统计与分析、聚类分析"
+                "5.1 便捷数据获取",
+                "5.2 Python绘图基础",
+                "5.3 数据探索与预处理之数据清洗",
+                "5.4 数据预处理之数据变换",
+                "5.5 数据预处理之数据规约",
+                "6.1 数据探索之基本数据特征分析",
+                "6.2 基于pandas的数据统计与分析",
+                "6.3 聚类分析",
+                "6.4 Python的理工类应用",
+                "6.5 Python的人文社科类应用"
               ]
             },
             {
               "index": 5,
-              "title": "面向对象与图形用户界面",
+              "title": "面向对象和图形用户界面",
               "sections": [
-                "GUI 与面向对象、抽象、继承",
-                "GUI 基本框架、常用组件、布局管理"
+                "7.1 GUI与面向对象",
+                "7.2 抽象",
+                "7.3 继承",
+                "7.4 GUI的基本框架",
+                "7.5 GUI常用组件",
+                "7.6 布局管理",
+                "7.7 其他GUI库",
+                "7.8 综合应用"
               ]
             }
           ]
         },
         {
-          "course_id": "ai-fin-003",
-          "name": "Python财务数据分析与应用（64课时）",
-          "institution": null,
-          "provider": "待确认",
-          "instructor": null,
-          "url": null,
-          "url_verified": false,
-          "hours": 64,
-          "level": "入门",
-          "prereq": [],
-          "skills": ["Python", "pandas", "数据可视化", "财务分析"],
-          "verified": "partial",
-          "verified_note": "仅拿到教学大纲的章级标题，来源为文档分享站，权威性不足。演示前必须替换为平台官方来源，否则从数据集中移除。",
-          "source_url": null,
-          "collected_at": "2026-10-13",
-          "chapters": [
-            { "index": 1, "title": "编程入门", "sections": [] },
-            { "index": 2, "title": "语言基础", "sections": [] },
-            { "index": 3, "title": "控制结构", "sections": [] },
-            { "index": 4, "title": "函数和模块", "sections": [] },
-            { "index": 5, "title": "数据分析基础", "sections": [] },
-            { "index": 6, "title": "数据分析实战", "sections": [] },
-            { "index": 7, "title": "数据可视化", "sections": [] },
-            { "index": 8, "title": "财务应用案例", "sections": [] }
-          ]
-        },
-        {
           "course_id": "ai-fin-004",
           "name": "Python在财务中的应用",
-          "institution": null,
+          "institution": "浙江经贸职业技术学院",
           "provider": "智慧树",
-          "instructor": null,
-          "url": null,
-          "url_verified": false,
-          "hours": null,
+          "instructor": "吴晓霞、乔凯丽、孙斌、何雨沁、叶韫慧、郑洋慧",
+          "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+          "url_verified": true,
+          "hours": 51,
           "level": "入门到进阶",
           "prereq": [],
           "skills": ["Python", "pandas", "数据清洗", "数据可视化", "财务分析"],
-          "verified": "partial",
-          "verified_note": "模块级标题来自公开检索结果，未在平台上直接核对。演示前需补 url 并核对模块名。",
-          "source_url": null,
-          "collected_at": "2026-10-13",
+          "verified": "outline_published",
+          "verified_note": "2026-10-19 于 zhihuishu.com 打开课程主页（标题「Python在财务中的应用—智慧树网」，浙江经贸职业技术学院，总学时51），课程介绍称「9大项目35项任务」；章、节标题取自该页「在线教程」栏目（页面自身加载的公开接口，免登录可见），9章及各节标题逐条核对。原记录9个模块名为检索摘要的简写，与平台不一致，已全部按平台原文更正，并补入节级标题；hours 按页面「总学时51.0」填写。",
+          "source_url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+          "collected_at": "2026-10-19",
           "chapters": [
-            { "index": 1, "title": "认知 Python", "sections": [] },
-            { "index": 2, "title": "基本语法", "sections": [] },
-            { "index": 3, "title": "语法进阶", "sections": [] },
-            { "index": 4, "title": "了解 pandas", "sections": [] },
-            { "index": 5, "title": "数据采集与清洗", "sections": [] },
-            { "index": 6, "title": "数据可视化", "sections": [] },
-            { "index": 7, "title": "在财务会计中的应用", "sections": [] },
-            { "index": 8, "title": "在管理会计中的应用", "sections": [] },
-            { "index": 9, "title": "综合应用", "sections": [] }
+            { "index": 1, "title": "财务人员为什么选择Python？", "sections": ["1.1 初识Python，走进python财务世界", "1.2 了解Python学习模式，走进编程世界"] },
+            {
+              "index": 2,
+              "title": "搭建Python语法基础",
+              "sections": [
+                "2.1 利用输入、输出和注释，实现人机平等对话",
+                "2.2 利用变量和数据类型，装载财务数据",
+                "2.3 利用数值与字符，存储财务数据和文本",
+                "2.4 利用列表，存储有序数据"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "搭建Python进阶语法体系",
+              "sections": [
+                "3.1 利用条件分支，掌握合理判断逻辑",
+                "3.2 利用while和for in，理清循环业务逻辑",
+                "3.3 利用内置函数，发挥工具大用途",
+                "3.4 巧用函数自定义，灵活调用提效率",
+                "3.5 利用模块封装，提升代码灵活性"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "利用pandas，进行数据处理与分析",
+              "sections": [
+                "4.1 利用DataFrame，完成表格基本操作",
+                "4.2 利用pandas读写文件，获取不同数据源",
+                "4.3 利用pandas筛选与索引，按需选择数据",
+                "4.4 利用数据连接与合并，整合业财税数据",
+                "4.5 利用数据透视，挖掘数据价值"
+              ]
+            },
+            { "index": 5, "title": "采集与清洗数据，搭建分析基础", "sections": ["5.1 数据接口采集数据，准备分析原材料", "5.2 网络爬虫爬取数据，获取开放数据", "5.3 清洗“脏乱差”数据，科学求实保质量"] },
+            {
+              "index": 6,
+              "title": "利用第三方绘图库，实现数据可视化",
+              "sections": [
+                "6.1 matplotlib初级应用，实现数据可视化",
+                "6.2 matplotlib绘图进阶，多样组合可视化",
+                "6.3 pyecharts初级应用，数据动态可视化",
+                "6.4 pyecharts进阶应用，动态交互可视化"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "利用Python，创建财务会计模型",
+              "sections": [
+                "7.1 利用自定义函数，创新薪酬计算模型",
+                "7.2 利用pandas和matplotlib，实现薪酬可视化分析",
+                "7.3 利用pandas，创建收入与发票核对模型",
+                "7.4 利用pandas和datetime，创建固定资产折旧模型",
+                "7.5 利用自定义函数，创建应收账款分析模型",
+                "7.6 利用数据连接，创建银行对账模型"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "利用Python，创建管理会计应用模型",
+              "sections": [
+                "8.1 利用自定义函数，计算货币时间价值",
+                "8.2 利用pandas，创建项目投资决策模型",
+                "8.3 利用自定义函数，创建本量利分析模型",
+                "8.4 利用自定义函数，创建标准成本分析模型",
+                "8.5 利用自定义函数，编制固定预算和弹性预算",
+                "8.6 利用自定义函数，编制定期预算和滚动预算",
+                "8.7 利用pyecharts，实现收入可视化分析",
+                "8.8 利用文件处理模块，批量制作销售订单"
+              ]
+            },
+            { "index": 9, "title": "Python 综合应用，挖掘数据价值", "sections": ["9.1 利用python数据分析，做好财务数据分析决策", "9.2 利用python数据分析，做好行业综合分析与决策"] }
           ]
         },
-        {
+{
           "course_id": "ai-fin-005",
           "name": "大数据财务分析（微课版）",
           "institution": null,
@@ -237,7 +292,7 @@
             { "index": 10, "title": "撰写财务分析报告", "sections": [] }
           ]
         },
-        {
+{
           "course_id": "ai-fin-006",
           "name": "数据库系统原理",
           "institution": null,
@@ -290,51 +345,115 @@
           "institution": "河南应用技术职业学院",
           "provider": "中国大学MOOC（爱课程）",
           "instructor": "张青、左莉、张丹丹、吴华芹、米楠、崔琳、马丽艳、张振平",
-          "url": null,
-          "url_verified": false,
+          "url": "https://www.icourse163.org/course/HAICT-1002125013",
+          "url_verified": true,
           "hours": null,
           "level": "入门",
           "prereq": [],
           "skills": ["Excel", "数据可视化"],
           "verified": "outline_published",
-          "verified_note": "国家精品课程。项目与节标题来自公开目录。演示前需补 url 并在平台核对。",
-          "source_url": null,
-          "collected_at": "2026-10-13",
+          "verified_note": "2026-10-19 于 icourse163.org 打开课程页（标题「Excel进阶教程_河南应用技术职业学院_中国大学MOOC(慕课)」，页面标注「获得国家精品在线开放课程认定的课程」；往期学期页 ?tid=1207033277 的教师值班表列出全部8位教师）。章节标题取自最近一期完整学期（termId 1476783486）的公开课程大纲（免登录可访问），逐条核对；当前学期（termId 1488373464）目前仅发布项目一，项目一内容一致。平台实为6个项目，原记录只有4章且节标题为概括写法，已按平台更正章标题、补入项目五/六，节级只收录案例/知识讲次（仅统一了编号后的空格/连接符格式），未收录作业、测验与素材。",
+          "source_url": "https://www.icourse163.org/course/HAICT-1002125013",
+          "collected_at": "2026-10-19",
           "chapters": [
             {
               "index": 1,
-              "title": "Excel 基础知识",
+              "title": "基础篇 项目一 Excel基础知识",
               "sections": [
-                "1-1 至 1-6：数据输入、条件格式、打印、工作表保护"
+                "案例1-1 Excel2016简介",
+                "案例1-2 数据输入",
+                "案例1-3 美化工作表",
+                "案例1-4 条件格式设置",
+                "案例1-5 工作表打印设置",
+                "案例1-6 工作表保护设置",
+                "案例1-7 插入和编辑对象",
+                "案例1-8 实用技巧秘籍"
               ]
             },
             {
               "index": 2,
-              "title": "数据处理",
+              "title": "基础篇 项目二 数据处理",
               "sections": [
-                "2-1 数据区域转换",
-                "2-2 排序",
-                "2-3 筛选",
-                "2-4 分类汇总和合并计算",
-                "2-5 图表",
-                "2-6 数据透视表与数据透视图"
+                "案例2-1 数据区域转换",
+                "案例2-2 排序",
+                "案例2-3 筛选",
+                "案例2-4 分类汇总和合并计算",
+                "案例2-5 图表",
+                "案例2-6 图表模板生成与应用",
+                "案例2-7 迷你图",
+                "案例2-8 数据透视表",
+                "案例2-9 数据透视图",
+                "案例2-10 综合应用"
               ]
             },
             {
               "index": 3,
-              "title": "公式与函数",
-              "sections": ["3-1 至 3-4"]
+              "title": "进阶篇 项目三 公式与函数",
+              "sections": [
+                "公式基础知识1-概念、特点、运算符",
+                "公式基础知识2-单元格的引用",
+                "案例3-1 公式及常用函数的使用",
+                "案例3-2 利用函数进行跨工作表计算",
+                "案例3-3 名称和数据验证的应用",
+                "案例3-4 函数的高级应用",
+                "案例3-5 常用逻辑函数",
+                "案例3-6 常用查找与引用函数",
+                "案例3-7 常用日期和时间函数",
+                "案例3-8 常用的文本类函数",
+                "案例-条件格式中使用函数",
+                "案例-数据验证中使用函数",
+                "案例-函数在图表中的应用-动态显示成绩总分最大值柱形图"
+              ]
             },
             {
               "index": 4,
-              "title": "VBA 与宏",
-              "sections": ["4-1 至 4-4"]
+              "title": "进阶篇 项目四 VBA与宏",
+              "sections": [
+                "案例4-1 VBA与宏的基础知识",
+                "案例4-2 界面设计与控件的使用",
+                "案例4-3 窗体及其控件的事件代码",
+                "案例4-4 宏的创建与管理",
+                "案例4-5 VBA与宏综合应用",
+                "案例4-6 制作工资条",
+                "案例4-7 突出显示活动单元格的行和列",
+                "VBA编程基础4-1 数据类型",
+                "VBA编程基础4-2 变量和常量",
+                "VBA编程基础4-3 数组",
+                "VBA编程基础4-4 对象和常量",
+                "VBA编程基础4-5 运算符",
+                "VBA编程基础4-6 内置函数"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "进阶篇 项目五 分析与预测",
+              "sections": [
+                "案例5-1 单变量求解",
+                "案例5-2 单变量模拟运算",
+                "案例5-3 双变量模拟运算",
+                "案例5-4 方案管理器",
+                "案例5-5 规划求解",
+                "案例5-6 分析工具库"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "进阶篇 项目六 动态图表",
+              "sections": [
+                "动态图表1-列表框",
+                "动态图表2-数据验证",
+                "动态图表3-组合框",
+                "动态图表4-微调框",
+                "动态图表5-切片器",
+                "动态图表6-自动识别行数",
+                "动态图表7-任意区间波动",
+                "动态图表8-滚动条"
+              ]
             }
           ]
         }
-      ]
+]
     },
-
     {
       "id": "ai-education",
       "name": "AI+教育",
@@ -350,7 +469,7 @@
         "课件制作"
       ],
       "courses": [
-        {
+{
           "course_id": "ai-edu-001",
           "name": "人工智能教育应用",
           "institution": null,
@@ -432,7 +551,7 @@
             }
           ]
         },
-        {
+{
           "course_id": "ai-edu-002",
           "name": "人工智能时代的教育",
           "institution": null,
@@ -486,76 +605,87 @@
           ]
         },
         {
-          "course_id": "ai-edu-003",
-          "name": "人工智能时代的教育变革",
-          "institution": null,
-          "provider": "中国大学MOOC（爱课程）",
-          "instructor": null,
-          "url": null,
-          "url_verified": false,
-          "hours": null,
-          "level": "进阶",
+          "course_id": "ai-edu-005",
+          "name": "多媒体课件因“理”而精彩",
+          "institution": "延安大学",
+          "provider": "智慧树",
+          "instructor": "张莉靖、杨彩霞、张海霞、曹殿波",
+          "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+          "url_verified": true,
+          "hours": 18,
+          "level": "入门",
           "prereq": [],
-          "skills": ["AI教育应用", "教学设计", "课件制作", "提示词工程"],
-          "verified": "partial",
-          "verified_note": "章与节标题来自公开检索片段，未在平台核对。演示前需补 url 并核对。",
-          "source_url": null,
-          "collected_at": "2026-10-13",
+          "skills": ["课件制作", "教学设计"],
+          "verified": "outline_published",
+          "verified_note": "2026-10-19 于 zhihuishu.com 打开课程主页（标题「多媒体课件因“理”而精彩—智慧树网」，延安大学，学时18，2026秋冬学期运行中），章、节、小节标题取自该页「在线教程」栏目（页面自身加载的公开接口，免登录可见），7章及各小节标题逐条核对一致。课程以多媒体课件的教学设计、开发、素材处理、演示型课件制作、微课设计开发与课件教学法为主线，非单纯办公软件排版课。国家高等教育智慧教育平台同课页 https://higher.smartedu.cn/course/68003a82b836e5522a755723 指向该智慧树课程；中国大学MOOC 另有同名课程页 https://www.icourse163.org/course/YADX-1450045176（仅2020年开过一期，章节划分略不同），本条以智慧树当前版本为准。sections 收录小节（x.y.z）标题。",
+          "source_url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+          "collected_at": "2026-10-19",
           "chapters": [
-            {
-              "index": 1,
-              "title": "人工智能时代的教育变革",
-              "sections": [
-                "1.1 特征、挑战与展望",
-                "1.2 教师能力结构与标准（教育技术→信息技术应用→信息素养→数字素养）",
-                "1.3 教师专业能力与发展"
-              ]
-            },
-            { "index": 2, "title": "智能教育技术概述", "sections": [] },
-            {
-              "index": 3,
-              "title": "智能化教学环境",
-              "sections": [
-                "国家中小学智慧教育平台",
-                "智能技术赋能教学设计",
-                "GAI 赋能课件/微课制作",
-                "人机协同双师课堂",
-                "AI 赋能跨学科项目式学习"
-              ]
-            }
-          ]
-        },
-        {
-          "course_id": "ai-edu-004",
-          "name": "人工智能发展及其教育应用",
-          "institution": null,
-          "provider": "高校教师培训公开课（录播）",
-          "instructor": null,
-          "url": null,
-          "url_verified": false,
-          "hours": null,
-          "level": "进阶",
-          "prereq": [],
-          "skills": ["AI教育应用", "教学设计", "提示词工程"],
-          "verified": "partial",
-          "verified_note": "章标题可查。第三章含 22 个助教/助学/助研/助管案例。演示前需确认平台来源与 url。",
-          "source_url": null,
-          "collected_at": "2026-10-13",
-          "chapters": [
-            { "index": 1, "title": "人工智能发展及其教育应用", "sections": [] },
+            { "index": 1, "title": "绪论", "sections": ["1.1.1 你能从本课程中学到什么，我们怎么教", "1.2.1 推荐几个学习方法"] },
             {
               "index": 2,
-              "title": "生成式人工智能助力教育教学改革",
-              "sections": ["功能特征", "教育作用", "应用场景", "应用策略"]
+              "title": "多媒体课件基本理论",
+              "sections": [
+                "2.1.1 从学习谈起",
+                "2.1.2 学习的经验塔",
+                "2.1.3 多媒体认知学习理论",
+                "2.2.1 什么是多媒体课件",
+                "2.2.2 多媒体课件的种类",
+                "2.3.1 美图与美文",
+                "2.3.2 美声与交互"
+              ]
             },
             {
               "index": 3,
-              "title": "生成式人工智能在教育教学中的应用案例",
-              "sections": ["22 个助教 / 助学 / 助研 / 助管案例"]
-            }
+              "title": "多媒体课件设计与开发",
+              "sections": [
+                "3.1.1 教学设计的基本原理",
+                "3.1.2 教学设计的要素和流程",
+                "3.1.3 教学设计与多媒体课件教学设计的关系",
+                "3.1.4 多媒体课件分析",
+                "3.1.5 多媒体课件设计",
+                "3.2.1 多媒体课件的原型开发与测试",
+                "3.2.2 多媒体课件教学评价"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "多媒体课件素材处理技术",
+              "sections": [
+                "4.1.1 图像素材开发软件简介（Photoshop）",
+                "4.1.2 图像素材处理的常用技术",
+                "4.2.1 音频素材开发软件简介（Audition）",
+                "4.2.2 音频素材处理的常用技术",
+                "4.3.1 搜索引擎的使用"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "演示型课件制作技术",
+              "sections": [
+                "5.1.1 Powerpoint模板的创建",
+                "5.2.1 Powerpoint动画技术",
+                "5.3.1 Powerpoint素材集成技术",
+                "5.4.1 Powerpoint放映技术",
+                "5.5.1 PPT制作进阶"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "微课的设计与开发",
+              "sections": [
+                "6.1.1 微课的缘起",
+                "6.1.2 微课的概念",
+                "6.1.3 丰富多样的微课",
+                "6.2.1 设计微课",
+                "6.2.2 开发微课",
+                "6.2.3 高级制作技术"
+              ]
+            },
+            { "index": 7, "title": "多媒体课件教学法", "sections": ["7.1.1 雨课堂教学法", "7.1.2 雨课堂教学案例演示", "7.2.1 微课教学法——慕课", "7.2.2 微课教学法——翻转课堂"] }
           ]
         }
-      ]
+]
     }
   ]
 }
