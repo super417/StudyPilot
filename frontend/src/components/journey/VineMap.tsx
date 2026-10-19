@@ -85,10 +85,9 @@ function VineStrand({
           <stop offset="100%" stopColor="#146b32" />
         </linearGradient>
       </defs>
-      <path d={main} stroke="#0c5a28" strokeWidth={body + 18} fill="none" strokeLinecap="round" />
+      <path d={main} stroke="#0c5a28" strokeWidth={body + 16} fill="none" strokeLinecap="round" />
       <path d={main} stroke={`url(#${gid})`} strokeWidth={body} fill="none" strokeLinecap="round" />
-      <path d={main} stroke="#c6f59a" strokeWidth={compact ? 12 : 16} fill="none" strokeLinecap="round" opacity="0.55" transform="translate(-8 -10)" />
-      <path d={main} stroke="white" strokeWidth={compact ? 5 : 7} fill="none" strokeLinecap="round" opacity="0.72" transform="translate(-11 -14)" />
+      <path d={main} stroke="white" strokeWidth={compact ? 6 : 8} fill="none" strokeLinecap="round" opacity="0.55" />
       {points.slice(0, -1).map((point, index) => {
         const next = points[index + 1];
         return (
