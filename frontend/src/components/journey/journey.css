@@ -185,15 +185,9 @@
   animation: journey-fall 11s linear infinite;
 }
 
-.journey-map-sky {
-  background-color: #79c8ff;
-  background-image:
-    radial-gradient(ellipse 90px 40px at 8% 20%, rgba(255, 255, 255, 0.95) 0 60%, transparent 62%),
-    radial-gradient(ellipse 120px 48px at 18% 28%, rgba(255, 255, 255, 0.9) 0 60%, transparent 62%),
-    radial-gradient(ellipse 70px 32px at 72% 12%, rgba(255, 255, 255, 0.95) 0 60%, transparent 62%),
-    radial-gradient(ellipse 110px 44px at 84% 22%, rgba(255, 255, 255, 0.88) 0 60%, transparent 62%);
-  background-size: 100% 520px;
-  background-repeat: repeat-y;
+.journey-heat {
+  transform-origin: center;
+  animation: journey-heat 5.5s ease-in-out infinite;
 }
 
 .journey-ripple {
@@ -284,6 +278,16 @@
   100% {
     transform: scale(7);
     opacity: 0;
+  }
+}
+
+@keyframes journey-heat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
   }
 }
 

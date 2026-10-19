@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import cloud from '@/assets/journey/cloud.webp';
+import mapSky from '@/assets/journey/map-sky.webp';
 import { FruitGlyph, LeafMark, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
   climbSpan,
@@ -72,7 +74,7 @@ function VineStrand({
   const main = vinePath(points);
   const y0 = Math.min(points[0].y, points[points.length - 1].y) - 64;
   const y1 = Math.max(points[0].y, points[points.length - 1].y) + 64;
-  const body = compact ? 40 : 56;
+  const body = compact ? 54 : 76;
   return (
     <svg className="pointer-events-none absolute left-0" style={{ top: y0, width: '100%', height: y1 - y0 }} viewBox={`0 ${y0} ${width} ${y1 - y0}`}>
       <defs>
@@ -83,9 +85,10 @@ function VineStrand({
           <stop offset="100%" stopColor="#146b32" />
         </linearGradient>
       </defs>
-      <path d={main} stroke="#0c5a28" strokeWidth={body + 14} fill="none" strokeLinecap="round" />
+      <path d={main} stroke="#0c5a28" strokeWidth={body + 18} fill="none" strokeLinecap="round" />
       <path d={main} stroke={`url(#${gid})`} strokeWidth={body} fill="none" strokeLinecap="round" />
-      <path d={main} stroke="white" strokeWidth={compact ? 7 : 10} fill="none" strokeLinecap="round" opacity="0.42" transform="translate(-7 -8)" />
+      <path d={main} stroke="#c6f59a" strokeWidth={compact ? 12 : 16} fill="none" strokeLinecap="round" opacity="0.55" transform="translate(-8 -10)" />
+      <path d={main} stroke="white" strokeWidth={compact ? 5 : 7} fill="none" strokeLinecap="round" opacity="0.72" transform="translate(-11 -14)" />
       {points.slice(0, -1).map((point, index) => {
         const next = points[index + 1];
         return (
@@ -215,7 +218,18 @@ export default function VineMap({
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
       <div className="relative" style={{ height, width: '100%' }} onClick={() => onBlank?.()}>
-        <div className="journey-map-sky pointer-events-none absolute inset-0" />
+        <div className="pointer-events-none sticky top-0 z-0 h-[100dvh] overflow-hidden">
+          <img src={mapSky} alt="" className="h-full w-full object-cover object-top" />
+          <img src={cloud} alt="" draggable={false} className="journey-drift absolute left-[6%] top-[10%] w-[min(28vw,220px)]" />
+          <img
+            src={cloud}
+            alt=""
+            draggable={false}
+            className="journey-drift absolute right-[8%] top-[22%] w-[min(22vw,170px)]"
+            style={{ animationDelay: '-8s' }}
+          />
+        </div>
+        <div className="absolute inset-0">
         <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
           <path ref={pathRef} d={climbPath} />
         </svg>
@@ -232,16 +246,13 @@ export default function VineMap({
               起点
             </text>
           </g>
-          <g transform={`translate(${width / 2 - 110} 18)`}>
-            <ellipse cx="70" cy="34" rx="36" ry="22" fill="white" />
-            <ellipse cx="110" cy="30" rx="48" ry="26" fill="white" />
-            <ellipse cx="156" cy="36" rx="32" ry="18" fill="white" />
-            <ellipse cx="110" cy="44" rx="70" ry="18" fill="white" />
-            <text x="110" y="40" textAnchor="middle" fill="#166534" fontSize="13" fontWeight="700">
-              {goalName.slice(0, 12)}
-            </text>
-          </g>
         </svg>
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[2] w-[min(46vw,240px)] -translate-x-1/2">
+          <img src={cloud} alt="" draggable={false} className="w-full" />
+          <div className="absolute inset-0 grid place-items-center px-6 text-center text-[13px] font-bold text-[#166534]">
+            {goalName.slice(0, 12)}
+          </div>
+        </div>
         {segments.flatMap((chunk) =>
           chunk.slice(0, -1).flatMap((point, index) => {
             const next = chunk[index + 1];
@@ -381,6 +392,7 @@ export default function VineMap({
             <SproutAvatar size={compact ? 46 : 54} />
           </div>
         ) : null}
+        </div>
       </div>
       {showReturn ? (
         <button
