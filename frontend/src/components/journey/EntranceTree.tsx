@@ -103,7 +103,7 @@ export function EntranceTree({
         src={cloud}
         alt=""
         draggable={false}
-        className="journey-drift pointer-events-none absolute right-[6%] top-[14%] w-[min(24vw,200px)]"
+        className="journey-drift pointer-events-none absolute left-[58%] top-[18%] w-[min(22vw,180px)]"
         style={{ animationDelay: '-11s' }}
       />
       <img
@@ -135,8 +135,8 @@ export function EntranceTree({
         aria-hidden
         className="pointer-events-none absolute inset-x-[-6%] z-[6]"
         style={{
-          bottom: compact ? 36 : 52,
-          height: compact ? '46%' : '48%',
+          bottom: 0,
+          height: compact ? '24%' : '22%',
           background:
             'radial-gradient(ellipse 62% 78% at 50% 100%, #9adf62 0%, #67bc48 36%, #4e9d3c 62%, rgba(78,157,60,0) 74%)',
         }}
@@ -181,9 +181,9 @@ export function EntranceTree({
               );
             })}
             {compact ? null : (
-              <div className="absolute bottom-[36%] left-1/2 w-[42%] min-w-[148px] -translate-x-1/2">
+              <div className="absolute bottom-[14%] left-[54%] w-[148px] -translate-x-1/2">
                 <img src={wood} alt="" draggable={false} className="w-full" />
-                <div className="absolute inset-y-[18%] left-[24%] right-[8%] flex flex-col items-center justify-center text-center text-[11px] font-black leading-4 text-[#5a3412]">
+                <div className="absolute inset-y-[22%] left-[28%] right-[8%] flex flex-col items-center justify-center text-center text-[10px] font-black leading-3 text-[#5a3412]">
                   {sign}
                 </div>
               </div>
@@ -195,7 +195,8 @@ export function EntranceTree({
         src={hill}
         alt=""
         draggable={false}
-        className="pointer-events-none absolute inset-x-[-4%] bottom-0 z-[12] w-[108%] max-w-none"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[12] w-full object-cover object-top"
+        style={{ height: compact ? '18%' : '16%' }}
       />
       <img
         src={flowers}
