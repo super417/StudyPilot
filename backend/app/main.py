@@ -7,6 +7,7 @@ from app.routers.auth import router as auth_router
 from app.routers.conversations import router as conversations_router
 from app.routers.courses import router as courses_router
 from app.routers.dependencies import AuthenticationRequiredError
+from app.routers.directions import router as directions_router
 from app.routers.documents import router as documents_router
 from app.routers.health import router as health_router
 from app.routers.materials import router as materials_router
@@ -35,6 +36,7 @@ app.include_router(study_router)
 app.include_router(mistakes_router)
 app.include_router(notes_router)
 app.include_router(courses_router)
+app.include_router(directions_router)
 app.include_router(weekly_reviews_router)
 app.include_router(statistics_router, prefix="/api/statistics", tags=["statistics"])
 app.include_router(assistant_router)

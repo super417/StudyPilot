@@ -9,6 +9,7 @@ import CoursesCard from '@/components/profile/CoursesCard';
 import LeftRail from '@/components/profile/LeftRail';
 import NotesCard from '@/components/profile/NotesCard';
 import RightRail from '@/components/profile/RightRail';
+import SkillGapCard from '@/components/profile/SkillGapCard';
 import StudyMaterialsCard from '@/components/profile/StudyMaterialsCard';
 import StudyProgressCard from '@/components/profile/StudyProgressCard';
 import StudyStatsCard from '@/components/profile/StudyStatsCard';
@@ -57,6 +58,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps = {}) {
     <StudyProgressCard key="progress" onEnter={() => navigate('overview')} />,
     <StudyStatsCard key="stats" />,
     <CoursesCard key="courses" onAction={show} />,
+    <SkillGapCard key="skill-gap" />,
     <NotesCard key="notes" onAction={show} />,
     <BasicInfoCard
       key="basic"
