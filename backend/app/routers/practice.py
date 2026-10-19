@@ -77,6 +77,12 @@ class ReinforceRetestPayload(BaseModel):
     phase_id: str = ""
 
 
+class PhaseQuizPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+
+    phase_id: str = ""
+
+
 class PracticeGradePayload(BaseModel):
     model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
@@ -142,6 +148,36 @@ async def reinforce_retest_route(
         return _json_error(400, "VALIDATION", "阶段参数不合法")
     try:
         rows = await practice_service.generate_reinforce_retest(
+            session, user.id, phase_id, generator
+        )
+    except PracticeNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    except PracticeValidationError as error:
+        return _json_error(400, error.code, str(error))
+    except NoVerifiedApiConfigError as error:
+        return _json_error(400, error.code, str(error))
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "ok",
+            "questions": [practice_service._question_json(row) for row in rows],
+        },
+    )
+
+
+@router.post("/phase-quiz")
+async def phase_quiz_route(
+    payload: PhaseQuizPayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+    generator: QuestionGenerator | None = Depends(get_question_generator),
+) -> JSONResponse:
+    try:
+        phase_id = uuid.UUID(payload.phase_id)
+    except (ValueError, AttributeError, TypeError):
+        return _json_error(400, "VALIDATION", "阶段参数不合法")
+    try:
+        rows = await practice_service.generate_phase_quiz(
             session, user.id, phase_id, generator
         )
     except PracticeNotFoundError as error:

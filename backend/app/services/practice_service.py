@@ -494,6 +494,93 @@ async def generate_reinforce_retest(
     return rows
 
 
+def _done_tasks_for_phase(
+    session: Session, user_id: uuid.UUID, phase_id: uuid.UUID
+) -> tuple[Phase, list[DailyTask]]:
+    phase = session.scalar(
+        select(Phase)
+        .join(Plan, Plan.id == Phase.plan_id)
+        .where(Phase.id == phase_id, Plan.user_id == user_id)
+    )
+    if phase is None:
+        raise PracticeNotFoundError("阶段不存在")
+    tasks = list(
+        session.scalars(
+            select(DailyTask)
+            .where(DailyTask.phase_id == phase_id, DailyTask.status == "done")
+            .order_by(DailyTask.task_date.asc(), DailyTask.id.asc())
+        )
+    )
+    return phase, tasks
+
+
+async def generate_phase_quiz(
+    session: Session,
+    user_id: uuid.UUID,
+    phase_id: uuid.UUID,
+    generator: QuestionGenerator | None = None,
+) -> list[PracticeQuestion]:
+    """Phase quiz: same shape as reinforce retest, sourced from done DailyTasks.
+
+    ``source_task_id`` points at a done task of this phase so ``_knowledge_point``
+    resolves to ``phase_id`` and mastery evidence feeds the dual rings.
+    """
+    require_verified_api_config(session, user_id)
+    phase, done_tasks = _done_tasks_for_phase(session, user_id, phase_id)
+    if not done_tasks:
+        raise PracticeValidationError("该阶段还没有已完成的任务，无法测验")
+    lines = [f"{phase.name}：{task.description}" for task in done_tasks]
+    doc_ids = list(
+        session.scalars(
+            select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
+        )
+    )
+    context, hits = (
+        document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
+        if doc_ids
+        else ("", [])
+    )
+    if context == "":
+        return []
+    source_refs = list(hits) if hits else None
+    try:
+        if generator is None:
+            produced = await _default_generator(session, user_id, lines, context)
+            questions = _parse_questions(str(produced.get("raw") or ""))
+        else:
+            produced = generator(lines, context)
+            if hasattr(produced, "__await__"):
+                produced = await produced  # type: ignore[assignment]
+            questions = _parse_questions(json.dumps(produced))
+    except (NoVerifiedApiConfigError, CredentialUnavailableError):
+        raise
+    except Exception:
+        questions = _heuristic_questions(lines)
+    rows = [
+        PracticeQuestion(
+            user_id=user_id,
+            source="generated",
+            subject=item["subject"],
+            question=item["question"],
+            answer=item["answer"],
+            explanation=item["explanation"],
+            source_task_id=done_tasks[index % len(done_tasks)].id,
+            source_refs=source_refs,
+            status="pending",
+        )
+        for index, item in enumerate(questions)
+    ]
+    session.add_all(rows)
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    for row in rows:
+        session.refresh(row)
+    return rows
+
+
 def _knowledge_point(
     session: Session, user_id: uuid.UUID, question: PracticeQuestion
 ) -> uuid.UUID | None:
