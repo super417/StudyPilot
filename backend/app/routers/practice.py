@@ -14,6 +14,7 @@ from app.routers.dependencies import get_current_user
 from app.services import practice_service
 from app.services.api_config_service import NoVerifiedApiConfigError
 from app.services.practice_service import (
+    ExplanationInsufficientEvidenceError,
     PracticeGradeError,
     PracticeNotFoundError,
     PracticeValidationError,
@@ -267,6 +268,55 @@ async def grade_practice_route(
                 "evidenceType": row.evidence_type,
                 "sourceRef": row.source_ref,
             },
+        },
+    )
+
+
+@router.post("/{question_id}/explain")
+async def explain_practice_route(
+    question_id: str,
+    payload: PracticeGradePayload,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        parsed = uuid.UUID(question_id)
+    except (ValueError, AttributeError, TypeError):
+        return _json_error(404, PracticeNotFoundError.code, str(PracticeNotFoundError()))
+    try:
+        row, review = await practice_service.explain_answer(
+            session, user.id, parsed, payload.answer_text
+        )
+    except ExplanationInsufficientEvidenceError as error:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "ok",
+                "result": "insufficient",
+                "reason": str(error),
+            },
+        )
+    except PracticeValidationError as error:
+        return _json_error(400, error.code, str(error))
+    except PracticeNotFoundError as error:
+        return _json_error(404, error.code, str(error))
+    except NoVerifiedApiConfigError as error:
+        return _json_error(400, error.code, str(error))
+    except PracticeGradeError as error:
+        return _json_error(502, error.code, str(error))
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "ok",
+            "result": row.result,
+            "reason": row.grade_reason,
+            "evidence": {
+                "id": str(row.id),
+                "knowledgePoint": str(row.knowledge_point) if row.knowledge_point else None,
+                "evidenceType": row.evidence_type,
+                "sourceRef": row.source_ref,
+            },
+            "explanationReview": review,
         },
     )
 

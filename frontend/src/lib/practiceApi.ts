@@ -108,11 +108,40 @@ export interface PracticeGradeResponse {
   };
 }
 
+export interface ExplanationReview {
+  covered: string[];
+  missing: string[];
+  wrong: string[];
+}
+
+export interface PracticeExplainResponse {
+  status: string;
+  result: 'correct' | 'partial' | 'wrong' | 'insufficient';
+  reason: string | null;
+  evidence?: {
+    id: string;
+    knowledgePoint: string | null;
+    evidenceType: string;
+    sourceRef: string | null;
+  };
+  explanationReview?: ExplanationReview;
+}
+
 export function gradePractice(
   id: string,
   answerText: string,
 ): Promise<PracticeGradeResponse> {
   return apiRequest(`/api/practice/${id}/grade`, {
+    method: 'POST',
+    body: JSON.stringify({ answerText }),
+  });
+}
+
+export function explainPractice(
+  id: string,
+  answerText: string,
+): Promise<PracticeExplainResponse> {
+  return apiRequest(`/api/practice/${id}/explain`, {
     method: 'POST',
     body: JSON.stringify({ answerText }),
   });

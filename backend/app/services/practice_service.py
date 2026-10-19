@@ -60,9 +60,17 @@ class PracticeGradeError(RuntimeError):
         super().__init__(message)
 
 
+class ExplanationInsufficientEvidenceError(ValueError):
+    """No retrieved source text — do not call the model or write evidence."""
+
+    code = "INSUFFICIENT_EVIDENCE"
+
+    def __init__(self, message: str = "依据不足：没有可对照的原文") -> None:
+        super().__init__(message)
+
+
 _GRADE_RESULTS = ("correct", "partial", "wrong")
 _CITATION_MARKERS = ("原文", "资料中")
-
 
 def _question_json(row: PracticeQuestion) -> dict:
     return {
@@ -532,13 +540,43 @@ def _parse_grade_payload(produced: object) -> dict:
     return {"result": result, "reason": reason.strip(), "error_tag": error_tag}
 
 
+def _string_list_or_empty(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _parse_explanation_payload(produced: object) -> dict:
+    """Parse oral-explanation grading JSON. Does not reuse quiz payload rules."""
+    if not isinstance(produced, dict):
+        raise PracticeGradeError("判分结果无法解析")
+    result = produced.get("result")
+    reason = produced.get("reason")
+    if result not in _GRADE_RESULTS or not isinstance(reason, str) or not reason.strip():
+        raise PracticeGradeError("判分结果无法解析")
+    error_tag = produced.get("error_tag")
+    if isinstance(error_tag, str):
+        error_tag = error_tag.strip()[:64] or None
+    else:
+        error_tag = None
+    return {
+        "result": result,
+        "reason": reason.strip(),
+        "error_tag": error_tag,
+        "covered": _string_list_or_empty(produced.get("covered")),
+        "missing": _string_list_or_empty(produced.get("missing")),
+        "wrong": _string_list_or_empty(produced.get("wrong")),
+    }
+
 def _reason_for_storage(reason: str, source_ref: str | None) -> str:
     if source_ref is None and any(marker in reason for marker in _CITATION_MARKERS):
         return "没有可对照的材料，只根据题目和作答判断。"
     return reason
 
 
-def _loads_model_json(text: str) -> dict:
+def _loads_model_json(
+    text: str, parse: Callable[[object], dict] = _parse_grade_payload
+) -> dict:
     raw = text.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?", "", raw).strip()
@@ -548,39 +586,25 @@ def _loads_model_json(text: str) -> dict:
         body = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise PracticeGradeError("判分结果无法解析") from exc
-    return _parse_grade_payload(body)
+    return parse(body)
 
 
-async def _default_grader(
+async def _call_grade_model(
     session: Session,
     user_id: uuid.UUID,
-    question: str,
-    answer: str,
-    source_text: str,
+    *,
+    system: str,
+    user_content: str,
+    parse: Callable[[object], dict],
 ) -> dict:
     require_verified_api_config(session, user_id)
     credential = resolve_credential(session, user_id)
-    excerpt = source_text.strip()
     payload = {
         "model": credential.model_type,
         "stream": False,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "只输出 JSON："
-                    '{"result":"correct","reason":"...","error_tag":""}'
-                    "。result 只能是 correct、partial、wrong。"
-                    "有摘录时 reason 依据摘录；摘录为空时不要写「原文」或「资料中」。"
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"题目：\n{question}\n作答：\n{answer}\n摘录：\n"
-                    + (excerpt[:4000] if excerpt else "（没有检索到可对照的摘录）")
-                ),
-            },
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
         ],
     }
     try:
@@ -606,22 +630,73 @@ async def _default_grader(
     if isinstance(choices, list) and choices and isinstance(choices[0], dict):
         message = choices[0].get("message") or {}
         text = message.get("content") or ""
-    return _loads_model_json(str(text))
+    return _loads_model_json(str(text), parse)
 
 
-async def grade_answer(
+async def _default_grader(
+    session: Session,
+    user_id: uuid.UUID,
+    question: str,
+    answer: str,
+    source_text: str,
+) -> dict:
+    excerpt = source_text.strip()
+    return await _call_grade_model(
+        session,
+        user_id,
+        system=(
+            "只输出 JSON："
+            '{"result":"correct","reason":"...","error_tag":""}'
+            "。result 只能是 correct、partial、wrong。"
+            "有摘录时 reason 依据摘录；摘录为空时不要写「原文」或「资料中」。"
+        ),
+        user_content=(
+            f"题目：\n{question}\n作答：\n{answer}\n摘录：\n"
+            + (excerpt[:4000] if excerpt else "（没有检索到可对照的摘录）")
+        ),
+        parse=_parse_grade_payload,
+    )
+
+
+async def _default_explanation_grader(
+    session: Session,
+    user_id: uuid.UUID,
+    question: str,
+    answer: str,
+    source_text: str,
+) -> dict:
+    excerpt = source_text.strip()
+    return await _call_grade_model(
+        session,
+        user_id,
+        system=(
+            "你扮演一个不懂该知识点的初学者：根据摘录追问并点评口述。"
+            "只输出 JSON："
+            '{"result":"correct","reason":"...","error_tag":"",'
+            '"covered":["..."],"missing":["..."],"wrong":["..."]}'
+            "。result 只能是 correct、partial、wrong。"
+            "reason 必须引用检索原文。"
+            "covered / missing / wrong 每条尽量带原文位置或摘录短句。"
+        ),
+        user_content=(
+            f"题目：\n{question}\n口述：\n{answer}\n摘录：\n{excerpt[:4000]}"
+        ),
+        parse=_parse_explanation_payload,
+    )
+
+
+async def _grade_and_record(
     session: Session,
     user_id: uuid.UUID,
     question_id: uuid.UUID,
     answer_text: str,
-    grader: Callable[..., dict | Awaitable[dict]] | None = None,
-) -> MasteryEvidence:
-    """Grade one answer from retrieved source text and append one evidence row.
-
-    A failed or unparseable model response writes nothing and raises.
-    ``knowledge_point`` is the source task's phase id, or null when that
-    cannot be derived. It is never inferred from the subject line.
-    """
+    *,
+    evidence_type: str,
+    grader: Callable[..., dict | Awaitable[dict]] | None,
+    default_grader: Callable[..., Awaitable[dict]],
+    parse: Callable[[object], dict],
+    require_source: bool,
+) -> tuple[MasteryEvidence, dict]:
     answer = (answer_text or "").strip()
     if not answer:
         raise PracticeValidationError("请先写下你的作答")
@@ -636,20 +711,25 @@ async def grade_answer(
     source_text, source_ref = _source_for_grade(
         session, user_id, f"{question.question}\n{answer}"
     )
+    if require_source and not source_text.strip():
+        raise ExplanationInsufficientEvidenceError()
     try:
         if grader is None:
-            produced = await _default_grader(
+            produced = await default_grader(
                 session, user_id, question.question, answer, source_text
             )
         else:
             produced = grader(question.question, answer, source_text)
             if hasattr(produced, "__await__"):
                 produced = await produced  # type: ignore[assignment]
-        verdict = _parse_grade_payload(produced)
+        verdict = parse(produced)
     except PracticeGradeError:
         session.rollback()
         raise
     except (NoVerifiedApiConfigError, CredentialUnavailableError):
+        session.rollback()
+        raise
+    except ExplanationInsufficientEvidenceError:
         session.rollback()
         raise
     except Exception as exc:
@@ -659,7 +739,7 @@ async def grade_answer(
     row = MasteryEvidence(
         user_id=user_id,
         knowledge_point=_knowledge_point(session, user_id, question),
-        evidence_type="quiz",
+        evidence_type=evidence_type,
         result=verdict["result"],
         error_tag=verdict["error_tag"],
         answer_text=answer,
@@ -670,4 +750,63 @@ async def grade_answer(
     session.add(row)
     session.commit()
     session.refresh(row)
+    return row, verdict
+
+
+async def grade_answer(
+    session: Session,
+    user_id: uuid.UUID,
+    question_id: uuid.UUID,
+    answer_text: str,
+    grader: Callable[..., dict | Awaitable[dict]] | None = None,
+    *,
+    evidence_type: str = "quiz",
+) -> MasteryEvidence:
+    """Grade one answer from retrieved source text and append one evidence row.
+
+    A failed or unparseable model response writes nothing and raises.
+    ``knowledge_point`` is the source task's phase id, or null when that
+    cannot be derived. It is never inferred from the subject line.
+    """
+    row, _verdict = await _grade_and_record(
+        session,
+        user_id,
+        question_id,
+        answer_text,
+        evidence_type=evidence_type,
+        grader=grader,
+        default_grader=_default_grader,
+        parse=_parse_grade_payload,
+        require_source=False,
+    )
     return row
+
+
+async def explain_answer(
+    session: Session,
+    user_id: uuid.UUID,
+    question_id: uuid.UUID,
+    answer_text: str,
+    grader: Callable[..., dict | Awaitable[dict]] | None = None,
+) -> tuple[MasteryEvidence, dict]:
+    """Oral explanation grading. Writes ``evidence_type=explanation``.
+
+    Empty retrieval short-circuits before any model call and writes nothing.
+    """
+    row, verdict = await _grade_and_record(
+        session,
+        user_id,
+        question_id,
+        answer_text,
+        evidence_type="explanation",
+        grader=grader,
+        default_grader=_default_explanation_grader,
+        parse=_parse_explanation_payload,
+        require_source=True,
+    )
+    review = {
+        "covered": verdict.get("covered") or [],
+        "missing": verdict.get("missing") or [],
+        "wrong": verdict.get("wrong") or [],
+    }
+    return row, review

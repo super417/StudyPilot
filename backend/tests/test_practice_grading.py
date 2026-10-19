@@ -25,7 +25,10 @@ from app.models.entities import (
     UserDocument,
 )
 from app.services import practice_service, weekly_review_service
-from app.services.practice_service import PracticeGradeError
+from app.services.practice_service import (
+    ExplanationInsufficientEvidenceError,
+    PracticeGradeError,
+)
 
 
 class PracticeGradingTests(unittest.TestCase):
@@ -311,6 +314,119 @@ class PracticeGradingTests(unittest.TestCase):
         self.assertEqual(detail[0]["evidenceCount"], 3)
         self.assertEqual(detail[0]["percent"], 33)
         self.assertEqual(len(list(self.session.scalars(select(MasteryEvidence)))), 3)
+
+    def test_explain_writes_explanation_evidence_type(self) -> None:
+        user = self._user()
+        plan, phase = self._phase(user)
+        question = self._question(user, self._task(plan, phase))
+        self._chunk(user, "中值定理要求函数在闭区间连续、开区间可导")
+
+        def grader(question_text, answer, source):
+            return {
+                "result": "partial",
+                "reason": "口述提到连续，摘录还要求可导",
+                "error_tag": "",
+                "covered": ["连续（摘录第1段）"],
+                "missing": ["开区间可导"],
+                "wrong": [],
+            }
+
+        row, review = asyncio.run(
+            practice_service.explain_answer(
+                self.session, user.id, question.id, "只要闭区间连续", grader
+            )
+        )
+        self.assertEqual(row.evidence_type, "explanation")
+        self.assertEqual(review["covered"], ["连续（摘录第1段）"])
+        self.assertEqual(review["missing"], ["开区间可导"])
+        stored = list(self.session.scalars(select(MasteryEvidence)))
+        self.assertEqual(len(stored), 1)
+        self.assertEqual(stored[0].evidence_type, "explanation")
+
+    def test_grade_answer_still_writes_quiz_by_default(self) -> None:
+        user = self._user()
+        plan, phase = self._phase(user)
+        question = self._question(user, self._task(plan, phase))
+        self._chunk(user, "中值定理要求函数在闭区间连续")
+
+        def grader(question_text, answer, source):
+            return {"result": "correct", "reason": "一致", "error_tag": ""}
+
+        row = asyncio.run(
+            practice_service.grade_answer(
+                self.session, user.id, question.id, "连续", grader
+            )
+        )
+        self.assertEqual(row.evidence_type, "quiz")
+
+    def test_explain_without_source_short_circuits_and_skips_model(self) -> None:
+        user = self._user()
+        plan, phase = self._phase(user)
+        question = self._question(user, self._task(plan, phase))
+        calls = {"n": 0}
+
+        def grader(question_text, answer, source):
+            calls["n"] += 1
+            return {
+                "result": "correct",
+                "reason": "不该调用",
+                "error_tag": "",
+                "covered": [],
+                "missing": [],
+                "wrong": [],
+            }
+
+        with self.assertRaises(ExplanationInsufficientEvidenceError) as raised:
+            asyncio.run(
+                practice_service.explain_answer(
+                    self.session, user.id, question.id, "我口述一下", grader
+                )
+            )
+        self.assertIn("依据不足", str(raised.exception))
+        self.assertEqual(calls["n"], 0)
+        self.assertEqual(list(self.session.scalars(select(MasteryEvidence))), [])
+
+    def test_explanation_evidence_enters_phase_mastery_average(self) -> None:
+        user = self._user()
+        plan, phase = self._phase(user)
+        task = self._task(plan, phase)
+        quiz_q = self._question(user, task, "闭区间条件")
+        explain_q = self._question(user, task, "可导条件")
+        self._chunk(user, "中值定理要求函数在闭区间连续、开区间可导")
+
+        def quiz_grader(question_text, answer, source):
+            return {"result": "correct", "reason": "对", "error_tag": ""}
+
+        def explain_grader(question_text, answer, source):
+            return {
+                "result": "wrong",
+                "reason": "口述与摘录不符",
+                "error_tag": "",
+                "covered": [],
+                "missing": ["开区间可导"],
+                "wrong": ["说成只要连续"],
+            }
+
+        asyncio.run(
+            practice_service.grade_answer(
+                self.session, user.id, quiz_q.id, "连续", quiz_grader
+            )
+        )
+        asyncio.run(
+            practice_service.explain_answer(
+                self.session, user.id, explain_q.id, "只要连续", explain_grader
+            )
+        )
+        rows = list(self.session.scalars(select(MasteryEvidence)))
+        self.assertEqual(len(rows), 2)
+        types = sorted(row.evidence_type for row in rows)
+        self.assertEqual(types, ["explanation", "quiz"])
+        _avg, detail = weekly_review_service.phase_mastery(
+            self.session, user.id, self.week_start, self.week_end
+        )
+        self.assertEqual(detail[0]["phaseId"], str(phase.id))
+        self.assertEqual(detail[0]["evidenceCount"], 2)
+        self.assertEqual(detail[0]["percent"], 50)
 
 
 if __name__ == "__main__":

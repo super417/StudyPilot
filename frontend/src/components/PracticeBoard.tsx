@@ -5,10 +5,12 @@ import { recognizeQuestionImage } from '@/lib/mistakesApi';
 import {
   createPractice,
   deletePractice,
+  explainPractice,
   generatePractice,
   gradePractice,
   listPractice,
   setPracticeStatus,
+  type ExplanationReview,
   type PracticeQuestion,
   type PracticeSourceRef,
 } from '@/lib/practiceApi';
@@ -30,6 +32,20 @@ export function sourceRefSummary(ref: PracticeSourceRef): string {
   return `出自《${ref.filename}》第 ${ref.chunkIndex + 1} 段`;
 }
 
+function ReviewList({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-xs font-medium text-brandDark">{title}</p>
+      <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-slate-600">
+        {items.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PracticeCard({
   item,
   onChanged,
@@ -43,6 +59,11 @@ function PracticeCard({
   const [answerText, setAnswerText] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [explainText, setExplainText] = useState('');
+  const [explainNote, setExplainNote] = useState<string | null>(null);
+  const [explainReview, setExplainReview] = useState<ExplanationReview | null>(null);
+  const [explainCounted, setExplainCounted] = useState(false);
 
   const grade = async () => {
     if (busy) return;
@@ -59,6 +80,37 @@ function PracticeCard({
       onChanged();
     } catch (err) {
       setNote(err instanceof ApiError ? err.message : '判分失败，没有写入掌握度证据');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const explain = async () => {
+    if (busy) return;
+    if (!explainText.trim()) {
+      setExplainNote('请先写下你的口述');
+      setExplainReview(null);
+      setExplainCounted(false);
+      return;
+    }
+    setBusy(true);
+    setExplainNote(null);
+    setExplainReview(null);
+    setExplainCounted(false);
+    try {
+      const body = await explainPractice(item.id, explainText.trim());
+      if (body.result === 'insufficient') {
+        setExplainNote(body.reason ?? '依据不足：没有可对照的原文');
+        return;
+      }
+      const verdict =
+        body.result === 'correct' ? '讲得对' : body.result === 'partial' ? '部分讲对' : '讲错了';
+      setExplainNote(`${verdict}。${body.reason ?? ''}`);
+      setExplainReview(body.explanationReview ?? { covered: [], missing: [], wrong: [] });
+      setExplainCounted(true);
+      onChanged();
+    } catch (err) {
+      setExplainNote(err instanceof ApiError ? err.message : '口述评分失败，没有写入掌握度证据');
     } finally {
       setBusy(false);
     }
@@ -130,6 +182,19 @@ function PracticeCard({
         <button type="button" disabled={busy} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void grade()}>
           提交判分
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-full bg-white px-3 py-1 text-xs text-brandDark ring-1 ring-brand/30 disabled:opacity-60"
+          onClick={() => {
+            setExplainOpen((v) => !v);
+            setExplainNote(null);
+            setExplainReview(null);
+            setExplainCounted(false);
+          }}
+        >
+          讲给 AI 听
+        </button>
         <button type="button" disabled={busy} className="rounded-full bg-brandDark px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void mark('wrong')}>
           做错了
         </button>
@@ -142,6 +207,38 @@ function PracticeCard({
         </button>
       </div>
       {note ? <p className="mt-2 text-xs text-brandDark">{note}</p> : null}
+      {explainOpen ? (
+        <div className="mt-3 rounded-2xl bg-brandFaint/60 px-3 py-3">
+          <label className="block text-xs text-gray-500">
+            用文字讲一遍（不做语音）
+            <textarea
+              value={explainText}
+              onChange={(event) => setExplainText(event.target.value)}
+              rows={4}
+              className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={busy}
+            className="mt-2 rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60"
+            onClick={() => void explain()}
+          >
+            提交口述
+          </button>
+          {explainNote ? <p className="mt-2 text-xs text-brandDark">{explainNote}</p> : null}
+          {explainReview ? (
+            <div className="mt-1">
+              <ReviewList title="讲对了什么" items={explainReview.covered} />
+              <ReviewList title="漏了什么" items={explainReview.missing} />
+              <ReviewList title="错在哪" items={explainReview.wrong} />
+            </div>
+          ) : null}
+          {explainCounted ? (
+            <p className="mt-2 text-xs text-slate-600">已计入掌握度证据</p>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
