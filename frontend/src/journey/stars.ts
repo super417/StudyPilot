@@ -36,6 +36,7 @@ export function starColor(scoreSum: number, answered: number): StarColor {
 export function tasksUntilFourStars(total: number, done: number): number {
   if (total <= 0) return 0;
   const safeDone = Math.min(total, Math.max(0, done));
-  const needed = Math.ceil((80 * total) / 100);
+  // 与后端 (80 * total + 99) // 100 相同，避免浮点 ceil 在整数边界上多算 1。
+  const needed = Math.floor((80 * total + 99) / 100);
   return Math.max(0, needed - safeDone);
 }

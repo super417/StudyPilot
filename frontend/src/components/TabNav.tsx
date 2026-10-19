@@ -1,3 +1,4 @@
+import { openJourneyPage } from '@/journey/route';
 import { openMainframePage } from '@/lib/mainframeRoute';
 
 /** Tab 的 key 联合类型，保证类型安全（需求 12.5） */
@@ -43,6 +44,13 @@ function TabNav({ activeTab, onChange }: TabNavProps) {
           style={{ fontFamily: 'var(--font-heading)' }}
         >
           StudyPilot
+        </button>
+        <button
+          type="button"
+          onClick={openJourneyPage}
+          className="whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold text-brandDark transition-colors hover:bg-white/55 sm:px-4"
+        >
+          星藤航图
         </button>
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
