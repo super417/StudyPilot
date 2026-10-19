@@ -17,6 +17,12 @@ backend/_v13*.py
 backend/_v13*.json
 backend/_v13*.txt
 backend/_v13*_raw/
+# 根目录一次性脚本与产物：以 _ 开头、处理数据文件用，不进仓库
+# 用通用前缀而不是 _courses_*：换一批数据就会换前缀，逐个列会再漏一次
+/_*.py
+/_*.json
+/_*.txt
+/_*.diff
 **/.pytest_cache/
 **/.hypothesis/
 
