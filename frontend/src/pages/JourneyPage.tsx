@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CheerCard, DayDrawer } from '@/components/journey/Feedback';
 import VineMap from '@/components/journey/VineMap';
 import '@/components/journey/journey.css';
 import type { TabKey } from '@/components/TabNav';
-import { fetchJourney } from '@/journey/api';
+import { fetchJourney, fetchJourneyCheer, fetchJourneyTasks } from '@/journey/api';
+import { cheerCapText, localCheer } from '@/journey/cheer';
+import {
+  blankCheerCount,
+  markAutoCheerShown,
+  readStoredStars,
+  rememberAutoRule,
+  rememberCheerRule,
+  usedCheerRules,
+  wasAutoCheerShown,
+  writeStoredStars,
+} from '@/journey/cheerStore';
 import { isCompactViewport, remainingDays, spanDays, todayCta } from '@/journey/layout';
-import { buildJourneyDemo } from '@/journey/mock';
+import { buildJourneyDemo, demoTasks } from '@/journey/mock';
 import { isJourneyDemo } from '@/journey/route';
-import type { JourneyResponse } from '@/journey/types';
+import type { CheerResponse, JourneyDay, JourneyResponse, JourneyTask } from '@/journey/types';
 import { addDaysISO, todayISO } from '@/lib/dates';
 import { ApiError } from '@/lib/httpClient';
 import { requestPracticeBoard } from '@/lib/practiceApi';
@@ -22,7 +34,14 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const [data, setData] = useState<JourneyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requested = useRef(new Set<string>());
+  const armed = useRef(false);
+  const lastBlank = useRef(0);
+  const cheerSource = useRef<'auto' | 'blank' | 'other'>('other');
   const [box, setBox] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  const [selected, setSelected] = useState<JourneyDay | null>(null);
+  const [tasks, setTasks] = useState<JourneyTask[]>([]);
+  const [cheer, setCheer] = useState<CheerResponse | null>(null);
+  const [dayCheer, setDayCheer] = useState<CheerResponse | null>(null);
 
   useEffect(() => {
     const onResize = () => setBox({ w: window.innerWidth, h: window.innerHeight });
@@ -83,6 +102,95 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
     onNavigate('mistakes');
   };
 
+  const showWeek = useCallback(
+    async (exclude: string[]): Promise<CheerResponse | undefined> => {
+      if (!data) return undefined;
+      const next = demo
+        ? localCheer(data, 'week', undefined, exclude)
+        : await fetchJourneyCheer({ today: data.today, scope: 'week', exclude }).catch(() =>
+            localCheer(data, 'week', undefined, exclude),
+          );
+      setCheer(next);
+      return next;
+    },
+    [data, demo],
+  );
+
+  useEffect(() => {
+    if (!data?.plan || armed.current) return undefined;
+    armed.current = true;
+    const today = data.today;
+    const stars = data.days.find((day) => day.date === today)?.stars;
+    const previous = readStoredStars(today);
+    if (stars !== null && stars !== undefined) {
+      if (previous !== null && stars > previous) {
+        setCheer({ ruleId: 'star', text: `第 ${stars} 颗星点亮！`, facts: { stars }, source: 'template' });
+        writeStoredStars(today, stars);
+        markAutoCheerShown(today);
+        return undefined;
+      }
+      writeStoredStars(today, stars);
+    }
+    if (wasAutoCheerShown(today)) return undefined;
+    const timer = window.setTimeout(() => {
+      markAutoCheerShown(today);
+      cheerSource.current = 'auto';
+      void showWeek(usedCheerRules(today));
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [data, showWeek]);
+
+  useEffect(() => {
+    if (!data || !cheer || cheerSource.current !== 'auto') return;
+    if (cheer.ruleId === 'cap' || cheer.ruleId === 'star' || cheer.ruleId === 'day') return;
+    rememberAutoRule(data.today, cheer.ruleId);
+    cheerSource.current = 'other';
+  }, [cheer, data]);
+
+  useEffect(() => {
+    if (!selected || !data) return undefined;
+    let cancelled = false;
+    const apply = (nextTasks: JourneyTask[], nextCheer: CheerResponse) => {
+      if (!cancelled) {
+        setTasks(nextTasks);
+        setDayCheer(nextCheer);
+      }
+    };
+    if (demo) {
+      apply(demoTasks(selected.date), localCheer(data, 'day', selected.date, []));
+      return () => {
+        cancelled = true;
+      };
+    }
+    Promise.all([
+      fetchJourneyTasks(selected.date).catch(() => []),
+      fetchJourneyCheer({ today: data.today, scope: 'day', date: selected.date }).catch(() =>
+        localCheer(data, 'day', selected.date, []),
+      ),
+    ]).then(([nextTasks, nextCheer]) => apply(nextTasks, nextCheer));
+    return () => {
+      cancelled = true;
+    };
+  }, [data, demo, selected]);
+
+  const onBlank = () => {
+    if (!data) return;
+    const now = Date.now();
+    if (now - lastBlank.current < 3000) return;
+    lastBlank.current = now;
+    if (blankCheerCount(data.today) >= 5) {
+      cheerSource.current = 'other';
+      setCheer({ ruleId: 'cap', text: cheerCapText(), facts: {}, source: 'template' });
+      return;
+    }
+    const exclude = usedCheerRules(data.today);
+    cheerSource.current = 'blank';
+    void showWeek(exclude).then((shown) => {
+      if (!shown || shown.ruleId === 'cap' || shown.ruleId === 'star') return;
+      rememberCheerRule(data.today, shown.ruleId);
+    });
+  };
+
   return (
     <div className="journey-root relative h-[100dvh] overflow-hidden" data-scene="map">
       <div className="journey-sky-clouds pointer-events-none absolute inset-0" />
@@ -114,19 +222,28 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           today={data.today}
           goalName={data.plan.goalName}
           compact={compact}
-          onSelect={() => undefined}
+          onSelect={(day) => {
+            setCheer(null);
+            setSelected(day);
+          }}
           onBoss={openPractice}
           onNeed={loadAround}
+          onBlank={onBlank}
         />
       )}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
         <div className="pointer-events-auto journey-chip max-w-[60%] px-3 py-2 text-xs font-bold leading-5">
           <div className="truncate">{data?.plan?.goalName ?? '星藤航图'}</div>
           {data?.plan ? <div>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</div> : null}
+          {compact && data?.summary ? (
+            <div>
+              本周 {data.summary.weekStars} ★ · 连续 {data.summary.streakDays} 天
+            </div>
+          ) : null}
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
-          {data?.summary ? (
-            <div className="journey-chip hidden px-3 py-2 text-xs font-bold sm:block">
+          {data?.summary && !compact ? (
+            <div className="journey-chip px-3 py-2 text-xs font-bold">
               本周 {data.summary.weekStars} ★ · 连续 {data.summary.streakDays} 天
             </div>
           ) : null}
@@ -142,6 +259,23 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
             <span className="block text-xs font-semibold opacity-90">{cta.subtitle}</span>
           </button>
         </footer>
+      ) : null}
+      {cheer && !selected ? <CheerCard cheer={cheer} onClose={() => setCheer(null)} /> : null}
+      {selected && data?.plan ? (
+        <DayDrawer
+          day={selected}
+          planStart={data.plan.startDate}
+          tasks={tasks}
+          cheer={dayCheer}
+          compact={compact}
+          onClose={() => {
+            setSelected(null);
+            setTasks([]);
+            setDayCheer(null);
+          }}
+          onPractice={openPractice}
+          onRoadmap={openRoadmap}
+        />
       ) : null}
     </div>
   );

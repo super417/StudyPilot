@@ -19,6 +19,7 @@ from app.models.entities import (
 )
 from app.services.journey_service import (
     MAX_RANGE_DAYS,
+    CheerLine,
     DayTally,
     DayView,
     EVIDENCE_SCORE,
@@ -26,6 +27,7 @@ from app.services.journey_service import (
     evidence_local_day,
     full_clear_streak,
     project_day,
+    select_cheer,
     sum_stars,
 )
 from app.services.metrics_service import compute_streak
@@ -241,6 +243,7 @@ def _day_json(view: DayView) -> dict:
         "minutes": view.minutes,
         "tags": list(view.tags),
         "state": view.state,
+        "answered": view.answered,
     }
 
 
@@ -320,6 +323,82 @@ def build_journey(
         "days": [_day_json(view) for view in visible],
         "summary": _summary(views, checkins, today),
     }
+
+
+def _views_from_payload(days: list[dict]) -> list[DayView]:
+    return [
+        DayView(
+            day=date.fromisoformat(row["date"]),
+            total=row["total"],
+            done=row["done"],
+            carried=row["carried"],
+            pending=row["pending"],
+            rate=row["rate"],
+            stars=row["stars"],
+            accuracy=row["accuracy"],
+            star_color=row["starColor"],
+            has_check_in=row["hasCheckIn"],
+            minutes=row["minutes"],
+            tags=tuple(row.get("tags") or ()),
+            state=row["state"],
+            answered=int(row.get("answered") or 0),
+        )
+        for row in days
+    ]
+
+
+def cheer_to_json(line: CheerLine) -> dict:
+    return {
+        "status": "ok",
+        "ruleId": line.rule_id,
+        "text": line.text,
+        "facts": line.facts,
+        "source": line.source,
+        "suggestRoadmap": line.suggest_roadmap,
+    }
+
+
+def build_cheer(
+    session: Session,
+    user_id: uuid.UUID,
+    today_text: str | None,
+    scope: str | None,
+    date_text: str | None,
+    exclude_text: str | None,
+) -> dict:
+    """鼓励语只读。计划太长时只取最近 400 天，避免一次扫完整段。"""
+    if scope not in ("week", "day"):
+        raise JourneyValidationError("scope 不合法")
+    today = _parse_date(today_text, "today") or local_today()
+    focus = _parse_date(date_text, "date") if date_text else None
+    if scope == "day" and focus is None:
+        raise JourneyValidationError("日期参数不合法")
+    plan = _latest_plan(session, user_id)
+    from_text = None
+    to_text = None
+    if plan is not None and (plan.goal_date - plan.start_date).days + 1 > MAX_RANGE_DAYS:
+        from_text = (today - timedelta(days=MAX_RANGE_DAYS - 1)).isoformat()
+        to_text = max(today, plan.start_date).isoformat()
+    payload = build_journey(session, user_id, from_text, to_text, today.isoformat())
+    plan_start = today
+    if payload["plan"] is not None:
+        plan_start = date.fromisoformat(payload["plan"]["startDate"])
+    summary = payload["summary"]
+    exclude = {part.strip() for part in (exclude_text or "").split(",") if part.strip()}
+    line = select_cheer(
+        _views_from_payload(payload["days"]),
+        today=today,
+        plan_start=plan_start,
+        streak_days=summary["streakDays"],
+        best_streak=summary["bestStreak"],
+        full_clear=summary["fullClearStreak"],
+        week_stars=summary["weekStars"],
+        last_week_stars=summary["lastWeekSameSpanStars"],
+        scope=scope,
+        focus=focus,
+        exclude=exclude,
+    )
+    return cheer_to_json(line)
 
 
 def _plan_json(plan: Plan) -> dict:

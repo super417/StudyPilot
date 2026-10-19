@@ -262,7 +262,7 @@ class JourneyRouteTests(unittest.TestCase):
         self.assertEqual(future["total"], 1)
 
         eighteenth = by_date["2026-10-18"]
-        self.assertEqual(eighteenth["answered"] if "answered" in eighteenth else eighteenth["accuracy"], 50)
+        self.assertEqual(eighteenth["answered"], 2)
         self.assertEqual(eighteenth["accuracy"], 50)
         self.assertEqual(eighteenth["starColor"], "cool")
         self.assertIsNone(by_date["2026-10-17"]["accuracy"])
@@ -328,6 +328,27 @@ class JourneyRouteTests(unittest.TestCase):
         self.assertEqual(body["plan"]["goalName"], "数据分析")
         self.assertEqual(body["phases"][0]["index"], 1)
         self.assertEqual(body["phases"][1]["name"], "阶段二")
+
+    def test_cheer_uses_template_and_skips_shown_rules(self) -> None:
+        plan, _first, second = self._plan()
+        for day, done in ((date(2026, 10, 17), 2), (date(2026, 10, 18), 2), (TODAY, 3)):
+            total = 2 if day < TODAY else 4
+            for index in range(total):
+                self._task(plan, second, day, "done" if index < done else "pending")
+        response = self.client.get(
+            "/api/journey/cheer",
+            params={"today": TODAY.isoformat(), "scope": "week"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body["source"], "template")
+        self.assertEqual(body["ruleId"], "R1")
+        self.assertNotIn("效率", body["text"])
+        again = self.client.get(
+            "/api/journey/cheer",
+            params={"today": TODAY.isoformat(), "scope": "week", "exclude": "R1"},
+        )
+        self.assertNotEqual(again.json()["ruleId"], "R1")
 
     def _loose_evidence(self) -> uuid.UUID:
         row = MasteryEvidence(

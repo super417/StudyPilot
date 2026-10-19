@@ -172,6 +172,7 @@ class DayView:
     minutes: int
     tags: tuple[str, ...]
     state: str
+    answered: int = 0
 
 
 def project_day(tally: DayTally, today: date) -> DayView:
@@ -203,6 +204,7 @@ def project_day(tally: DayTally, today: date) -> DayView:
         minutes=tally.minutes,
         tags=tally.tags,
         state=state,
+        answered=tally.answered if show_stars else 0,
     )
 
 
@@ -273,3 +275,229 @@ def full_clear_streak(views: list[DayView], today: date) -> int:
         count += 1
         cursor = cursor - timedelta(days=1)
     return count
+
+
+@dataclass(frozen=True)
+class CheerLine:
+    """一句只含可核对数字的鼓励。source 先是模板，润色成功才改成 llm。"""
+
+    rule_id: str
+    text: str
+    facts: dict[str, int | str]
+    source: str = "template"
+    suggest_roadmap: bool = False
+
+
+def _round_mean(values: list[int]) -> int:
+    return int(round(sum(values) / len(values)))
+
+
+def _recent_task_days(views: list[DayView], today: date) -> list[DayView]:
+    start = today - timedelta(days=6)
+    return [
+        view
+        for view in sorted(views, key=lambda item: item.day)
+        if start <= view.day <= today and view.total > 0 and view.state != "future"
+    ]
+
+
+def _rule_r1(full_clear: int) -> CheerLine | None:
+    if full_clear < 2:
+        return None
+    return CheerLine(
+        "R1",
+        f"已经连续 {full_clear} 天把任务全部清空了，藤上挂了 {full_clear} 个熟透的果实。",
+        {"k": full_clear},
+    )
+
+
+def _rule_r2(days: list[DayView]) -> CheerLine | None:
+    if len(days) < 6:
+        return None
+    recent = [day.rate for day in days[-3:]]
+    previous = [day.rate for day in days[-6:-3]]
+    if any(rate is None for rate in recent + previous):
+        return None
+    before = _round_mean([int(rate) for rate in previous if rate is not None])
+    after = _round_mean([int(rate) for rate in recent if rate is not None])
+    if after - before < 15:
+        return None
+    return CheerLine(
+        "R2",
+        f"这 3 天完成率从 {before}% 升到 {after}%，在变稳。",
+        {"a": before, "b": after},
+    )
+
+
+def _rule_r3(days: list[DayView]) -> CheerLine | None:
+    if len(days) < 6:
+        return None
+    recent = days[-3:]
+    previous = days[-6:-3]
+    if sum(day.answered for day in recent) < 3 or sum(day.answered for day in previous) < 3:
+        return None
+    recent_scores = [day.accuracy for day in recent if day.accuracy is not None]
+    previous_scores = [day.accuracy for day in previous if day.accuracy is not None]
+    if not recent_scores or not previous_scores:
+        return None
+    before = _round_mean(previous_scores)
+    after = _round_mean(recent_scores)
+    if after - before < 15:
+        return None
+    return CheerLine("R3", f"这三天正确率从 {before}% 升到 {after}%。", {"a": before, "b": after})
+
+
+def _rule_r4(today_view: DayView | None) -> CheerLine | None:
+    if today_view is None or today_view.rate is None or today_view.rate < 60 or today_view.rate >= 80:
+        return None
+    left = tasks_until_four_stars(today_view.total, today_view.done)
+    if left <= 0:
+        return None
+    return CheerLine(
+        "R4",
+        f"今天完成 {today_view.done}/{today_view.total}，再完成 {left} 项就能点亮第 4 颗星。",
+        {"done": today_view.done, "total": today_view.total, "n": left},
+    )
+
+
+def _rule_r5(views: list[DayView], today: date) -> CheerLine | None:
+    yesterday = next((view for view in views if view.day == today - timedelta(days=1)), None)
+    today_view = next((view for view in views if view.day == today), None)
+    if yesterday is None or today_view is None:
+        return None
+    if yesterday.total <= 0 or yesterday.done != 0 or today_view.done < 1:
+        return None
+    return CheerLine(
+        "R5",
+        f"昨天断了一下，今天已经重新开始，完成了 {today_view.done} 项。",
+        {"done": today_view.done},
+    )
+
+
+def _rule_r6(streak_days: int, best_streak: int) -> CheerLine | None:
+    if streak_days < 3:
+        return None
+    return CheerLine(
+        "R6",
+        f"连续打卡 {streak_days} 天，最长一次是 {best_streak} 天。",
+        {"s": streak_days, "best": best_streak},
+    )
+
+
+def _rule_r7(week_stars: int, last_week_stars: int) -> CheerLine | None:
+    if week_stars <= last_week_stars:
+        return None
+    return CheerLine(
+        "R7",
+        f"这周已经收集了 {week_stars} 颗星，比上周同期多 {week_stars - last_week_stars} 颗。",
+        {"w": week_stars, "d": week_stars - last_week_stars},
+    )
+
+
+def _rule_r8(views: list[DayView], today: date) -> CheerLine | None:
+    today_view = next((view for view in views if view.day == today and view.total > 0), None)
+    earlier = [view for view in views if view.day < today and view.total > 0 and view.state != "future"]
+    if today_view is None or not earlier:
+        return None
+    if today_view.done > max(view.done for view in earlier):
+        return CheerLine(
+            "R8",
+            f"今天完成 {today_view.done} 项，是开始计划以来最多的一天。",
+            {"done": today_view.done},
+        )
+    today_stars = today_view.stars or 0
+    if today_stars > max((view.stars or 0) for view in earlier):
+        return CheerLine(
+            "R8",
+            f"今天点亮 {today_stars} 颗星，是开始计划以来最多的一天。",
+            {"stars": today_stars},
+        )
+    return None
+
+
+def _rule_r9(views: list[DayView], today: date, plan_start: date) -> CheerLine:
+    index = (today - plan_start).days + 1
+    total_done = sum(view.done for view in views if view.day <= today and view.state != "future")
+    return CheerLine(
+        "R9",
+        f"第 {index} 天，已经完成 {total_done} 项任务，藤长到第 {index} 节了。",
+        {"n": index, "totalDone": total_done},
+    )
+
+
+def _day_line(views: list[DayView], focus: date, today: date) -> CheerLine:
+    view = next((item for item in views if item.day == focus), None)
+    label = focus.strftime("%m-%d")
+    if view is None or view.state == "future":
+        total = 0 if view is None else view.total
+        text = f"{label} 计划了 {total} 项，还没到这一天。" if total else f"{label} 还没有安排任务。"
+        return CheerLine("day", text, {"total": total})
+    if view.total <= 0:
+        return CheerLine("day", f"{label} 没有安排任务，不计入完成率。", {"total": 0})
+    if view.done <= 0:
+        later = [
+            item
+            for item in views
+            if focus < item.day <= today and item.total > 0 and item.state != "future"
+        ]
+        recovered = len(later) if later and all(item.done >= 1 for item in later) else 0
+        text = f"{label} 这天没有完成任务。"
+        if recovered:
+            text += f"之后 {recovered} 天你都接上了。"
+        else:
+            text += "可以从 Roadmap 查看剩下的任务，本页不会改动计划。"
+        return CheerLine(
+            "day",
+            text,
+            {"done": 0, "total": view.total, "recoveredDays": recovered},
+            suggest_roadmap=True,
+        )
+    if view.rate == 100:
+        accuracy = "" if view.accuracy is None else f"，正确率 {view.accuracy}%"
+        return CheerLine(
+            "day",
+            f"{label} 全清 {view.done}/{view.total}{accuracy}，点亮 {view.stars} 颗星。",
+            {"done": view.done, "total": view.total, "accuracy": view.accuracy or 0, "stars": view.stars or 0},
+        )
+    accuracy = "还没作答" if view.accuracy is None else f"正确率 {view.accuracy}%"
+    return CheerLine(
+        "day",
+        f"{label} 完成 {view.done}/{view.total}，{accuracy}，点亮 {view.stars} 颗星。",
+        {"done": view.done, "total": view.total, "stars": view.stars or 0},
+    )
+
+
+def select_cheer(
+    views: list[DayView],
+    *,
+    today: date,
+    plan_start: date,
+    streak_days: int,
+    best_streak: int,
+    full_clear: int,
+    week_stars: int,
+    last_week_stars: int,
+    scope: str,
+    focus: date | None,
+    exclude: set[str],
+) -> CheerLine:
+    """按 R1→R9 取第一条还没展示过的。点某一天时只讲这一天。"""
+    if scope == "day":
+        return _day_line(views, focus or today, today)
+    today_view = next((view for view in views if view.day == today), None)
+    days = _recent_task_days(views, today)
+    ranked = [
+        _rule_r1(full_clear),
+        _rule_r2(days),
+        _rule_r3(days),
+        _rule_r4(today_view),
+        _rule_r5(views, today),
+        _rule_r6(streak_days, best_streak),
+        _rule_r7(week_stars, last_week_stars),
+        _rule_r8(views, today),
+        _rule_r9(views, today, plan_start),
+    ]
+    for line in ranked:
+        if line is not None and line.rule_id not in exclude:
+            return line
+    return _rule_r9(views, today, plan_start)

@@ -25,6 +25,7 @@ export interface VineMapProps {
   onSelect: (day: JourneyDay) => void;
   onBoss: (day: JourneyDay) => void;
   onNeed?: (date: string) => void;
+  onBlank?: () => void;
 }
 
 function fruitSize(day: JourneyDay): number {
@@ -67,7 +68,7 @@ function VineStrand({
   );
 }
 
-export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed }: VineMapProps) {
+export default function VineMap({ days, phases, today, goalName, compact, onSelect, onBoss, onNeed, onBlank }: VineMapProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(360);
   const [viewport, setViewport] = useState(640);
@@ -143,7 +144,7 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
 
   return (
     <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
-      <div className="relative" style={{ height, width: '100%' }}>
+      <div className="relative" style={{ height, width: '100%' }} onClick={() => onBlank?.()}>
         {segments.map((chunk) => (
           <VineStrand
             key={chunk[0].date}
@@ -194,16 +195,28 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
                   </div>
                 ) : null}
                 {day.state === 'today' ? (
-                  <div className="absolute bottom-[108%] left-1/2 z-10 -translate-x-1/2">
+                  <button
+                    type="button"
+                    className="absolute bottom-[108%] left-1/2 z-10 min-h-11 min-w-11 -translate-x-1/2"
+                    aria-label="今天的芽苗"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onBlank?.();
+                    }}
+                  >
                     <SproutAvatar size={compact ? 46 : 54} />
-                  </div>
+                  </button>
                 ) : null}
                 {tag ? (
                   <button
                     type="button"
                     className="journey-flag absolute top-1/2 z-10 -translate-y-1/2 px-2 py-1 text-[11px]"
                     style={{ background: TAG_COLOR[tag], ...towardCenter }}
-                    onClick={() => (tag === 'boss' ? onBoss(day) : onSelect(day))}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (tag === 'boss') onBoss(day);
+                      else onSelect(day);
+                    }}
                   >
                     {TAG_LABEL[tag]}
                   </button>
@@ -214,7 +227,10 @@ export default function VineMap({ days, phases, today, goalName, compact, onSele
                   style={{ width: Math.max(44, size), height: Math.max(44, size) }}
                   aria-label={`${day.date.slice(5)} ${day.state === 'today' ? '今天' : ''}`}
                   aria-current={day.state === 'today' ? 'date' : undefined}
-                  onClick={() => onSelect(day)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect(day);
+                  }}
                 >
                   {day.state === 'today' ? (
                     <span

@@ -21,6 +21,7 @@ from app.services.journey_service import (
     evidence_local_day,
     full_clear_streak,
     project_day,
+    select_cheer,
     star_color,
     sum_stars,
     tally_statuses,
@@ -186,6 +187,89 @@ class JourneyStarTests(unittest.TestCase):
         self.assertEqual(date(2026, 10, 19).weekday(), 0)
         self.assertEqual(sum_stars(views, date(2026, 10, 19), date(2026, 10, 19)), 4)
         self.assertEqual(sum_stars(views, date(2026, 10, 12), date(2026, 10, 12)), 4)
+
+
+class JourneyCheerTests(unittest.TestCase):
+    """方案 6.4 的样例：10-13 到 10-19 完成率 50/0/60/80/100/100/75。"""
+
+    def _views(self):
+        script = [
+            (6, 2, 4),
+            (5, 0, 4),
+            (4, 3, 5),
+            (3, 4, 5),
+            (2, 4, 4),
+            (1, 4, 4),
+            (0, 3, 4),
+        ]
+        return [
+            project_day(DayTally(TODAY - timedelta(days=offset), total=total, done=done), TODAY)
+            for offset, done, total in script
+        ]
+
+    def _cheer(self, exclude: set[str] | None = None, **kwargs):
+        views = self._views()
+        return select_cheer(
+            views,
+            today=TODAY,
+            plan_start=date(2026, 10, 1),
+            streak_days=kwargs.get("streak", 0),
+            best_streak=kwargs.get("best", 0),
+            full_clear=full_clear_streak(views, TODAY),
+            week_stars=0,
+            last_week_stars=0,
+            scope="week",
+            focus=None,
+            exclude=exclude or set(),
+        )
+
+    def test_example_priority_and_day_lines(self) -> None:
+        first = self._cheer()
+        self.assertEqual(first.rule_id, "R1")
+        self.assertIn("连续 2 天", first.text)
+        self.assertNotIn("效率", first.text)
+
+        second = self._cheer({"R1"})
+        self.assertEqual(second.rule_id, "R2")
+        self.assertIn("47%", second.text)
+        self.assertIn("92%", second.text)
+
+        third = self._cheer({"R1", "R2"})
+        self.assertEqual(third.rule_id, "R4")
+        self.assertIn("3/4", third.text)
+        self.assertIn("再完成 1 项", third.text)
+
+        missed = select_cheer(
+            self._views(),
+            today=TODAY,
+            plan_start=date(2026, 10, 1),
+            streak_days=0,
+            best_streak=0,
+            full_clear=0,
+            week_stars=0,
+            last_week_stars=0,
+            scope="day",
+            focus=date(2026, 10, 14),
+            exclude=set(),
+        )
+        self.assertIn("10-14 这天没有完成任务", missed.text)
+        self.assertIn("之后 5 天", missed.text)
+        self.assertTrue(missed.suggest_roadmap)
+
+        cleared = select_cheer(
+            self._views(),
+            today=TODAY,
+            plan_start=date(2026, 10, 1),
+            streak_days=0,
+            best_streak=0,
+            full_clear=0,
+            week_stars=0,
+            last_week_stars=0,
+            scope="day",
+            focus=date(2026, 10, 17),
+            exclude=set(),
+        )
+        self.assertIn("10-17 全清 4/4", cleared.text)
 
 
 class JourneyStarPropertyTests(unittest.TestCase):
