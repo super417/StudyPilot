@@ -274,7 +274,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       {scene === 'map' ? (
       <>
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center p-3">
-        <div className="journey-status pointer-events-auto px-4 py-2 text-xs font-black text-[#14532d]">
+        <div className="journey-status pointer-events-auto px-5 py-2.5 text-sm font-black">
           <span className="max-w-[9rem] truncate">{data?.plan?.goalName ?? '星藤航图'}</span>
           {data?.plan ? <span>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</span> : null}
           {data?.summary ? <span>本周 {data.summary.weekStars} ★</span> : null}
@@ -286,8 +286,8 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       </header>
       {data?.plan ? (
         <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <button type="button" className="journey-pill pointer-events-auto mx-auto block w-full max-w-md px-4 py-2" onClick={openRoadmap}>
-            <span className="block text-lg font-black tracking-wide">{cta.title}</span>
+          <button type="button" className="journey-pill pointer-events-auto mx-auto block w-full max-w-lg px-6 py-3" onClick={openRoadmap}>
+            <span className="block text-2xl font-black tracking-wide">{cta.title}</span>
             <span className="block text-xs font-semibold opacity-90">{cta.subtitle}</span>
           </button>
         </footer>

@@ -121,24 +121,28 @@ export function EntranceTree({
       <button type="button" className="journey-chip absolute left-3 top-3 z-30 px-3 py-2 text-xs font-bold" onClick={onBack}>
         返回
       </button>
-      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center px-14">
-        <div className="journey-plaque flex items-center gap-2 px-5 py-2 text-lg font-black">
-          <img src={star} alt="" draggable={false} className="h-5 w-5 object-contain" />
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-16">
+        <div className="journey-plaque flex items-center gap-3 px-8 py-3 text-2xl font-black sm:text-3xl">
+          <img src={star} alt="" draggable={false} className="h-8 w-8 object-contain" />
           星藤航图
-          <img src={star} alt="" draggable={false} className="h-5 w-5 object-contain" />
+          <img src={star} alt="" draggable={false} className="h-8 w-8 object-contain" />
         </div>
       </div>
       <div
-        className="absolute inset-x-0 bottom-[16%] top-14 z-10"
-        style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
+        className="absolute inset-x-0 z-10"
+        style={{
+          transform: `translate(${shift.x}px, ${shift.y}px)`,
+          top: compact ? 48 : 64,
+          bottom: compact ? 156 : 150,
+        }}
       >
         <button
           type="button"
-          className={`journey-tree-hover absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${compact ? 'h-[min(50dvh,420px)] w-[min(88vw,380px)]' : 'h-[min(68dvh,620px)] w-[min(52vw,560px)]'}`}
+          className="journey-tree-hover journey-tree-fit absolute inset-0 flex items-end justify-center"
           onClick={onStart}
           aria-label="点击大树 开始今日航线"
         >
-          <span className="journey-sway relative block h-full w-full">
+          <span className="journey-sway journey-tree-box relative block">
             <img src={tree} alt="" draggable={false} className="h-full w-full object-contain object-bottom" />
             {CANOPY_LEAVES.map((item) => (
               <img
@@ -154,16 +158,16 @@ export function EntranceTree({
               const slot = FRUIT_SLOTS[index];
               if (!slot) return null;
               return (
-                <span key={fruit.date} className="absolute block h-16 w-16" style={slot}>
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <StarCrown filled={fruit.cleared ? 4 : 3} color={fruit.color} preview={false} compact />
+                <span key={fruit.date} className="absolute block h-20 w-20" style={slot}>
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <StarCrown filled={fruit.cleared ? 4 : 3} color={fruit.color} preview={false} compact={false} />
                   </span>
-                  <FruitGlyph color={fruit.color} kind={fruit.kind === 'bud' ? 'fruit' : fruit.kind} cleared={fruit.cleared} />
+                  <FruitGlyph color="vivid" kind={fruit.kind === 'bud' ? 'fruit' : fruit.kind} cleared={fruit.cleared} />
                 </span>
               );
             })}
             {compact ? null : (
-              <div className="journey-sign absolute bottom-[18%] left-1/2 w-max -translate-x-1/2 px-3 py-1.5 text-center text-xs font-black leading-5">
+              <div className="journey-sign absolute bottom-[26%] left-1/2 w-max -translate-x-1/2 px-4 py-2 text-center text-sm font-black leading-5">
                 {sign}
               </div>
             )}
@@ -181,7 +185,7 @@ export function EntranceTree({
         {compact ? (
           <div className="journey-sign px-3 py-1.5 text-center text-xs font-black leading-5">{sign}</div>
         ) : null}
-        <button type="button" className="journey-cta px-6 py-3 text-base font-black" onClick={onStart}>
+        <button type="button" className="journey-cta min-w-[240px] px-10 py-4 text-xl font-black" onClick={onStart}>
           点击大树 开始今日航线
         </button>
       </div>
