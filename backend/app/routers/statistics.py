@@ -10,9 +10,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.clock import CHINA_TZ, local_today
 from app.core.database import get_db
 from app.models.entities import (
     CheckIn,
+    DailyTask,
     MasteryEvidence,
     Mistake,
     Phase,
@@ -21,7 +23,8 @@ from app.models.entities import (
     UserDocument,
 )
 from app.routers.dependencies import get_current_user
-from app.services import planner_service
+from app.services import planner_service, remedy_service, task_service
+from app.services.weekly_review_service import _EVIDENCE_SCORE
 
 router = APIRouter()
 
@@ -31,9 +34,112 @@ def _utc_today() -> date:
 
 
 def _day_of(value: datetime) -> date:
+    """UTC calendar day for dailyActivity (pre-batch-16 behaviour — do not change)."""
     if value.tzinfo is None:
         return value.date()
     return value.astimezone(timezone.utc).date()
+
+
+def _star_day(value: datetime) -> date:
+    """+8 local calendar day for the star map.
+
+    Tasks and plans use ``local_today()`` (+8). Stars must align with that day
+    boundary. Adjacent ``_day_of`` still uses UTC for ``dailyActivity`` — that
+    known mismatch around 00:00–08:00 Beijing time is intentional for this batch
+    (see direction.md / batch16 §3.2); do not "fix" ``_day_of`` here.
+    """
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(CHINA_TZ).date()
+
+
+def _star_label(answered: int, accuracy: int | None) -> str:
+    if answered == 0:
+        return "none"
+    assert accuracy is not None
+    if accuracy >= 60:
+        return "gold"
+    if accuracy >= 40:
+        return "blue"
+    return "gray"
+
+
+def _build_stars(session: Session, user_id) -> list[dict]:
+    today = local_today()
+    start = today - timedelta(days=29)
+    # Buffer one local day so UTC-stored timestamps near midnight still arrive.
+    window_start = datetime.combine(
+        start - timedelta(days=1), time.min, tzinfo=CHINA_TZ
+    ).astimezone(timezone.utc)
+    rows = session.scalars(
+        select(MasteryEvidence).where(
+            MasteryEvidence.user_id == user_id,
+            MasteryEvidence.created_at >= window_start,
+        )
+    ).all()
+    by_day: dict[date, list[MasteryEvidence]] = defaultdict(list)
+    for row in rows:
+        day = _star_day(row.created_at)
+        if start <= day <= today:
+            by_day[day].append(row)
+
+    stars: list[dict] = []
+    cursor = start
+    while cursor <= today:
+        day_rows = by_day.get(cursor, [])
+        answered = len(day_rows)
+        if answered == 0:
+            accuracy = None
+        else:
+            total = sum(_EVIDENCE_SCORE.get(row.result, 0) for row in day_rows)
+            accuracy = round(total / answered)
+        stars.append(
+            {
+                "date": cursor.isoformat(),
+                "answered": answered,
+                "accuracy": accuracy,
+                "star": _star_label(answered, accuracy),
+            }
+        )
+        cursor += timedelta(days=1)
+    return stars
+
+
+def _build_route(session: Session, plan) -> list[dict]:
+    if plan is None:
+        return []
+    phases = planner_service.list_phases_for_plan(session, plan.id)
+    return [
+        {
+            "phaseId": str(phase.id),
+            "name": phase.name,
+            "index": phase.phase_index,
+            "startDate": phase.start_date.isoformat(),
+            "endDate": phase.end_date.isoformat(),
+            "progress": task_service.phase_progress(session, phase.id),
+            "isCurrent": bool(phase.is_current),
+        }
+        for phase in phases
+    ]
+
+
+def _today_task_counts(session: Session, plan) -> tuple[int, int]:
+    """Return (done, total) for local today; exclude carried (same as phase_progress)."""
+    if plan is None:
+        return 0, 0
+    today = local_today()
+    tasks = list(
+        session.scalars(
+            select(DailyTask).where(
+                DailyTask.plan_id == plan.id,
+                DailyTask.task_date == today,
+                DailyTask.status != "carried",
+            )
+        )
+    )
+    total = len(tasks)
+    done = sum(1 for task in tasks if task.status == "done")
+    return done, total
 
 
 def build_overview(session: Session, user_id) -> dict:
@@ -140,6 +246,10 @@ def build_overview(session: Session, user_id) -> dict:
     top_mistakes = [{"name": name, "count": int(count)} for name, count in top_rows]
 
     plan = planner_service.get_latest_plan(session, user_id)
+    today_done, today_total = _today_task_counts(session, plan)
+    overdue_count = (
+        len(remedy_service._candidates(session, plan, local_today())) if plan else 0
+    )
 
     return {
         "status": "ok",
@@ -152,6 +262,11 @@ def build_overview(session: Session, user_id) -> dict:
         "dailyActivity": daily_activity,
         "masteryDistribution": mastery_distribution,
         "topMistakes": top_mistakes,
+        "stars": _build_stars(session, user_id),
+        "route": _build_route(session, plan),
+        "overdueCount": int(overdue_count),
+        "todayTasksDone": int(today_done),
+        "todayTasksTotal": int(today_total),
     }
 
 
