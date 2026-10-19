@@ -142,6 +142,11 @@
   animation: journey-star-pop 700ms ease-out both;
 }
 
+.journey-vine-tile {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 7%, #000 93%, transparent 100%);
+}
+
 .journey-tree-fit {
   container-type: size;
 }
@@ -160,36 +165,37 @@
 }
 
 .journey-plaque {
-  border: 7px solid #ffe27a;
+  border: 8px solid #ffe56a;
   border-radius: 999px;
-  background: linear-gradient(#c6f57a, #2f9a3e);
+  background: linear-gradient(#d4f57a, #2f9a3e);
   color: white;
   letter-spacing: 0.16em;
-  text-shadow: 0 3px 0 rgba(20, 90, 30, 0.4);
+  text-shadow: 0 3px 0 rgba(20, 90, 30, 0.45);
   box-shadow:
-    0 0 0 3px #fff3c4,
-    0 11px 0 #1c6e30,
-    inset 0 3px 0 rgba(255, 255, 255, 0.55);
+    0 0 0 3px #fff6c4,
+    0 0 0 7px #e6b23a,
+    0 14px 0 #1a6b2c,
+    inset 0 4px 0 rgba(255, 255, 255, 0.6);
 }
 
 .journey-cta {
   border: 6px solid #f7fff8;
   border-radius: 999px;
-  background: linear-gradient(#9dffd0, #12c56e);
+  background: linear-gradient(#7dffe0, #12c9c0 46%, #12b56a);
   color: white;
   text-shadow: 0 2px 0 rgba(8, 80, 40, 0.4);
   box-shadow:
-    0 0 0 3px #d9ffe8,
-    0 12px 0 #0b7a45,
-    inset 0 3px 0 rgba(255, 255, 255, 0.6);
+    0 0 0 4px #ffe56a,
+    0 14px 0 #0b7a48,
+    inset 0 4px 0 rgba(255, 255, 255, 0.65);
 }
 
 .journey-cta:active {
   transform: translateY(4px);
   box-shadow:
-    0 0 0 3px #d9ffe8,
-    0 8px 0 #0b7a45,
-    inset 0 3px 0 rgba(255, 255, 255, 0.6);
+    0 0 0 4px #ffe56a,
+    0 8px 0 #0b7a48,
+    inset 0 4px 0 rgba(255, 255, 255, 0.65);
 }
 
 .journey-sign {

@@ -2,11 +2,14 @@ import { useState, type MouseEvent } from 'react';
 
 import cloud from '@/assets/journey/cloud.webp';
 import flowers from '@/assets/journey/flowers.webp';
+import hill from '@/assets/journey/hill.webp';
 import leaf from '@/assets/journey/leaf.webp';
 import sky from '@/assets/journey/sky.webp';
 import star from '@/assets/journey/star.webp';
 import sun from '@/assets/journey/sun.webp';
 import tree from '@/assets/journey/tree.webp';
+import wind from '@/assets/journey/wind.webp';
+import wood from '@/assets/journey/wood.webp';
 import { FruitGlyph, StarCrown } from '@/components/journey/glyphs';
 import type { StarColor } from '@/journey/stars';
 
@@ -107,7 +110,7 @@ export function EntranceTree({
         src={sun}
         alt=""
         draggable={false}
-        className="journey-heat pointer-events-none absolute right-[1%] top-[1%] w-[min(22vw,190px)]"
+        className="pointer-events-none absolute right-0 top-0 z-[1] w-[45.5%]"
       />
       {FALLING.map((item) => (
         <span
@@ -129,11 +132,21 @@ export function EntranceTree({
         </div>
       </div>
       <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-[-6%] z-[6]"
+        style={{
+          bottom: compact ? 36 : 52,
+          height: compact ? '46%' : '48%',
+          background:
+            'radial-gradient(ellipse 62% 78% at 50% 100%, #9adf62 0%, #67bc48 36%, #4e9d3c 62%, rgba(78,157,60,0) 74%)',
+        }}
+      />
+      <div
         className="absolute inset-x-0 z-10"
         style={{
           transform: `translate(${shift.x}px, ${shift.y}px)`,
-          top: compact ? 48 : 64,
-          bottom: compact ? 156 : 150,
+          top: compact ? 18 : 36,
+          bottom: compact ? 78 : 96,
         }}
       >
         <button
@@ -144,6 +157,7 @@ export function EntranceTree({
         >
           <span className="journey-sway journey-tree-box relative block">
             <img src={tree} alt="" draggable={false} className="h-full w-full object-contain object-bottom" />
+            <img src={wind} alt="" draggable={false} className="pointer-events-none absolute left-[6%] top-[4%] w-[88%] opacity-90" />
             {CANOPY_LEAVES.map((item) => (
               <img
                 key={item.left}
@@ -167,13 +181,22 @@ export function EntranceTree({
               );
             })}
             {compact ? null : (
-              <div className="journey-sign absolute bottom-[26%] left-1/2 w-max -translate-x-1/2 px-4 py-2 text-center text-sm font-black leading-5">
-                {sign}
+              <div className="absolute bottom-[36%] left-1/2 w-[42%] min-w-[148px] -translate-x-1/2">
+                <img src={wood} alt="" draggable={false} className="w-full" />
+                <div className="absolute inset-y-[18%] left-[24%] right-[8%] flex flex-col items-center justify-center text-center text-[11px] font-black leading-4 text-[#5a3412]">
+                  {sign}
+                </div>
               </div>
             )}
           </span>
         </button>
       </div>
+      <img
+        src={hill}
+        alt=""
+        draggable={false}
+        className="pointer-events-none absolute inset-x-[-4%] bottom-0 z-[12] w-[108%] max-w-none"
+      />
       <img
         src={flowers}
         alt=""
