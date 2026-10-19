@@ -1,12 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import cloud from '@/assets/journey/cloud.webp';
 import mapSky from '@/assets/journey/map-sky.webp';
-import { FruitGlyph, LeafMark, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import vineA from '@/assets/journey/vine-a.webp';
+import vineB from '@/assets/journey/vine-b.webp';
+import wood from '@/assets/journey/wood.webp';
+import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
   climbSpan,
   columnCenterX,
-  columnRadius,
   contentHeight,
   layoutDays,
   primaryTag,
@@ -41,69 +43,11 @@ function spinePoints(points: NodePoint[], width: number, compact: boolean) {
   }));
 }
 
-function weavePath(points: NodePoint[], radius: number, phase: number, amount: number): string {
-  return vinePath(
-    points.map((point) => ({
-      x: point.x + Math.sin(point.index * 1.05 + phase) * radius * amount,
-      y: point.y,
-    })),
-  );
-}
-
 function fruitSize(day: JourneyDay): number {
   if (day.state === 'future' || day.loaded === false) return 46;
   if (day.state === 'empty') return 40;
   const base = day.stars === 4 ? 72 : day.stars === 3 ? 64 : day.stars === 2 ? 56 : 48;
   return day.state === 'today' ? base + 22 : base;
-}
-
-function tendrilOnColumn(point: { x: number; y: number; index: number }, radius: number): string {
-  const side = Math.sin(point.index * 1.05) >= 0 ? 1 : -1;
-  const x0 = point.x + side * radius * 0.96;
-  const y0 = point.y + 8;
-  const x1 = x0 + side * 22;
-  const y1 = y0 - 26;
-  const x2 = x1 - side * 8;
-  const y2 = y1 + 18;
-  return `M ${x0.toFixed(1)} ${y0.toFixed(1)} Q ${x1.toFixed(1)} ${y1.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
-}
-
-function VineStrand({
-  points,
-  width,
-  compact,
-}: {
-  points: NodePoint[];
-  width: number;
-  compact: boolean;
-}) {
-  const gid = useId().replace(/:/g, '');
-  const spine = spinePoints(points, width, compact);
-  const main = vinePath(spine);
-  const radius = columnRadius(width, compact);
-  const y0 = Math.min(spine[0].y, spine[spine.length - 1].y) - radius;
-  const y1 = Math.max(spine[0].y, spine[spine.length - 1].y) + radius;
-  const body = radius * 2;
-  return (
-    <svg className="pointer-events-none absolute left-0" style={{ top: y0, width: '100%', height: y1 - y0 }} viewBox={`0 ${y0} ${width} ${y1 - y0}`}>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#146b32" />
-          <stop offset="28%" stopColor="#3cb44a" />
-          <stop offset="52%" stopColor="#b6f07a" />
-          <stop offset="78%" stopColor="#2f9a40" />
-          <stop offset="100%" stopColor="#0e5a28" />
-        </linearGradient>
-      </defs>
-      <path d={main} stroke="#08381c" strokeWidth={body + 26} fill="none" strokeLinecap="round" />
-      <path d={main} stroke={`url(#${gid})`} strokeWidth={body} fill="none" strokeLinecap="round" />
-      <path d={weavePath(spine, radius, Math.PI, 0.72)} stroke="#0c4f24" strokeWidth={radius * 0.3} fill="none" strokeLinecap="round" opacity="0.55" />
-      <path d={weavePath(spine, radius, 0.2, 0.74)} stroke="#f4ffd2" strokeWidth={radius * 0.26} fill="none" strokeLinecap="round" opacity="0.9" />
-      {spine.map((point) => (
-        <path key={point.date} d={tendrilOnColumn(point, radius)} stroke="#7dce55" strokeWidth={compact ? 5 : 7} fill="none" strokeLinecap="round" />
-      ))}
-    </svg>
-  );
 }
 
 export default function VineMap({
@@ -155,13 +99,34 @@ export default function VineMap({
     () => new Set(visibleIndices(points.map((point) => point.y), anchor, viewport)),
     [anchor, points, viewport],
   );
-  const segments = useMemo(() => {
-    const chunks: NodePoint[][] = [];
-    for (let index = 0; index < points.length - 1; index += 7) {
-      chunks.push(points.slice(index, Math.min(points.length, index + 8)));
+  const vineTiles = useMemo(() => {
+    const frames = [
+      { src: vineA, ratio: 1280 / 386 },
+      { src: vineB, ratio: 1280 / 527 },
+    ];
+    const segW = width * (compact ? 0.7 : 0.52);
+    const tiles: { key: number; src: string; x: number; y: number; w: number; h: number }[] = [];
+    let y = -segW;
+    let n = 0;
+    while (y < height && n < 240) {
+      const frame = frames[n % frames.length];
+      const segH = segW * frame.ratio;
+      if (y > anchor - viewport - segH && y < anchor + viewport * 2) {
+        const approx = Math.max(0, Math.round((height - y) / (compact ? 110 : 140)));
+        tiles.push({
+          key: n,
+          src: frame.src,
+          x: columnCenterX(approx, width, compact),
+          y,
+          w: segW,
+          h: segH,
+        });
+      }
+      y += segH * 0.84;
+      n += 1;
     }
-    return chunks.filter((chunk) => chunk.some((point) => visible.has(point.index)));
-  }, [points, visible]);
+    return tiles;
+  }, [anchor, compact, height, viewport, width]);
 
   useEffect(() => {
     const path = pathRef.current;
@@ -242,8 +207,15 @@ export default function VineMap({
         <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
           <path ref={pathRef} d={climbPath} />
         </svg>
-        {segments.map((chunk) => (
-          <VineStrand key={chunk[0].date} points={chunk} width={width} compact={compact} />
+        {vineTiles.map((tile) => (
+          <img
+            key={tile.key}
+            src={tile.src}
+            alt=""
+            draggable={false}
+            className="journey-vine-tile pointer-events-none absolute"
+            style={{ left: tile.x - tile.w / 2, top: tile.y, width: tile.w, height: tile.h }}
+          />
         ))}
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${width} ${height}`} role="presentation">
           <g transform={`translate(${width / 2 - 90} ${height - 108})`}>
@@ -262,26 +234,6 @@ export default function VineMap({
             {goalName.slice(0, 12)}
           </div>
         </div>
-        {segments.flatMap((chunk) =>
-          spinePoints(chunk, width, compact).flatMap((point) => {
-            if (!visible.has(point.index)) return [];
-            const radius = columnRadius(width, compact);
-            const side = Math.sin(point.index * 1.05) >= 0 ? 1 : -1;
-            const spots = [{ x: point.x + side * radius * 0.9, y: point.y - 16, flip: side, rot: side * 24 }];
-            if (point.index % 2 === 0) {
-              spots.push({ x: point.x - side * radius * 0.84, y: point.y + 18, flip: -side, rot: -side * 36 });
-            }
-            return spots.map((spot, leaf) => (
-              <span
-                key={`${point.date}-leaf-${leaf}`}
-                className="pointer-events-none absolute"
-                style={{ left: spot.x, top: spot.y, transform: `translate(-50%, -50%) rotate(${spot.rot}deg)` }}
-              >
-                <LeafMark flip={spot.flip} size={compact ? 30 : 42} />
-              </span>
-            ));
-          }),
-        )}
         {points.map((point, index) => {
           if (!visible.has(index)) return null;
           const day = days[index];
@@ -392,11 +344,11 @@ export default function VineMap({
                 </div>
               ) : null}
               {phaseName ? (
-                <div
-                  className="journey-wood absolute top-10 w-max max-w-[180px] px-3 py-1.5 text-[13px] font-bold"
-                  style={outward}
-                >
-                  {phaseName}
+                <div className="pointer-events-none absolute top-8 w-[168px]" style={outward}>
+                  <img src={wood} alt="" draggable={false} className="w-full" />
+                  <div className="absolute inset-y-[16%] left-[26%] right-[6%] flex items-center justify-center text-center text-[12px] font-black leading-4 text-[#5a3412]">
+                    {phaseName}
+                  </div>
                 </div>
               ) : null}
             </div>

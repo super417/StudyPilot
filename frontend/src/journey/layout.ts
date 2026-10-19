@@ -30,7 +30,7 @@ export function columnCenterX(index: number, width: number, compact: boolean): n
 
 /** 柱体半径。日期节点贴在这个半径附近的藤面上。 */
 export function columnRadius(width: number, compact: boolean): number {
-  return width * (compact ? 0.2 : 0.22);
+  return width * (compact ? 0.27 : 0.24);
 }
 
 export function layoutDays(dates: string[], width: number, compact: boolean): NodePoint[] {
@@ -40,7 +40,7 @@ export function layoutDays(dates: string[], width: number, compact: boolean): No
   return dates.map((date, index) => ({
     date,
     index,
-    x: columnCenterX(index, width, compact) + (index % 2 === 0 ? -1 : 1) * radius * 0.86,
+    x: columnCenterX(index, width, compact) + (index % 2 === 0 ? -1 : 1) * radius * 0.66,
     y: PAD_TOP + (count - 1 - index) * step,
   }));
 }
