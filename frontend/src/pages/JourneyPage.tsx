@@ -275,8 +275,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       <>
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center p-3">
         <div className="journey-status pointer-events-auto px-5 py-2.5 text-sm font-black">
-          <span className="max-w-[9rem] truncate">{data?.plan?.goalName ?? '星藤航图'}</span>
-          {data?.plan ? <span>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</span> : null}
+          {data?.plan ? <span>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</span> : <span>星藤航图</span>}
           {data?.summary ? <span>本周 {data.summary.weekStars} ★</span> : null}
           {data?.summary ? <span>连续 {data.summary.streakDays} 天</span> : null}
         </div>

@@ -69,10 +69,10 @@ export function LeafMark({ flip = 1, size = 34 }: { flip?: number; size?: number
 }
 
 const CROWN = [
-  { left: 0, top: 4, size: 14, rot: -15 },
-  { left: 16, top: 0, size: 18, rot: -4 },
-  { left: 38, top: 0, size: 18, rot: 4 },
-  { left: 58, top: 4, size: 14, rot: 15 },
+  { left: 0, top: 4, size: 18, rot: -15 },
+  { left: 22, top: 0, size: 24, rot: -4 },
+  { left: 50, top: 0, size: 24, rot: 4 },
+  { left: 78, top: 4, size: 18, rot: 15 },
 ];
 
 export function StarCrown({
@@ -87,7 +87,7 @@ export function StarCrown({
 }) {
   const scale = compact ? 0.78 : 1;
   return (
-    <span className="relative block" style={{ width: 76 * scale, height: 24 * scale }} aria-hidden="true">
+    <span className="relative block" style={{ width: 98 * scale, height: 30 * scale }} aria-hidden="true">
       {CROWN.map((slot, index) => {
         const on = index < filled;
         return (
