@@ -23,21 +23,21 @@ export function starPath(cx: number, cy: number, outer: number, inner: number): 
 export function SproutAvatar({ size = 54 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <ellipse cx="32" cy="58" rx="14" ry="4" fill="rgba(20,60,20,0.18)" />
-      <path d="M32 30 C28 18 18 16 16 22 C22 24 28 28 32 34" fill="#7dce45" />
-      <path d="M32 30 C36 16 48 14 50 22 C42 24 36 28 32 34" fill="#b6f07a" />
-      <path d="M18 16 l6 2 -4 5 z" fill="#e7c56a" />
-      <path d="M14 20 h22 a8 8 0 0 1 8 8 v2 H14 z" fill="#f0d48a" stroke="#c4923a" strokeWidth="1.4" />
-      <circle cx="36" cy="18" r="5" fill="#ffe56a" stroke="#e0a82e" strokeWidth="1" />
-      <path d="M36 15.2 l.9 1.8 2 .3 -1.45 1.4.35 2 -1.8-.9 -1.8.9.35-2 -1.45-1.4 2-.3 z" fill="#fff8d0" />
-      <circle cx="32" cy="40" r="14" fill="#e7f8c8" stroke="#7dae45" strokeWidth="1.6" />
-      <circle cx="27" cy="39" r="2.1" fill="#243126" />
-      <circle cx="37" cy="39" r="2.1" fill="#243126" />
-      <circle cx="27.7" cy="38.3" r="0.7" fill="white" />
-      <circle cx="37.7" cy="38.3" r="0.7" fill="white" />
-      <path d="M28 45 q4 3 8 0" fill="none" stroke="#d36b7b" strokeWidth="1.4" strokeLinecap="round" />
-      <ellipse cx="24" cy="43" rx="2.2" ry="1.2" fill="#f3b7c4" opacity="0.8" />
-      <ellipse cx="40" cy="43" rx="2.2" ry="1.2" fill="#f3b7c4" opacity="0.8" />
+      <rect x="6" y="8" width="52" height="52" rx="16" fill="#f4ffe8" stroke="#7dce55" strokeWidth="3" />
+      <path d="M24 18 C20 8 14 8 14 14 C18 16 22 18 24 24" fill="#7dce45" />
+      <path d="M40 18 C44 8 50 8 50 14 C46 16 42 18 40 24" fill="#b6f07a" />
+      <path d="M18 24 h28 a10 10 0 0 1 10 8 v3 H18 z" fill="#e7c56a" stroke="#b8892e" strokeWidth="1.4" />
+      <path d="M22 24 h20 v-4 a6 6 0 0 0 -6 -6 h-8 a6 6 0 0 0 -6 6 z" fill="#f3d48a" />
+      <circle cx="32" cy="16" r="6" fill="#ffe56a" stroke="#e0a82e" strokeWidth="1" />
+      <path d={starPath(32, 16, 3.4, 1.4)} fill="#fff8d0" />
+      <circle cx="32" cy="40" r="14" fill="#d9f5b8" stroke="#6bb84a" strokeWidth="1.4" />
+      <ellipse cx="26.5" cy="39" rx="3.2" ry="3.6" fill="#243126" />
+      <ellipse cx="37.5" cy="39" rx="3.2" ry="3.6" fill="#243126" />
+      <circle cx="27.4" cy="37.8" r="1.1" fill="white" />
+      <circle cx="38.4" cy="37.8" r="1.1" fill="white" />
+      <path d="M28 46 q4 3 8 0" fill="none" stroke="#e07a88" strokeWidth="1.5" strokeLinecap="round" />
+      <ellipse cx="23" cy="43" rx="2.4" ry="1.4" fill="#f3b7c4" />
+      <ellipse cx="41" cy="43" rx="2.4" ry="1.4" fill="#f3b7c4" />
     </svg>
   );
 }
@@ -56,11 +56,11 @@ export function FruitGlyph({
   if (kind === 'bud') {
     return (
       <svg viewBox="0 0 80 80" className="h-full w-full" aria-hidden="true">
-        <path d="M40 16 q2 12 -8 20" fill="none" stroke="#2f8a3a" strokeWidth="3" strokeLinecap="round" />
-        <ellipse cx="34" cy="22" rx="9" ry="4" transform="rotate(-30 34 22)" fill="#9be36a" stroke="#3d9a45" strokeWidth="1" />
-        <ellipse cx="40" cy="50" rx="14" ry="18" fill="#c8efb0" stroke="#5cb84a" strokeWidth="2" />
-        <path d="M40 36 c8 4 12 12 8 20 c-6 -2 -8 2 -8 8 c-6 -6 -10 -12 -8 -20 c4 2 6 -4 8 -8 z" fill="#ffe4f2" stroke="#f0a8cc" strokeWidth="1.3" />
-        <ellipse cx="36" cy="44" rx="3" ry="5" fill="white" opacity="0.55" />
+        <path d="M40 18 q2 14 -6 22" fill="none" stroke="#2f8a3a" strokeWidth="3" strokeLinecap="round" />
+        <ellipse cx="46" cy="22" rx="10" ry="5" transform="rotate(28 46 22)" fill="#8ed957" stroke="#2f8a3a" strokeWidth="1" />
+        <path d="M40 34 C52 36 58 48 54 60 C48 68 32 68 26 60 C22 48 28 36 40 34 Z" fill="#c8efb0" stroke="#3d9a45" strokeWidth="2" />
+        <path d="M40 36 C46 44 46 54 40 62 C34 54 34 44 40 36 Z" fill="#8ed957" />
+        <ellipse cx="34" cy="48" rx="4" ry="7" fill="white" opacity="0.45" />
       </svg>
     );
   }
@@ -90,14 +90,15 @@ export function FruitGlyph({
           <stop offset="100%" stopColor={stops[2]} />
         </radialGradient>
       </defs>
-      {cleared ? <circle cx="40" cy="48" r="31" fill="none" stroke="#ffe08a" strokeWidth="3" /> : null}
-      <path d="M40 14 q4 8 -5 16" fill="none" stroke="#2f8a3a" strokeWidth="2.6" strokeLinecap="round" />
-      <ellipse cx="50" cy="18" rx="9" ry="4.2" transform="rotate(28 50 18)" fill={gray ? '#c5d0c0' : '#8ed957'} stroke="#3d9a45" strokeWidth="0.8" />
-      <ellipse cx="40" cy="48" rx={rx} ry={ry} fill={`url(#${gid})`} stroke={gray ? '#b7bdc8' : 'rgba(255,255,255,0.85)'} strokeWidth="1.6" />
-      {warm ? <ellipse cx="48" cy="56" rx="7" ry="4" fill="#ff8a3d" opacity="0.35" /> : null}
-      {cool ? <ellipse cx="46" cy="58" rx="5" ry="3" fill="#6f7cff" opacity="0.35" /> : null}
-      {ripe ? <path d={starPath(58, 30, 4, 1.6)} fill="#fff6c2" /> : null}
-      <ellipse cx="31" cy="40" rx={gray ? 5 : 8} ry={gray ? 3 : 5} fill="white" opacity={gray ? 0.16 : color === 'muted' ? 0.32 : 0.7} />
+      {cleared ? <circle cx="40" cy="46" r="30" fill="none" stroke="#ffe08a" strokeWidth="3" /> : null}
+      <path d="M40 12 q4 8 -4 14" fill="none" stroke="#2f8a3a" strokeWidth="2.6" strokeLinecap="round" />
+      <ellipse cx="50" cy="16" rx="10" ry="4.4" transform="rotate(28 50 16)" fill={gray ? '#c5d0c0' : '#8ed957'} stroke="#2f8a3a" strokeWidth="0.8" />
+      <ellipse cx="40" cy="46" rx={rx} ry={ry} fill={`url(#${gid})`} stroke={gray ? '#b7bdc8' : '#fff'} strokeWidth={gray ? 1.4 : 2.4} />
+      {!gray ? <ellipse cx="40" cy="46" rx={rx - 4} ry={ry - 4} fill="none" stroke="white" strokeWidth="1.2" opacity="0.35" /> : null}
+      {warm ? <ellipse cx="48" cy="54" rx="7" ry="4" fill="#ff8a3d" opacity="0.35" /> : null}
+      {cool ? <ellipse cx="46" cy="56" rx="5" ry="3" fill="#6f7cff" opacity="0.35" /> : null}
+      {ripe ? <path d={starPath(58, 28, 4.2, 1.7)} fill="#fff6c2" stroke="#ffe08a" strokeWidth="0.6" /> : null}
+      <ellipse cx="31" cy="38" rx={gray ? 4 : 9} ry={gray ? 2.4 : 6} fill="white" opacity={gray ? 0.2 : 0.85} />
     </svg>
   );
 }
@@ -150,9 +151,9 @@ export function StarCrown({
             key={slot.x}
             d={path}
             transform={`rotate(${slot.rot} ${slot.x} ${slot.y})`}
-            fill={on ? `url(#${gid})` : 'transparent'}
-            stroke={on ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.8)'}
-            strokeWidth={on ? 1 : 1.4}
+            fill={on ? `url(#${gid})` : 'rgba(255,255,255,0.28)'}
+            stroke={on ? '#fff8d8' : 'rgba(255,255,255,0.85)'}
+            strokeWidth={on ? 1.3 : 1.2}
             strokeDasharray={preview && !on ? '2 1.6' : undefined}
             opacity={on ? 1 : 0.45}
           />

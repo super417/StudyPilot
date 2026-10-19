@@ -294,8 +294,7 @@ export default function VineMap({
                 {day.state === 'today' ? (
                   <button
                     type="button"
-                    className="absolute top-1/2 z-20 min-h-11 min-w-11 -translate-y-1/2"
-                    style={point.x > width / 2 ? { right: '108%' } : { left: '108%' }}
+                    className="absolute bottom-[118%] left-1/2 z-30 min-h-11 min-w-11 -translate-x-1/2"
                     aria-label="今天的芽苗"
                     onClick={(event) => {
                       event.stopPropagation();
