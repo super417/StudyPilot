@@ -29,12 +29,12 @@ export default function GlassCta({ label, onClick }: { label: string; onClick: (
         data-glass-cta="true"
         style={reflectStyle}
         onClick={onClick}
-        className="relative z-10 min-w-[17.5rem] cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-red-500 to-orange-500 px-10 py-4 font-serif text-3xl font-semibold uppercase tracking-widest text-transparent shadow-xl shadow-red-600 after:absolute after:left-1/2 after:top-1/2 after:h-[85%] after:w-[95%] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-red-200 after:content-[''] hover:saturate-[1.15] group-hover:shadow-2xl group-hover:shadow-red-600 active:saturate-[1.4]"
+        className="relative z-10 min-w-[17.5rem] cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-emerald-300/70 to-green-400/60 px-10 py-4 font-serif text-3xl font-semibold uppercase tracking-widest text-transparent shadow-xl shadow-emerald-700/40 after:absolute after:left-1/2 after:top-1/2 after:h-[85%] after:w-[95%] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-white/45 after:content-[''] hover:saturate-[1.15] group-hover:shadow-2xl group-hover:shadow-emerald-500/50 active:saturate-[1.4]"
       >
         <span className="whitespace-nowrap">{label}</span>
         <p
           aria-hidden="true"
-          className="absolute left-1/2 top-1/2 z-40 h-full w-full -translate-x-1/2 -translate-y-[30%] bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-center font-semibold tracking-widest text-transparent"
+          className="absolute left-1/2 top-1/2 z-40 h-full w-full -translate-x-1/2 -translate-y-[30%] bg-gradient-to-r from-emerald-900 to-teal-800 bg-clip-text text-center font-semibold tracking-widest text-transparent"
         >
           {label}
         </p>
@@ -48,8 +48,8 @@ export default function GlassCta({ label, onClick }: { label: string; onClick: (
         >
           <defs>
             <linearGradient id="sssurf-grad" y2="100%" x2="50%" y1="0%" x1="50%">
-              <stop offset="0%" stopOpacity={1} stopColor="hsl(37, 99%, 67%)" />
-              <stop offset="100%" stopOpacity={1} stopColor="hsl(316, 73%, 52%)" />
+              <stop offset="0%" stopOpacity={0.55} stopColor="hsl(142, 62%, 78%)" />
+              <stop offset="100%" stopOpacity={0.82} stopColor="hsl(174, 64%, 40%)" />
             </linearGradient>
           </defs>
           <g transform="matrix(1,0,0,1,0,-91.0877685546875)" fill="url(#sssurf-grad)">
@@ -59,7 +59,7 @@ export default function GlassCta({ label, onClick }: { label: string; onClick: (
           </g>
         </svg>
         <svg
-          className="journey-glass-wave absolute left-1/2 top-1/2 z-40 h-full w-full -translate-x-1/2 -translate-y-[30%] fill-red-500 transition-all duration-500 group-hover:-translate-y-[33%] group-hover:scale-95"
+          className="journey-glass-wave absolute left-1/2 top-1/2 z-40 h-full w-full -translate-x-1/2 -translate-y-[30%] fill-teal-500/55 transition-all duration-500 group-hover:-translate-y-[33%] group-hover:scale-95"
           viewBox="0 0 1440 320"
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
