@@ -28,15 +28,30 @@ const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' 
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
 /** 扁链环：平放的环和侧立的环交替，互相扣住。沿一条轻微下垂的弧排开。 */
-const CHAIN_LINKS = Array.from({ length: 21 }, (_, index) => {
-  const t = index / 20;
-  return {
-    x: 16 + t * 488,
-    y: 24 + Math.sin(Math.PI * t) * 22,
-    rot: (0.5 - t) * 18,
-    flat: index % 2 === 0,
-  };
-});
+/** 锁链下垂曲线：两端 (16,24)/(504,24)，中点下垂 CHAIN_SAG（viewBox 单位）。 */
+const CHAIN_SAG = 86;
+const chainY = (x: number) => {
+  const t = (x - 16) / 488;
+  return 24 + CHAIN_SAG * 4 * t * (1 - t);
+};
+/** 按弧长等距铺链环，每环旋转到切线方向，保证无缝。 */
+const CHAIN_LINKS = (() => {
+  const samples: Array<{ x: number; s: number }> = [{ x: 16, s: 0 }];
+  for (let i = 1; i <= 400; i += 1) {
+    const x = 16 + (488 * i) / 400;
+    const prev = samples[i - 1];
+    samples.push({ x, s: prev.s + Math.hypot(x - prev.x, chainY(x) - chainY(prev.x)) });
+  }
+  const total = samples[samples.length - 1].s;
+  const count = Math.round(total / 23) + 1;
+  return Array.from({ length: count }, (_, index) => {
+    const target = (total * index) / (count - 1);
+    const hit = samples.find((item) => item.s >= target) ?? samples[samples.length - 1];
+    const x = hit.x;
+    const slope = (CHAIN_SAG * 4 * (1 - (2 * (x - 16)) / 488)) / 488;
+    return { x, y: chainY(x), rot: (Math.atan(slope) * 180) / Math.PI, flat: index % 2 === 0 };
+  });
+})();
 
 /**
  * 一朵团状卡通云的鼓包（单位坐标：宽 160、高 100）。
@@ -76,9 +91,9 @@ function CloudBank({ width, height }: { width: number; height: number }) {
     <svg className="journey-cloud-body" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
       <defs>
         <radialGradient id="journey-cloud-fill" cx="50%" cy="52%" r="58%">
-          <stop offset="0%" stopColor="#eaf4ff" />
-          <stop offset="62%" stopColor="#cfe6ff" />
-          <stop offset="100%" stopColor="#bcdcff" stopOpacity="0.6" />
+          <stop offset="0%" stopColor="#cfe4ff" />
+          <stop offset="62%" stopColor="#bcd8fb" />
+          <stop offset="100%" stopColor="#a8cbf6" stopOpacity="0.6" />
         </radialGradient>
         <filter id="journey-cloud-outer" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation={blur} />
@@ -88,13 +103,13 @@ function CloudBank({ width, height }: { width: number; height: number }) {
         </filter>
       </defs>
       <g filter="url(#journey-cloud-outer)" opacity="0.4">
-        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={1.06} fill="#bcdcff" />
+        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={1.06} fill="#a8cbf6" />
       </g>
       <g filter="url(#journey-cloud-inner)" opacity="0.55">
         <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.95} fill="url(#journey-cloud-fill)" />
       </g>
       <g filter="url(#journey-cloud-inner)" opacity="0.35">
-        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.78} fill="#eaf4ff" />
+        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.78} fill="#cfe4ff" />
       </g>
     </svg>
   );
@@ -435,9 +450,9 @@ export default function VineMap({
                 <svg className="journey-cloud-chain" viewBox="0 0 520 88" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
                     <linearGradient id="chain-glass" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.62" />
-                      <stop offset="42%" stopColor="#dfe9ff" stopOpacity="0.42" />
-                      <stop offset="100%" stopColor="#cdb8f2" stopOpacity="0.36" />
+                      <stop offset="0%" stopColor="#dfe8ff" stopOpacity="0.8" />
+                      <stop offset="40%" stopColor="#8fa8e8" stopOpacity="0.62" />
+                      <stop offset="100%" stopColor="#b39ae6" stopOpacity="0.68" />
                     </linearGradient>
                   </defs>
                   {CHAIN_LINKS.map((link) =>
@@ -450,7 +465,7 @@ export default function VineMap({
                         ry="8.5"
                         fill="none"
                         stroke="url(#chain-glass)"
-                        strokeWidth="4.6"
+                        strokeWidth="4.8"
                         className="journey-chain-link"
                         transform={`rotate(${link.rot} ${link.x} ${link.y})`}
                       />
@@ -463,8 +478,8 @@ export default function VineMap({
                         height="6.8"
                         rx="3.4"
                         fill="url(#chain-glass)"
-                        stroke="#ffffff"
-                        strokeOpacity="0.8"
+                        stroke="#6f6fc8"
+                        strokeOpacity="0.7"
                         className="journey-chain-link"
                         strokeWidth="1"
                         transform={`rotate(${link.rot} ${link.x} ${link.y})`}
