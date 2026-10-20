@@ -16,11 +16,30 @@ import {
   remainingDays,
   scrollTopForToday,
 } from '@/journey/layout';
-import { coverPoint, PLATE_SLOTS } from '@/journey/plate';
+import { cloudGateFrame, coverPoint, nodeUnderCloud, PLATE_SLOTS } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
+
+const CLOUD_PUFFS = [
+  { x: -4, y: -8, w: 20, h: 58 },
+  { x: 8, y: -14, w: 22, h: 64 },
+  { x: 22, y: -6, w: 20, h: 60 },
+  { x: 36, y: -16, w: 24, h: 68 },
+  { x: 52, y: -10, w: 22, h: 64 },
+  { x: 66, y: -18, w: 24, h: 70 },
+  { x: 80, y: -8, w: 20, h: 62 },
+  { x: 92, y: -2, w: 14, h: 52 },
+  { x: 2, y: 18, w: 26, h: 58 },
+  { x: 22, y: 22, w: 28, h: 56 },
+  { x: 42, y: 16, w: 26, h: 62 },
+  { x: 62, y: 20, w: 28, h: 58 },
+  { x: 78, y: 14, w: 24, h: 56 },
+  { x: 12, y: 42, w: 30, h: 48 },
+  { x: 40, y: 46, w: 32, h: 46 },
+  { x: 68, y: 40, w: 28, h: 50 },
+] as const;
 
 function BossPennant({ date, className, onClick }: { date: string; className: string; onClick: (event: MouseEvent<HTMLButtonElement>) => void }) {
   return (
@@ -138,6 +157,9 @@ export default function VineMap({
     return () => node.removeEventListener('scroll', onScroll);
   }, [origin, points, step, todayIndex]);
 
+  const cloud = gatePhase && !gateOpen && gateDay ? cloudGateFrame(width, viewport) : null;
+  const flagOnLeft = cloud ? cloud.poleX > width * 0.75 : false;
+
   const plateDays = useMemo(
     () =>
       PLATE_SLOTS.map((slot) => {
@@ -178,6 +200,7 @@ export default function VineMap({
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
             const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
+            const buried = cloud ? nodeUnderCloud(at.y, cloud) : false;
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -190,8 +213,9 @@ export default function VineMap({
                   top: at.y,
                   transform: 'translate(-50%, -50%)',
                   zIndex: day.state === 'today' ? 5 : 1,
-                  opacity: beyondGate ? 0.35 : 1,
-                  pointerEvents: beyondGate ? 'none' : undefined,
+                  opacity: buried ? 0 : beyondGate ? 0.35 : 1,
+                  visibility: buried ? 'hidden' : undefined,
+                  pointerEvents: buried || beyondGate ? 'none' : undefined,
                 }}
               >
                 {showStars ? (
@@ -249,33 +273,45 @@ export default function VineMap({
               </div>
             );
           })}
-          {gatePhase && !gateOpen && gateDay ? (
-            <div className="journey-cloud-gate" data-cloud-gate="locked" style={{ top: '26%' }}>
-              <div className="journey-cloud-band" />
-              <svg className="journey-cloud-chain" viewBox="0 0 520 48" aria-hidden="true">
-                <path
-                  d="M8 28 H70 M120 28 H250 M300 28 H430 M470 28 H512"
-                  fill="none"
-                  stroke="#C3C6EE"
-                  strokeWidth="8"
-                  strokeLinecap="round"
+          {cloud && gatePhase && gateDay ? (
+            <div
+              className="journey-cloud-gate"
+              data-cloud-gate="locked"
+              style={{
+                top: cloud.top,
+                height: cloud.height,
+                ['--flag-x' as string]: `${cloud.poleX}px`,
+                ['--flag-y' as string]: `${cloud.poleY}px`,
+                ['--flag-scale' as string]: compact || flagOnLeft ? '1.65' : '2.45',
+              }}
+            >
+              <div className="journey-cloud-halo" />
+              <div className="journey-cloud-core" />
+              {CLOUD_PUFFS.map((puff) => (
+                <div
+                  key={`${puff.x}-${puff.y}`}
+                  className="journey-cloud-puff"
+                  style={{ left: `${puff.x}%`, top: `${puff.y}%`, width: `${puff.w}%`, height: `${puff.h}%` }}
                 />
-                <g fill="none" stroke="#BAC1EF" strokeWidth="7">
-                  {[40, 78, 150, 188, 226, 330, 368, 406].map((x) => (
-                    <rect key={x} x={x} y="14" width="28" height="22" rx="8" />
+              ))}
+              <svg className="journey-cloud-chain" viewBox="0 0 640 70" aria-hidden="true">
+                <path d="M16 36 H624" fill="none" stroke="#C3C6EE" strokeWidth="11" strokeLinecap="round" />
+                <g fill="none" stroke="#BAC1EF" strokeWidth="8">
+                  {[28, 78, 128, 210, 260, 310, 392, 442, 492].map((x) => (
+                    <rect key={x} x={x} y="16" width="40" height="36" rx="16" />
                   ))}
                 </g>
               </svg>
-              <div className="journey-cloud-lock" style={{ left: '22%' }}>
+              <div className="journey-cloud-lock" style={{ left: '18%' }}>
                 <span aria-hidden="true">✿</span>
               </div>
-              <div className="journey-cloud-lock" style={{ left: '58%' }}>
+              <div className="journey-cloud-lock" style={{ left: '42%' }}>
                 <span aria-hidden="true">★</span>
               </div>
-              <div className="journey-cloud-pill" style={{ left: '18%' }}>
+              <div className="journey-cloud-pill" style={{ left: '16%' }}>
                 {gatePhase.name.replace(/^阶段. · /, '')}
               </div>
-              <div className="journey-cloud-pill" style={{ left: '54%' }}>
+              <div className="journey-cloud-pill" style={{ left: '40%' }}>
                 还差 {remainingDays(gatePhase.endDate, today)} 天
               </div>
               <button
@@ -290,13 +326,21 @@ export default function VineMap({
               >
                 <i />
               </button>
+              <div
+                className="journey-cloud-puff is-nest"
+                style={{ left: cloud.poleX - 70, top: cloud.poleY - 108, width: 150, height: 96 }}
+              />
               <BossPennant
                 date={gateDay.date}
-                className="journey-boss-flag is-right is-gate"
+                className={`journey-boss-flag is-gate ${flagOnLeft ? 'is-left' : 'is-right'}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   onBoss(gateDay);
                 }}
+              />
+              <div
+                className="journey-cloud-puff is-front"
+                style={{ left: cloud.poleX - 48, top: cloud.poleY - 22, width: 104, height: 64 }}
               />
             </div>
           ) : null}

@@ -240,16 +240,26 @@
 
 .journey-cloud-gate .journey-boss-flag.is-gate {
   position: absolute;
-  top: -6%;
-  right: 12%;
-  z-index: 4;
+  top: var(--flag-y);
+  left: var(--flag-x);
+  z-index: 5;
   pointer-events: auto;
-  transform: rotate(-8deg) scale(1.9);
-  transform-origin: 0% 85%;
+  transform: translate(-4px, -100%) rotate(-8deg) scale(var(--flag-scale, 2.45));
+  transform-origin: 4px 100%;
 }
 
-.journey-cloud-gate .journey-boss-flag.is-gate:active {
-  transform: rotate(-4deg) scale(1.76, 1.55);
+.journey-cloud-gate .journey-boss-flag.is-gate.is-left {
+  transform: translate(calc(-100% + 4px), -100%) rotate(8deg) scale(var(--flag-scale, 1.65));
+  transform-origin: calc(100% - 4px) 100%;
+}
+
+.journey-cloud-gate .journey-boss-flag.is-gate.is-right:active {
+  transform: translate(-4px, calc(-100% + 4px)) rotate(-4deg) scale(calc(var(--flag-scale, 2.45) * 0.92), calc(var(--flag-scale, 2.45) * 0.8));
+  filter: brightness(1.12) drop-shadow(0 2px 2px rgba(40, 16, 70, 0.25));
+}
+
+.journey-cloud-gate .journey-boss-flag.is-gate.is-left:active {
+  transform: translate(calc(-100% + 4px), calc(-100% + 4px)) rotate(4deg) scale(calc(var(--flag-scale, 1.65) * 0.92), calc(var(--flag-scale, 1.65) * 0.8));
   filter: brightness(1.12) drop-shadow(0 2px 2px rgba(40, 16, 70, 0.25));
 }
 
@@ -277,44 +287,79 @@
   right: 0;
   left: 0;
   z-index: 16;
-  height: 11%;
+  overflow: visible;
   pointer-events: none;
 }
 
-.journey-cloud-band {
+.journey-cloud-halo {
   position: absolute;
-  inset: 8% -6% 0;
+  inset: -18% -4% -10%;
   background:
-    radial-gradient(ellipse 16% 90% at 8% 70%, rgba(216, 228, 245, 0.75), transparent 72%),
-    radial-gradient(ellipse 20% 110% at 24% 40%, rgba(216, 228, 245, 0.82), transparent 70%),
-    radial-gradient(ellipse 24% 120% at 48% 55%, rgba(216, 228, 245, 0.78), transparent 72%),
-    radial-gradient(ellipse 18% 100% at 70% 42%, rgba(216, 228, 245, 0.8), transparent 70%),
-    radial-gradient(ellipse 16% 90% at 90% 62%, rgba(216, 228, 245, 0.7), transparent 72%),
-    linear-gradient(180deg, rgba(216, 228, 245, 0.12), rgba(216, 228, 245, 0.52) 40%, rgba(216, 228, 245, 0.18));
-  filter: blur(0.4px);
+    radial-gradient(ellipse 22% 46% at 10% 58%, rgba(216, 228, 245, 0.95), transparent 72%),
+    radial-gradient(ellipse 26% 52% at 32% 42%, rgba(232, 240, 250, 0.95), transparent 70%),
+    radial-gradient(ellipse 28% 56% at 54% 50%, rgba(216, 228, 245, 0.98), transparent 70%),
+    radial-gradient(ellipse 24% 50% at 76% 44%, rgba(226, 236, 248, 0.95), transparent 72%),
+    radial-gradient(ellipse 18% 42% at 94% 56%, rgba(216, 228, 245, 0.9), transparent 74%);
+  filter: blur(16px);
+}
+
+.journey-cloud-core {
+  position: absolute;
+  top: 2%;
+  right: -3%;
+  left: -3%;
+  height: 68%;
+  border-radius: 46%;
+  background: #d8e4f5;
+  filter: blur(12px);
+  pointer-events: auto;
+}
+
+.journey-cloud-puff {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 46% 30%, #ffffff 0 7%, #f4f8fd 16%, #e7eef8 40%, #d8e4f5 72%, #c9d7ec 100%);
+  box-shadow:
+    inset 0 -14px 18px rgba(156, 180, 210, 0.35),
+    inset 0 10px 14px rgba(255, 255, 255, 0.92);
+  pointer-events: auto;
+}
+
+.journey-cloud-puff.is-nest {
+  z-index: 3;
+  pointer-events: none;
+}
+
+.journey-cloud-puff.is-front {
+  z-index: 6;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 38%, #ffffff 0 10%, #eef3fb 28%, #d8e4f5 100%);
 }
 
 .journey-cloud-chain {
   position: absolute;
-  top: 46%;
-  left: 18%;
-  width: 58%;
-  height: 28%;
+  top: 34%;
+  left: 4%;
+  z-index: 2;
+  width: 52%;
+  height: 56px;
   overflow: visible;
+  filter: drop-shadow(0 3px 2px rgba(120, 140, 180, 0.35));
 }
 
 .journey-cloud-lock {
   position: absolute;
-  top: 38%;
-  width: 46px;
-  height: 42px;
+  top: 28%;
+  z-index: 3;
+  width: 58px;
+  height: 52px;
   pointer-events: none;
   border: 2px solid #b1dbf2;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(186, 193, 239, 0.72));
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(198, 206, 242, 0.96));
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.85),
-    0 4px 8px rgba(120, 150, 190, 0.28);
+    inset 0 2px 0 rgba(255, 255, 255, 0.9),
+    0 6px 10px rgba(120, 150, 190, 0.32);
 }
 
 .journey-cloud-lock::before {
@@ -340,7 +385,8 @@
 
 .journey-cloud-pill {
   position: absolute;
-  top: 86%;
+  top: 68%;
+  z-index: 3;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.82);
   color: #245c86;
@@ -353,9 +399,9 @@
 
 .journey-cloud-frame {
   position: absolute;
-  top: -92%;
-  left: 50%;
-  z-index: 3;
+  top: -18%;
+  left: 30%;
+  z-index: 4;
   width: 92px;
   height: 84px;
   pointer-events: auto;
