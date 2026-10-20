@@ -8,6 +8,7 @@ import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -15,6 +16,8 @@ from sqlalchemy.pool import StaticPool
 from app.core.clock import CHINA_TZ, local_today
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
+from app.core.database import get_db
+from app.main import app
 from app.models.base import Base
 from app.models.entities import (
     DailyTask,
@@ -25,6 +28,7 @@ from app.models.entities import (
     User,
 )
 from app.routers.statistics import _star_label, build_overview
+from app.routers.dependencies import get_current_user
 from app.services import remedy_service
 
 
@@ -143,6 +147,32 @@ class StatisticsProgressTests(unittest.TestCase):
         self.assertEqual(today_star["answered"], 1)
         self.assertEqual(today_star["accuracy"], 50)
         self.assertEqual(today_star["star"], "blue")
+
+    def test_answer_counts_use_the_same_evidence_as_stars(self) -> None:
+        today = local_today()
+        self._add_evidence(today, "correct")
+        self._add_evidence(today, "wrong")
+        self.session.commit()
+
+        overview = build_overview(self.session, self.user.id)
+        today_star = next(item for item in overview["stars"] if item["date"] == today.isoformat())
+        today_activity = next(
+            item for item in overview["dailyActivity"] if item["date"] == today.isoformat()
+        )
+        self.assertEqual(overview["totalAnswered"], 2)
+        self.assertEqual(today_activity["count"], today_star["answered"])
+        self.assertEqual(today_star["answered"], 2)
+
+        app.dependency_overrides[get_db] = lambda: self.session
+        app.dependency_overrides[get_current_user] = lambda: self.user
+        try:
+            response = TestClient(app).get("/api/statistics/overview")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides.pop(get_current_user, None)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["totalAnswered"], 2)
+        self.assertEqual(response.json()["dailyActivity"][-1]["count"], 2)
 
     def test_none_days_have_null_accuracy_and_do_not_bleed(self) -> None:
         today = local_today()

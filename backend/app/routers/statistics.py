@@ -18,7 +18,6 @@ from app.models.entities import (
     MasteryEvidence,
     Mistake,
     Phase,
-    PracticeQuestion,
     User,
     UserDocument,
 )
@@ -146,11 +145,8 @@ def build_overview(session: Session, user_id) -> dict:
     total_answered = (
         session.scalar(
             select(func.count())
-            .select_from(PracticeQuestion)
-            .where(
-                PracticeQuestion.user_id == user_id,
-                PracticeQuestion.status != "pending",
-            )
+            .select_from(MasteryEvidence)
+            .where(MasteryEvidence.user_id == user_id)
         )
         or 0
     )
@@ -201,10 +197,9 @@ def build_overview(session: Session, user_id) -> dict:
     today = _utc_today()
     start = today - timedelta(days=29)
     activity_rows = session.scalars(
-        select(PracticeQuestion).where(
-            PracticeQuestion.user_id == user_id,
-            PracticeQuestion.status != "pending",
-            PracticeQuestion.created_at
+        select(MasteryEvidence).where(
+            MasteryEvidence.user_id == user_id,
+            MasteryEvidence.created_at
             >= datetime.combine(start, time.min, tzinfo=timezone.utc),
         )
     ).all()
