@@ -32,6 +32,14 @@ export function sourceRefSummary(ref: PracticeSourceRef): string {
   return `出自《${ref.filename}》第 ${ref.chunkIndex + 1} 段`;
 }
 
+export function mergeGeneratedQuestions(
+  current: PracticeQuestion[],
+  generated: PracticeQuestion[],
+): PracticeQuestion[] {
+  const seen = new Set(current.map((item) => item.id));
+  return [...current, ...generated.filter((item) => !seen.has(item.id))];
+}
+
 function ReviewList({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
   return (
@@ -271,9 +279,9 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
     try {
       const res = await generatePractice(practiceDay);
       setMessage(res.questions.length ? `已生成 ${res.questions.length} 题` : '今天还没有完成的任务，先去勾选今天的任务');
-      // 立刻用生成结果填列表，避免仅依赖 reload 时出现空窗
+      // 先追加新题，保留旧卡片的 id 与作答/判分状态；reload 再与服务端同步。
       if (res.questions.length) {
-        setQuestions(res.questions);
+        setQuestions((current) => mergeGeneratedQuestions(current, res.questions));
       }
       await reload();
     } catch (err) {
