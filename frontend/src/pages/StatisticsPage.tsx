@@ -37,6 +37,7 @@ import {
   type StatisticsOverview,
   type TopMistakeItem,
 } from '@/lib/statisticsApi';
+import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 
 const MASTERY_COLORS = {
@@ -413,6 +414,7 @@ function FeedbackAndRemedy({
 }) {
   const lines = buildFeedbackLines(data);
   const overdue = data.overdueCount ?? 0;
+  const assistantLabel = displayAssistantName(getBasicProfile().assistantName);
   return (
     <div className="space-y-4">
       {lines.length > 0 ? (
@@ -427,7 +429,7 @@ function FeedbackAndRemedy({
       {overdue > 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p>
-            你有 {overdue} 项任务未完成，建议顺延到明天，确认后即可生效
+            你有 {overdue} 项任务未完成，{assistantLabel}建议顺延到明天，确认后即可生效
           </p>
           <button
             type="button"

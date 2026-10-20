@@ -19,6 +19,7 @@ import {
 import { selectActiveMessages, useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
+import AssistantNamePrompt from '@/components/assistant/AssistantNamePrompt';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
@@ -26,6 +27,7 @@ import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
+import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   mistake: '错题',
@@ -74,7 +76,15 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const [panelWidth, setPanelWidth] = useState(() =>
     typeof window === 'undefined' ? 560 : clampPanelWidth(panelDefaultWidth()),
   );
+  const [assistantTitle, setAssistantTitle] = useState(() =>
+    displayAssistantName(getBasicProfile().assistantName),
+  );
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    // 资料页改名后本地缓存已更新；全屏聊天挂载时同步标题（不另发 GET）。
+    setAssistantTitle(displayAssistantName(getBasicProfile().assistantName));
+  }, []);
 
   useEffect(() => {
     const onWinResize = () => setPanelWidth((w) => clampPanelWidth(w));
@@ -146,7 +156,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
         />
         <header className="flex shrink-0 items-start justify-between gap-3 px-5 pb-3 pt-5">
           <div className="min-w-0">
-            <h2 className="text-[15px] font-medium text-brandDark">学习助手</h2>
+            <h2 className="text-[15px] font-medium text-brandDark">{assistantTitle}</h2>
             <p className="mt-0.5 truncate text-[12px] text-brandDark/55">
               {context ? `正在讨论：${CONTEXT_LABEL[context.type]}` : '自由提问'}
               {context?.hint ? `（${context.hint}）` : ''}
@@ -209,6 +219,11 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
             </button>
           </div>
         </header>
+
+        <AssistantNamePrompt
+          active
+          onResolved={(name) => setAssistantTitle(displayAssistantName(name))}
+        />
 
         {showPlanForm ? (
           <div className="min-h-0 max-h-[38%] shrink-0 overflow-y-auto overflow-x-hidden">

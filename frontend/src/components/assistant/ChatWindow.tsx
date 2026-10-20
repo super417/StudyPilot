@@ -7,6 +7,7 @@ import type { AssistantContext } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
+import AssistantNamePrompt from '@/components/assistant/AssistantNamePrompt';
 import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
 import UserMessage from '@/components/chat/UserMessage';
@@ -14,6 +15,7 @@ import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { isMainframeChatExpand, openMainframeFromWidget } from '@/lib/mainframeRoute';
+import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
 
 const CONTEXT_LABEL: Record<AssistantContext['type'], string> = {
   mistake: '错题',
@@ -103,6 +105,9 @@ function ChatWindow() {
       ? { left: 16, top: 8, width: 384, height: 480 }
       : defaultBox(),
   );
+  const [assistantTitle, setAssistantTitle] = useState(() =>
+    displayAssistantName(getBasicProfile().assistantName),
+  );
   const dragRef = useRef<{
     dir: ResizeDir;
     x: number;
@@ -112,6 +117,12 @@ function ChatWindow() {
   const showPlanForm = context?.type === 'plan';
   const contentKey = `${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}:${open}`;
   const { listRef, onScroll, pinToBottom } = useStickToBottom(open, contentKey);
+
+  useEffect(() => {
+    if (!open) return;
+    // 资料页改名后本地缓存已更新；再开小窗时同步标题（不另发 GET）。
+    setAssistantTitle(displayAssistantName(getBasicProfile().assistantName));
+  }, [open]);
 
   useEffect(() => {
     if (!open && streaming && !isMainframeChatExpand()) stop();
@@ -209,7 +220,7 @@ function ChatWindow() {
           />
 
           <header className="flex shrink-0 items-center justify-between gap-2 bg-brandDark px-4 py-3 text-white">
-            <span className="truncate text-sm font-semibold">学习助手</span>
+            <span className="truncate text-sm font-semibold">{assistantTitle}</span>
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -265,6 +276,11 @@ function ChatWindow() {
               </button>
             </div>
           </header>
+
+          <AssistantNamePrompt
+            active={open}
+            onResolved={(name) => setAssistantTitle(displayAssistantName(name))}
+          />
 
           {context ? (
             <div className="shrink-0 bg-brandFaint px-4 py-2 text-xs text-brandDark">

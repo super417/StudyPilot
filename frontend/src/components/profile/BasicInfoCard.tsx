@@ -26,6 +26,11 @@ const FIELDS: { key: keyof BasicProfile; label: string; placeholder: string; tex
   { key: 'direction', label: '方向/目标', placeholder: '如：想研究的方向' },
   { key: 'targetSchool', label: '以后想到的地方', placeholder: '如：想去的城市' },
   { key: 'bio', label: '简介', placeholder: '一句话介绍自己的目标', textarea: true },
+  {
+    key: 'assistantName',
+    label: '助手名字',
+    placeholder: '给你的学伴起个名字（可不填）',
+  },
 ];
 
 /** 基本信息：GET/PUT /api/profile，编辑走弹窗。 */
@@ -89,6 +94,7 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
     { label: '方向/目标', value: profile.direction || '未填写' },
     { label: '以后想到的地方', value: profile.targetSchool || '未填写' },
     { label: '简介', value: profile.bio || '未填写' },
+    { label: '助手名字', value: profile.assistantName || '未填写' },
   ];
 
   return (
