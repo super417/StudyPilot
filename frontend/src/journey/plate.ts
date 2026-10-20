@@ -3,16 +3,21 @@ export const PLATE_W = 1280;
 export const PLATE_H = 720;
 
 /**
- * 效果图里果实的锚点。fy 越大越靠下，对应更早的日期。
+ * 底图上关卡果实的锚点（底图比例坐标）。fy 越大越靠下，对应更早的日期。
  * delta 0 是今天，负数是过去，正数是未来。
+ * 每 3 颗一段，沿藤的螺旋条从左下斜向右上；一段走完回到左下开始下一段（之字形）。
+ * segment 是段号，从下往上 0、1、2。
  */
 export const PLATE_SLOTS = [
-  { fx: 0.498, fy: 0.803, delta: -3 },
-  { fx: 0.62, fy: 0.603, delta: -2 },
-  { fx: 0.623, fy: 0.464, delta: -1 },
-  { fx: 0.451, fy: 0.381, delta: 0 },
-  { fx: 0.51, fy: 0.242, delta: 1 },
-  { fx: 0.501, fy: 0.125, delta: 2 },
+  { fx: 0.4414, fy: 0.7986, delta: -4, segment: 0 },
+  { fx: 0.5156, fy: 0.7569, delta: -3, segment: 0 },
+  { fx: 0.5898, fy: 0.7111, delta: -2, segment: 0 },
+  { fx: 0.4281, fy: 0.5903, delta: -1, segment: 1 },
+  { fx: 0.5023, fy: 0.5444, delta: 0, segment: 1 },
+  { fx: 0.5797, fy: 0.4972, delta: 1, segment: 1 },
+  { fx: 0.4922, fy: 0.3472, delta: 2, segment: 2 },
+  { fx: 0.5406, fy: 0.3028, delta: 3, segment: 2 },
+  { fx: 0.6000, fy: 0.2569, delta: 4, segment: 2 },
 ] as const;
 
 export interface CloudGateFrame {

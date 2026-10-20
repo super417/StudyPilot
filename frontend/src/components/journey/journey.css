@@ -799,3 +799,8 @@
     animation: none;
   }
 }
+
+.journey-node-fruit {
+  display: block;
+  filter: drop-shadow(0 6px 5px rgba(20, 70, 10, 0.32));
+}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate-clean.jpg';
-import { StarCrown } from '@/components/journey/glyphs';
+import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import { LanternFruit } from '@/components/journey/LanternFruit';
 import { addDaysISO } from '@/lib/dates';
 import {
@@ -381,8 +381,24 @@ export default function VineMap({
                   pointerEvents: buried || beyondGate ? 'none' : undefined,
                 }}
               >
+                {day.state === 'past' || day.state === 'empty' ? (
+                  <span
+                    className="journey-node-fruit pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[64%]"
+                    style={{ width: compact ? 66 : 88, height: compact ? 66 : 88, opacity: day.state === 'empty' ? 0.8 : 1 }}
+                  >
+                    <FruitGlyph color={day.state === 'empty' ? 'gray' : day.starColor} kind="fruit" cleared={false} />
+                  </span>
+                ) : null}
+                {day.state === 'today' ? (
+                  <span
+                    className="journey-node-fruit pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[76%]"
+                    style={{ width: compact ? 76 : 100, height: compact ? 76 : 100 }}
+                  >
+                    <SproutAvatar size={compact ? 76 : 100} />
+                  </span>
+                ) : null}
                 {showStars ? (
-                  <div className="pointer-events-none absolute bottom-[70%] left-1/2 -translate-x-1/2">
+                  <div className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${day.state === 'today' ? 'bottom-[150%]' : 'bottom-[122%]'}`}>
                     <div className={day.state === 'today' && celebrate ? 'journey-star-pop' : undefined}>
                       <StarCrown filled={day.stars ?? 0} color={day.starColor} preview={day.state === 'today'} compact={compact} />
                     </div>
