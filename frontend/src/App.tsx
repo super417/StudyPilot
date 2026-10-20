@@ -12,10 +12,12 @@ import MistakeBookPage from '@/pages/MistakeBookPage';
 import StatisticsPage from '@/pages/StatisticsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import MainframePage from '@/pages/MainframePage';
+import JourneyPage from '@/pages/JourneyPage';
 import {
   closeMainframePage,
   isMainframeRoute,
 } from '@/lib/mainframeRoute';
+import { closeJourneyPage, isJourneyRoute } from '@/journey/route';
 import { useAuthStore } from '@/store/authStore';
 
 /** activeTab → 对应页面组件的映射（页面容器路由） */
@@ -51,6 +53,7 @@ const PROFILE_BACKDROP: CSSProperties = {
 function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [showMainframe, setShowMainframe] = useState(() => isMainframeRoute());
+  const [showJourney, setShowJourney] = useState(() => isJourneyRoute());
   const { status, error, checkSession, logout } = useAuthStore();
   const CurrentPage = PAGES[activeTab];
 
@@ -59,7 +62,10 @@ function App() {
   }, [checkSession]);
 
   useEffect(() => {
-    const sync = () => setShowMainframe(isMainframeRoute());
+    const sync = () => {
+      setShowMainframe(isMainframeRoute());
+      setShowJourney(isJourneyRoute());
+    };
     window.addEventListener('hashchange', sync);
     return () => window.removeEventListener('hashchange', sync);
   }, []);
@@ -81,6 +87,18 @@ function App() {
    * 它必须排在上面的鉴权判断**之后** —— 本页的聊天框打真实 SSE、会话落本地，
    * 无鉴权时打开只会拿到一串 401。
    */
+  if (showJourney) {
+    return (
+      <JourneyPage
+        onBack={closeJourneyPage}
+        onNavigate={(tab) => {
+          closeJourneyPage();
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
   if (showMainframe) {
     // 演示首屏的导航要真的能进主应用：先清 hash 关掉本页，再切板块。
     // 两步必须在同一个回调里 —— 分开写会先闪一下主应用默认板块再跳。
