@@ -85,11 +85,11 @@ export function cloudFrameForSegment(
   const minY = Math.min(...nodes.map((node) => node.y));
   const maxY = Math.max(...nodes.map((node) => node.y));
   const span = Math.max(88, maxY - minY);
-  const header = 64;
+  const header = 36;
   let top = Math.round(minY - Math.max(78, span * 0.9));
   top = Math.max(header, Math.min(top, Math.round(minY - 24)));
   let bottom = Math.round(maxY + Math.max(70, span * 0.75));
-  if (floorY != null) bottom = Math.min(bottom, Math.round(floorY - 36));
+  if (floorY != null) bottom = Math.min(bottom, Math.round(floorY - 40));
   bottom = Math.max(bottom, Math.round(maxY + 40));
   bottom = Math.min(viewH - 96, bottom);
   const height = Math.max(140, bottom - top);

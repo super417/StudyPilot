@@ -26,18 +26,25 @@ import type { JourneyDay, JourneyPhase } from '@/journey/types';
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
-function mistOutline(width: number, height: number): string {
-  const steps = 8;
+/**
+ * 雾带外轮廓：上沿、下沿各自起伏，两端收圆。
+ * 轮廓离框上下各留出羽化的距离，模糊后刚好淡到框边。
+ */
+function mistOutline(width: number, height: number, inset: number, seed: number, insetBottom = inset): string {
+  const steps = 12;
   const top: Array<[number, number]> = [];
   const bottom: Array<[number, number]> = [];
   for (let index = 0; index <= steps; index += 1) {
     const t = index / steps;
-    const x = width * (0.02 + t * 0.96);
-    const belly = Math.sin(t * Math.PI);
-    const topWave = Math.sin(t * Math.PI * 1.35 + 0.4) * 0.035;
-    const botWave = Math.sin(t * Math.PI * 1.1 + 0.2) * 0.04;
-    top.push([x, height * (0.4 - belly * 0.2 + topWave)]);
-    bottom.push([x, height * (0.6 + belly * 0.24 + botWave)]);
+    const x = width * (0.03 + t * 0.94);
+    const end = Math.pow(Math.abs(t - 0.5) * 2, 6);
+    const topWave = Math.sin(t * Math.PI * 3.1 + seed) * 0.05 + Math.sin(t * Math.PI * 7.3 + seed * 2) * 0.018;
+    const botWave = Math.sin(t * Math.PI * 2.6 + seed * 1.7) * 0.045 + Math.sin(t * Math.PI * 6.1 + seed) * 0.016;
+    const body = height - inset - insetBottom;
+    const topY = inset + body * (0.04 + topWave + end * 0.34);
+    const botY = height - insetBottom - body * (0.05 + botWave + end * 0.34);
+    top.push([x, topY]);
+    bottom.push([x, botY]);
   }
   const curve = (points: Array<[number, number]>) =>
     points
@@ -46,12 +53,37 @@ function mistOutline(width: number, height: number): string {
         const prev = points[index];
         const cx = (prev[0] + point[0]) / 2;
         const cy = (prev[1] + point[1]) / 2;
-        return `Q ${cx.toFixed(1)} ${prev[1].toFixed(1)} ${point[0].toFixed(1)} ${cy.toFixed(1)}`;
+        return `Q ${prev[0].toFixed(1)} ${prev[1].toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)}`;
       })
       .join(' ');
   const first = top[0];
-  const last = bottom[bottom.length - 1];
-  return `M ${first[0].toFixed(1)} ${first[1].toFixed(1)} ${curve(top)} ${curve([...bottom].reverse())} Q ${first[0].toFixed(1)} ${last[1].toFixed(1)} ${first[0].toFixed(1)} ${first[1].toFixed(1)} Z`;
+  const lastTop = top[top.length - 1];
+  const lastBottom = bottom[bottom.length - 1];
+  const firstBottom = bottom[0];
+  return [
+    `M ${first[0].toFixed(1)} ${first[1].toFixed(1)}`,
+    curve(top),
+    `L ${lastTop[0].toFixed(1)} ${lastTop[1].toFixed(1)}`,
+    `Q ${(width * 1.0).toFixed(1)} ${(height / 2).toFixed(1)} ${lastBottom[0].toFixed(1)} ${lastBottom[1].toFixed(1)}`,
+    curve([...bottom].reverse()),
+    `L ${firstBottom[0].toFixed(1)} ${firstBottom[1].toFixed(1)}`,
+    `Q 0 ${(height / 2).toFixed(1)} ${first[0].toFixed(1)} ${first[1].toFixed(1)}`,
+    'Z',
+  ].join(' ');
+}
+
+/** 上下沿的絮团，让边缘是一团团软的，不是一条线。 */
+function mistPuffs(width: number, height: number, inset: number): Array<{ cx: number; cy: number; r: number }> {
+  const puffs: Array<{ cx: number; cy: number; r: number }> = [];
+  const count = Math.max(5, Math.round(width / 90));
+  for (let index = 0; index < count; index += 1) {
+    const t = (index + 0.5) / count;
+    const end = Math.pow(Math.abs(t - 0.5) * 2, 4);
+    const r = height * (0.17 + 0.05 * Math.sin(index * 2.1)) * (1 - end * 0.45);
+    puffs.push({ cx: width * (0.06 + t * 0.88), cy: inset + r * 0.95 + height * end * 0.12, r });
+    puffs.push({ cx: width * (0.04 + ((index + 0.9) / count) * 0.88), cy: height - inset - r * 0.9 - height * end * 0.12, r: r * 0.92 });
+  }
+  return puffs;
 }
 
 const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
@@ -63,32 +95,51 @@ const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
   };
 });
 
-function CloudBank({ width, height }: { width: number; height: number }) {
+function CloudBank({ width, height, cover }: { width: number; height: number; cover: Array<{ x: number; y: number }> }) {
+  const feather = Math.max(10, Math.round(height * 0.075));
+  const inset = feather * 1.6;
   return (
     <svg className="journey-cloud-body" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
       <defs>
-        <filter id="journey-mist-feather" x="-30%" y="-60%" width="160%" height="220%">
-          <feGaussianBlur stdDeviation="28" />
+        <filter id="journey-mist-feather" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation={feather} />
         </filter>
-        <filter id="journey-mist-core" x="-20%" y="-40%" width="140%" height="180%">
-          <feGaussianBlur stdDeviation="12" />
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="2.8" intercept="-0.55" />
-          </feComponentTransfer>
+        <filter id="journey-mist-soft" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation={feather * 0.55} />
         </filter>
         <linearGradient id="journey-mist-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="55%" stopColor="#f7fbff" />
-          <stop offset="100%" stopColor="#eaf5fd" />
+          <stop offset="60%" stopColor="#fbfdff" />
+          <stop offset="100%" stopColor="#e9f1fb" />
         </linearGradient>
-        <radialGradient id="journey-mist-hi" cx="46%" cy="40%" r="46%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+        <radialGradient id="journey-mist-hi" cx="50%" cy="42%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <path d={mistOutline(width, height)} fill="#f3f9ff" filter="url(#journey-mist-feather)" />
-      <path d={mistOutline(width, height)} fill="url(#journey-mist-fill)" filter="url(#journey-mist-core)" />
-      <ellipse cx={width * 0.46} cy={height * 0.46} rx={width * 0.24} ry={height * 0.14} fill="url(#journey-mist-hi)" />
+      <g filter="url(#journey-mist-feather)">
+        <path d={mistOutline(width, height, inset * 0.5, 0.4)} fill="#f7fbff" />
+      </g>
+      <g filter="url(#journey-mist-soft)" fill="url(#journey-mist-fill)">
+        <path d={mistOutline(width, height, inset, 1.3)} />
+        {mistPuffs(width, height, inset * 0.7).map((puff) => (
+          <circle key={`${puff.cx.toFixed(0)}-${puff.cy.toFixed(0)}`} cx={puff.cx} cy={puff.cy} r={puff.r} />
+        ))}
+      </g>
+      <g filter="url(#journey-mist-soft)">
+        <path d={mistOutline(width, height, height * 0.16, 2.2, height * 0.02)} fill="#ffffff" />
+        {cover.map((point) => (
+          <ellipse
+            key={`${point.x.toFixed(0)}-${point.y.toFixed(0)}`}
+            cx={point.x}
+            cy={Math.min(point.y + 10, height - feather * 1.2)}
+            rx={74}
+            ry={Math.min(64, height * 0.3)}
+            fill="#ffffff"
+          />
+        ))}
+      </g>
+      <ellipse cx={width * 0.5} cy={height * 0.45} rx={width * 0.36} ry={height * 0.24} fill="url(#journey-mist-hi)" />
     </svg>
   );
 }
@@ -411,7 +462,11 @@ export default function VineMap({
                 ['--lock' as string]: `${Math.round(Math.min(86, Math.max(64, cloud.height * 0.32)))}px`,
               }}
             >
-              <CloudBank width={cloud.width} height={cloud.height} />
+              <CloudBank
+                width={cloud.width}
+                height={cloud.height}
+                cover={lockedNodes.map((item) => ({ x: item.at.x - cloud.left, y: item.at.y - cloud.top }))}
+              />
               <div className="journey-cloud-lockset">
                 <svg className="journey-cloud-chain" viewBox="0 0 520 88" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
