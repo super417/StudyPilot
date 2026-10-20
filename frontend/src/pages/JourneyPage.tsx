@@ -102,6 +102,9 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const todayDay = days.find((day) => day.date === data?.today);
   const cta = todayCta(todayDay);
   const compact = isCompactViewport(box.w, box.h);
+  const remainLabel = data?.plan ? `剩余 ${remainingDays(data.plan.goalDate, data.today)} 天` : null;
+  const weekLabel = data?.summary ? `本周 ${data.summary.weekStars} ★` : null;
+  const streakLabel = data?.summary ? `连续 ${data.summary.streakDays} 天` : null;
 
   const openRoadmap = () => onNavigate('roadmap');
   const openPractice = () => {
@@ -275,11 +278,20 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       )}
       {scene === 'map' ? (
       <>
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center p-3">
-        <div className="journey-status pointer-events-auto px-5 py-2.5 text-sm font-black">
-          {data?.plan ? <span>剩余 {remainingDays(data.plan.goalDate, data.today)} 天</span> : <span>星藤航图</span>}
-          {data?.summary ? <span>本周 {data.summary.weekStars} ★</span> : null}
-          {data?.summary ? <span>连续 {data.summary.streakDays} 天</span> : null}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center px-3 pt-2">
+        <div className="journey-status-track">
+          {remainLabel ? <span aria-hidden="true" className="journey-status-face journey-status-remain">{remainLabel}</span> : null}
+          <button
+            type="button"
+            className="journey-status-mid pointer-events-auto"
+            aria-label={[remainLabel, weekLabel, streakLabel].filter(Boolean).join('，') || '星藤航图'}
+            onClick={() => document.querySelector<HTMLButtonElement>('[data-return="today"]')?.click()}
+          >
+            {remainLabel ? <span>{remainLabel}</span> : <span>星藤航图</span>}
+            {weekLabel ? <span>{weekLabel}</span> : null}
+            {streakLabel ? <span>{streakLabel}</span> : null}
+          </button>
+          {streakLabel ? <span aria-hidden="true" className="journey-status-face journey-status-streak">{streakLabel}</span> : null}
         </div>
         <button type="button" className="journey-chip pointer-events-auto absolute right-3 top-3 px-3 py-2 text-xs font-bold" onClick={onBack}>
           返回
