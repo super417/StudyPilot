@@ -67,9 +67,10 @@ export function vineRightPlate(y0: number, y1: number): number {
 }
 
 /**
- * 未解锁关卡这一段的雾带。
- * 左 = 这段藤最左再溢出一点，右 = 这段藤最右再溢出一点，不铺满视口。
- * 纵向包住这些关卡。floorY 是下方第一颗已解锁节点，雾底停在它上面。
+ * 未解锁关卡这一段的雾带：一条横穿藤蔓的宽带。
+ * 横向：这段藤左右缘各再溢出很多（至少 140px 或藤宽的 0.6 倍），两端在组件里淡出。
+ * 纵向：下沿停在已解锁节点（floorY）星冠上方，往上取固定带高；
+ * 带上方的未解锁节点由组件直接隐藏，不靠雾去盖。
  */
 export function cloudFrameForSegment(
   nodes: Array<{ x: number; y: number }>,
@@ -84,19 +85,18 @@ export function cloudFrameForSegment(
   const plateYs = nodes.map((node) => (node.y + offsetY) / scale);
   const bandTop = Math.min(...plateYs) - 28;
   const bandBottom = Math.max(...plateYs) + 28;
-  const overflow = 42;
-  const left = Math.max(8, Math.round((vineLeftPlate(bandTop, bandBottom) - overflow) * scale - offsetX));
-  const right = Math.min(viewW - 8, Math.round((vineRightPlate(bandTop, bandBottom) + overflow) * scale - offsetX));
-  const minY = Math.min(...nodes.map((node) => node.y));
+  const vineL = vineLeftPlate(bandTop, bandBottom) * scale - offsetX;
+  const vineR = vineRightPlate(bandTop, bandBottom) * scale - offsetX;
+  const spill = Math.max(140, (vineR - vineL) * 0.6);
+  const left = Math.max(8, Math.round(vineL - spill));
+  const right = Math.min(viewW - 8, Math.round(vineR + spill));
   const maxY = Math.max(...nodes.map((node) => node.y));
-  const span = Math.max(88, maxY - minY);
   const header = 36;
-  let top = Math.round(minY - Math.max(78, span * 0.9));
-  top = Math.max(header, Math.min(top, Math.round(minY - 24)));
-  let bottom = Math.round(maxY + Math.max(70, span * 0.75));
+  let bottom = Math.round(maxY + 60);
   if (floorY != null) bottom = Math.min(bottom, Math.round(floorY - 40));
-  bottom = Math.max(bottom, Math.round(maxY + 40));
   bottom = Math.min(viewH - 96, bottom);
+  const bandH = Math.round(Math.min(330, Math.max(220, viewH * 0.34)));
+  const top = Math.max(header, bottom - bandH);
   const height = Math.max(140, bottom - top);
   const width = Math.max(180, right - left);
   return {
@@ -104,7 +104,7 @@ export function cloudFrameForSegment(
     left,
     width,
     height,
-    poleX: Math.round(left + width * 0.62),
+    poleX: Math.round(left + width * 0.6),
     poleY: Math.round(height * 0.3),
   };
 }

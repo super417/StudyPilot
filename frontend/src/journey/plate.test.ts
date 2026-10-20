@@ -13,12 +13,16 @@ describe('concept plate cover', () => {
     expect(point.y).toBeCloseTo(422, 0);
   });
 
-  it('covers the locked vine from its left edge to just past its right edge', () => {
+  it('lays a wide band across the vine, stopping above today', () => {
     expect(VINE_RIGHT.length).toBe(VINE_LEFT.length);
     const viewW = 1440;
     const viewH = 900;
-    const nodes = [coverPoint(0.51, 0.242, viewW, viewH), coverPoint(0.501, 0.125, viewW, viewH)];
-    const today = coverPoint(0.451, 0.381, viewW, viewH);
+    const at = (delta: number) => {
+      const slot = PLATE_SLOTS.find((item) => item.delta === delta)!;
+      return coverPoint(slot.fx, slot.fy, viewW, viewH);
+    };
+    const nodes = [1, 2, 3, 4].map(at);
+    const today = at(0);
     const frame = cloudFrameForSegment(nodes, viewW, viewH, today.y);
     expect(frame).not.toBeNull();
     if (!frame) return;
@@ -26,23 +30,15 @@ describe('concept plate cover', () => {
     const offsetY = (720 * scale - viewH) / 2;
     const offsetX = (1280 * scale - viewW) / 2;
     const plateYs = nodes.map((node) => (node.y + offsetY) / scale);
-    const bandTop = Math.min(...plateYs) - 28;
-    const bandBottom = Math.max(...plateYs) + 28;
-    const left = Math.max(8, Math.round((vineLeftPlate(bandTop, bandBottom) - 42) * scale - offsetX));
-    const right = Math.min(viewW - 8, Math.round((vineRightPlate(bandTop, bandBottom) + 42) * scale - offsetX));
-    expect(frame.left).toBe(left);
-    expect(frame.left + frame.width).toBe(Math.max(180, right - left) + left);
-    expect(frame.left + frame.width).toBeLessThan(viewW - 40);
-    expect(frame.left).toBeLessThan(Math.min(...nodes.map((node) => node.x)));
-    expect(frame.left + frame.width).toBeGreaterThan(Math.max(...nodes.map((node) => node.x)));
-    expect(frame.top).toBeLessThan(Math.min(...nodes.map((node) => node.y)));
-    expect(frame.top + frame.height).toBeGreaterThan(Math.max(...nodes.map((node) => node.y)));
-    expect(frame.top + frame.height).toBeLessThan(today.y);
-    const lower = cloudFrameForSegment([coverPoint(0.62, 0.603, viewW, viewH)], viewW, viewH);
-    expect(lower).not.toBeNull();
-    expect(lower?.left).not.toBe(frame.left);
-    expect(lower?.top).not.toBe(frame.top);
-    expect(lower && lower.left + lower.width).toBeLessThan(viewW - 40);
+    const vineL = vineLeftPlate(Math.min(...plateYs) - 28, Math.max(...plateYs) + 28) * scale - offsetX;
+    const vineR = vineRightPlate(Math.min(...plateYs) - 28, Math.max(...plateYs) + 28) * scale - offsetX;
+    expect(frame.left).toBeLessThanOrEqual(vineL - 140);
+    expect(frame.left + frame.width).toBeGreaterThanOrEqual(Math.min(viewW - 8, vineR + 140));
+    expect(frame.left).toBeGreaterThanOrEqual(8);
+    expect(frame.left + frame.width).toBeLessThanOrEqual(viewW - 8);
+    expect(frame.top + frame.height).toBeLessThan(today.y - 30);
+    expect(frame.top).toBeLessThan(Math.max(...nodes.map((node) => node.y)));
+    expect(frame.height).toBeGreaterThanOrEqual(220);
   });
 });
 
