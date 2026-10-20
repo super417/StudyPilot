@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { climbSpan, flagAnchor, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { climbSpan, flagAnchor, isCompactViewport, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
 import { buildJourneyDemo } from './mock';
+import { coverPoint } from './plate';
 import type { JourneyDay } from './types';
 
 function day(partial: Partial<JourneyDay> & Pick<JourneyDay, 'date'>): JourneyDay {
@@ -66,6 +67,19 @@ describe('journey layout', () => {
     const day = buildJourneyDemo().days.find((item) => item.date === '2026-10-16');
     expect(day?.tags).toContain('boss');
     expect(buildJourneyDemo().days.find((item) => item.date === '2026-08-31')?.tags).toContain('boss');
+  });
+
+  it('keeps plate nodes clear of compact chrome at 390×844', () => {
+    expect(isCompactViewport(390, 844)).toBe(true);
+    expect(isCompactViewport(1440, 900)).toBe(false);
+    const top = coverPoint(0.501, 0.125, 390, 844);
+    const lowest = coverPoint(0.498, 0.803, 390, 844);
+    const bar = 52;
+    const footer = 78;
+    const homeIndicator = 34;
+    expect(top.y - 32).toBeGreaterThan(bar);
+    expect(lowest.y + 48).toBeLessThan(844 - footer);
+    expect(lowest.y + 48).toBeLessThan(844 - (footer - 8 + homeIndicator));
   });
 
   it('hangs the flag outside the node on the open side', () => {

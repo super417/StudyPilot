@@ -180,6 +180,58 @@
   box-shadow: 0 -12px 40px rgba(12, 48, 24, 0.2);
 }
 
+.journey-sheet-handle {
+  width: 2.5rem;
+  height: 0.28rem;
+  margin: 0 auto 0.75rem;
+  border-radius: 999px;
+  background: rgba(20, 80, 40, 0.28);
+}
+
+.journey-root[data-compact='1'] .journey-map-bar {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.4rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.journey-root[data-compact='1'] .journey-map-bar .journey-chip {
+  position: static;
+  min-height: 2.75rem;
+  flex: none;
+}
+
+.journey-root[data-compact='1'] .journey-glass-radio {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.journey-root[data-compact='1'] .journey-glass-radio label {
+  min-height: 2.75rem;
+  padding: 0.4rem 0.15rem;
+  font-size: 0.75rem;
+}
+
+.journey-root[data-compact='1'] [data-return='today'] {
+  top: max(4.75rem, calc(env(safe-area-inset-top) + 3.8rem));
+}
+
+.journey-root[data-compact='1'] .journey-map-footer {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.journey-root[data-compact='1'] [data-glass-cta='true'] {
+  min-width: min(15.5rem, 72vw);
+  min-height: 3rem;
+  padding: 0.45rem 1rem;
+  font-size: 1.2rem;
+}
+
 .journey-card {
   border-radius: 28px;
   background: linear-gradient(#fffef8, #f4fff0);

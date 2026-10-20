@@ -88,6 +88,7 @@ export function DayDrawer({
   if (compact) {
     return (
       <div className="absolute inset-x-0 bottom-0 z-40 max-h-[70vh] overflow-y-auto p-4 pb-[max(16px,env(safe-area-inset-bottom))] journey-sheet" data-drawer="day">
+        <div className="journey-sheet-handle" data-sheet-handle="true" />
         {body}
       </div>
     );

@@ -51,6 +51,15 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return undefined;
+    const previous = meta.getAttribute('content') ?? '';
+    if (previous.includes('viewport-fit=cover')) return undefined;
+    meta.setAttribute('content', `${previous}, viewport-fit=cover`);
+    return () => meta.setAttribute('content', previous);
+  }, []);
+
+  useEffect(() => {
     const onResize = () => setBox({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -234,7 +243,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   };
 
   return (
-    <div className="journey-root relative h-[100dvh] overflow-hidden" data-scene={scene === 'map' ? 'map' : 'entrance'}>
+    <div className="journey-root relative h-[100dvh] overflow-hidden" data-scene={scene === 'map' ? 'map' : 'entrance'} data-compact={compact ? '1' : '0'}>
       {scene !== 'entrance' ? (
         <>
       <div className="journey-sky-clouds pointer-events-none absolute inset-0" />
@@ -278,7 +287,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       )}
       {scene === 'map' ? (
       <>
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center px-3 pt-2">
+      <header className="journey-map-bar pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center px-3 pt-2">
         {remainLabel && weekLabel && streakLabel ? (
           <div className="journey-glass-radio pointer-events-auto">
             <input type="radio" name="journey-status" id="journey-status-remain" defaultChecked />
@@ -304,7 +313,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
         </button>
       </header>
       {data?.plan ? (
-        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-3 pb-[max(8px,env(safe-area-inset-bottom))]">
+        <footer className="journey-map-footer pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-3 pb-[max(8px,env(safe-area-inset-bottom))]">
           <GlassCta label={cta.title} onClick={openRoadmap} />
           <p className="pointer-events-none mt-1 text-center text-xs font-bold text-[#14321c] [text-shadow:0_1px_0_rgba(255,255,255,0.85)]">
             {cta.subtitle}
