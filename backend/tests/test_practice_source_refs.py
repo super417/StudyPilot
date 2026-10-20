@@ -184,7 +184,73 @@ class PracticeSourceRefsTests(unittest.TestCase):
         body = practice_service._question_json(rows[0])
         self.assertEqual(body["sourceRefs"], refs)
 
-    def test_generate_reinforce_retest_stores_source_refs(self) -> None:
+    def test_generated_questions_get_their_own_relevant_refs(self) -> None:
+        user = self._user()
+        self._verified(user)
+        plan, phase = self._plan_phase(user)
+        self._done_task(plan, phase, "先序中序还原二叉树")
+        self._chunk(user, "先序+中序可唯一确定一棵二叉树；仅先序+后序一般不能。")
+
+        def generator(lines, context):
+            return {
+                "questions": [
+                    {
+                        "subject": "数据结构",
+                        "question": "先序和中序能否唯一确定二叉树？",
+                        "answer": "能",
+                        "explanation": "先序定根，中序分左右",
+                    },
+                    {
+                        "subject": "财务",
+                        "question": "请列出资产负债表中5个常见项目。",
+                        "answer": "资产、负债等",
+                        "explanation": "",
+                    },
+                ]
+            }
+
+        rows = asyncio.run(
+            practice_service.generate_for_day(self.session, user.id, self.today, generator)
+        )
+        self.assertIsNotNone(rows[0].source_refs)
+        self.assertIsNone(rows[1].source_refs)
+
+    def test_grade_ignores_unrelated_document(self) -> None:
+        user = self._user()
+        self._chunk(user, "二分查找的常见错误有 5 类，使用有序数组。")
+        text, source = practice_service._source_for_grade(
+            self.session, user.id, "请列出资产负债表中5个常见项目。"
+        )
+        self.assertEqual((text, source), ("", None))
+
+    def test_existing_unrelated_refs_are_hidden_on_read(self) -> None:
+        user = self._user()
+        refs = [
+            {
+                "docId": "notes",
+                "filename": "二分查找.pdf",
+                "chunkIndex": 0,
+                "snippet": "二分查找的常见错误有 5 类，使用有序数组。",
+                "score": 4.12,
+            }
+        ]
+        row = PracticeQuestion(
+            user_id=user.id,
+            source="generated",
+            subject="财务",
+            question="请列出资产负债表中5个常见项目。",
+            answer="资产、负债等",
+            explanation="",
+            source_refs=refs,
+            status="pending",
+        )
+        self.session.add(row)
+        self.session.commit()
+
+        self.assertIsNone(practice_service._question_json(row)["sourceRefs"])
+        self.assertEqual(row.source_refs, refs)
+
+    def test_generate_reinforce_retest_omits_unrelated_source_refs(self) -> None:
         user = self._user()
         self._verified(user)
         plan, phase = self._plan_phase(user)
@@ -246,11 +312,8 @@ class PracticeSourceRefsTests(unittest.TestCase):
             )
         )
         self.assertEqual(len(rows), 1)
-        self.assertIsNotNone(rows[0].source_refs)
-        self.assertGreaterEqual(len(rows[0].source_refs), 1)
-        hit = rows[0].source_refs[0]
-        for key in ("docId", "filename", "chunkIndex", "snippet"):
-            self.assertIn(key, hit)
+        # 「重测题」没有与资料相关的题干内容，不能把任务资料当出处。
+        self.assertIsNone(rows[0].source_refs)
 
     def test_legacy_null_source_refs_json_is_null(self) -> None:
         user = self._user()

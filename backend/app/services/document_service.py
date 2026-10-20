@@ -306,6 +306,7 @@ def build_context(
     query: str,
     max_chars: int | None = None,
     k: int = 5,
+    min_coverage: float = 0.0,
 ) -> tuple[str, list[dict]]:
     """Return ``(context_text, hits)`` for chunks that actually match ``query``.
 
@@ -338,7 +339,7 @@ def build_context(
         }
         for row in rows
     ]
-    ranked = rank(query, candidates, k=k)
+    ranked = rank(query, candidates, k=k, min_coverage=min_coverage)
     if not ranked:
         return "", []
 

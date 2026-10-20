@@ -27,6 +27,17 @@ def _chunk(doc_id: str, index: int, content: str) -> dict:
 
 
 class RetrievalRankTests(unittest.TestCase):
+    def test_min_coverage_rejects_generic_overlap(self) -> None:
+        chunks = [_chunk("algorithm", 0, "二分查找的常见错误有 5 类")]
+        self.assertEqual(
+            rank("请列出资产负债表中5个常见项目。", chunks, min_coverage=0.25),
+            [],
+        )
+        self.assertEqual(
+            len(rank("二分查找有哪些常见错误？", chunks, min_coverage=0.25)),
+            1,
+        )
+
     def test_chinese_bigram_ranks_the_overlapping_chunk_first(self) -> None:
         self.assertEqual(tokenize("中值定理"), ["中值", "值定", "定理"])
         chunks = [

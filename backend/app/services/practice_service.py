@@ -31,10 +31,12 @@ from app.services.api_config_service import (
     require_verified_api_config,
 )
 from app.services.planner_service import PlanGenerationError
+from app.services.retrieval import rank
 
 QuestionGenerator = Callable[[list[str], str], dict | Awaitable[dict]]
 
 _VALID_STATUS = ("pending", "correct", "wrong")
+_SOURCE_MIN_COVERAGE = 0.25
 
 
 class PracticeNotFoundError(ValueError):
@@ -72,6 +74,23 @@ class ExplanationInsufficientEvidenceError(ValueError):
 _GRADE_RESULTS = ("correct", "partial", "wrong")
 _CITATION_MARKERS = ("原文", "资料中")
 
+def _visible_source_refs(question: str, refs: list | None) -> list | None:
+    if not refs:
+        return None
+    visible = [
+        ref
+        for ref in refs
+        if isinstance(ref, dict)
+        and isinstance(ref.get("snippet"), str)
+        and rank(
+            question,
+            [{"content": ref["snippet"]}],
+            min_coverage=_SOURCE_MIN_COVERAGE,
+        )
+    ]
+    return visible or None
+
+
 def _question_json(row: PracticeQuestion) -> dict:
     return {
         "id": str(row.id),
@@ -84,7 +103,7 @@ def _question_json(row: PracticeQuestion) -> dict:
         "createdAt": row.created_at.isoformat(),
         "sourceTaskId": str(row.source_task_id) if row.source_task_id else None,
         "sourceMistakeId": str(row.source_mistake_id) if row.source_mistake_id else None,
-        "sourceRefs": row.source_refs,
+        "sourceRefs": _visible_source_refs(row.question, row.source_refs),
     }
 
 
@@ -358,14 +377,13 @@ async def generate_for_day(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context, hits = (
+    context, _ = (
         document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
         if doc_ids
         else ("", [])
     )
     if context == "":
         return []
-    source_refs = list(hits) if hits else None
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)
@@ -388,7 +406,7 @@ async def generate_for_day(
             answer=item["answer"],
             explanation=item["explanation"],
             source_task_id=task_id,
-            source_refs=source_refs,
+            source_refs=_refs_for_question(session, user_id, doc_ids, item["question"]),
             status="pending",
         )
         for item in questions
@@ -448,14 +466,13 @@ async def generate_reinforce_retest(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context, hits = (
+    context, _ = (
         document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
         if doc_ids
         else ("", [])
     )
     if context == "":
         return []
-    source_refs = list(hits) if hits else None
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)
@@ -478,7 +495,7 @@ async def generate_reinforce_retest(
             answer=item["answer"],
             explanation=item["explanation"],
             source_task_id=reinforce_tasks[index % len(reinforce_tasks)].id,
-            source_refs=source_refs,
+            source_refs=_refs_for_question(session, user_id, doc_ids, item["question"]),
             status="pending",
         )
         for index, item in enumerate(questions)
@@ -535,14 +552,13 @@ async def generate_phase_quiz(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    context, hits = (
+    context, _ = (
         document_service.build_context(session, user_id, doc_ids, "\n".join(lines))
         if doc_ids
         else ("", [])
     )
     if context == "":
         return []
-    source_refs = list(hits) if hits else None
     try:
         if generator is None:
             produced = await _default_generator(session, user_id, lines, context)
@@ -565,7 +581,7 @@ async def generate_phase_quiz(
             answer=item["answer"],
             explanation=item["explanation"],
             source_task_id=done_tasks[index % len(done_tasks)].id,
-            source_refs=source_refs,
+            source_refs=_refs_for_question(session, user_id, doc_ids, item["question"]),
             status="pending",
         )
         for index, item in enumerate(questions)
@@ -597,6 +613,17 @@ def _knowledge_point(
     )
 
 
+def _refs_for_question(
+    session: Session, user_id: uuid.UUID, doc_ids: list[str], question: str
+) -> list[dict] | None:
+    if not doc_ids:
+        return None
+    _, hits = document_service.build_context(
+        session, user_id, doc_ids, question, min_coverage=_SOURCE_MIN_COVERAGE
+    )
+    return hits or None
+
+
 def _source_for_grade(
     session: Session, user_id: uuid.UUID, query: str
 ) -> tuple[str, str | None]:
@@ -605,7 +632,9 @@ def _source_for_grade(
             select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()
         )
     )
-    text, hits = document_service.build_context(session, user_id, doc_ids, query)
+    text, hits = document_service.build_context(
+        session, user_id, doc_ids, query, min_coverage=_SOURCE_MIN_COVERAGE
+    )
     if not hits:
         return "", None
     top = hits[0]
@@ -795,9 +824,7 @@ async def _grade_and_record(
     )
     if question is None:
         raise PracticeNotFoundError()
-    source_text, source_ref = _source_for_grade(
-        session, user_id, f"{question.question}\n{answer}"
-    )
+    source_text, source_ref = _source_for_grade(session, user_id, question.question)
     if require_source and not source_text.strip():
         raise ExplanationInsufficientEvidenceError()
     try:

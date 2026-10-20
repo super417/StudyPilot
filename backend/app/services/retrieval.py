@@ -20,9 +20,11 @@ def rank(
     query: str,
     chunks: Sequence[dict],
     k: int = 5,
+    min_coverage: float = 0.0,
 ) -> list[tuple[dict, float]]:
     """按 BM25 相关性返回 [(chunk, score)]，score 降序，最多 k 条。
 
+    min_coverage 是查询去重词项在片段中的最低命中比例；默认保持通用检索口径。
     无命中（query 无有效词项，或所有 chunk 分数为 0）时返回 []。
     """
     if k <= 0:
@@ -51,6 +53,9 @@ def rank(
 
     scored: list[tuple[dict, float]] = []
     for chunk, counts, length in prepared:
+        coverage = sum(counts.get(term, 0) > 0 for term in query_terms) / len(query_terms)
+        if coverage < min_coverage:
+            continue
         score = 0.0
         for term in query_terms:
             frequency = counts.get(term, 0)
