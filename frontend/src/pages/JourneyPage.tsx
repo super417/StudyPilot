@@ -281,6 +281,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center px-3 pt-2">
         <div className="journey-status-track">
           {remainLabel ? <span aria-hidden="true" className="journey-status-face journey-status-remain">{remainLabel}</span> : null}
+          {streakLabel ? <span aria-hidden="true" className="journey-status-face journey-status-streak">{streakLabel}</span> : null}
           <button
             type="button"
             className="journey-status-mid pointer-events-auto"
@@ -291,7 +292,6 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
             {weekLabel ? <span>{weekLabel}</span> : null}
             {streakLabel ? <span>{streakLabel}</span> : null}
           </button>
-          {streakLabel ? <span aria-hidden="true" className="journey-status-face journey-status-streak">{streakLabel}</span> : null}
         </div>
         <button type="button" className="journey-chip pointer-events-auto absolute right-3 top-3 px-3 py-2 text-xs font-bold" onClick={onBack}>
           返回

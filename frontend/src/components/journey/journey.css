@@ -35,86 +35,81 @@
 
 .journey-status-track {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: min(34rem, calc(100% - 5.75rem));
-  min-height: 3.35rem;
-  padding: 0.15rem 0.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(36rem, calc(100% - 5.75rem));
+  min-height: 3.25rem;
+  padding: 0.32rem 0.4rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
-}
-
-.journey-status-track > * {
-  grid-area: 1 / 1;
+  background: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  box-shadow:
+    inset 1px 1px 4px rgba(255, 255, 255, 0.32),
+    inset -1px -1px 6px rgba(8, 28, 48, 0.14);
 }
 
 .journey-status-mid {
+  position: absolute;
   z-index: 1;
+  top: 11px;
+  bottom: 7px;
+  left: 5%;
+  right: 5%;
   display: flex;
-  width: min(22rem, 78%);
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  transform: scale(0.9) translateY(4px);
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
-  padding: 0.28rem 0.7rem;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 0.75rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.16));
+  padding: 0 0.6rem;
+  color: white;
+  font-size: 0.78rem;
   font-weight: 700;
-  line-height: 1.2;
-  text-shadow: 0 1px 1px rgba(8, 24, 40, 0.25);
-  -webkit-backdrop-filter: blur(7px) saturate(1.15);
-  backdrop-filter: blur(7px) saturate(1.15);
-  box-shadow:
-    0 14px 22px rgba(8, 24, 40, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(8, 28, 48, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   cursor: pointer;
 }
 
 .journey-status-mid:active {
-  transform: scale(0.88) translateY(5px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
 }
 
 .journey-status-mid > span + span {
   padding-left: 0.4rem;
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.22);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.2);
 }
 
 .journey-status-face {
+  position: relative;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.4rem 1rem;
+  min-height: 2.65rem;
+  padding: 0.42rem 1.05rem;
   color: white;
-  font-size: clamp(1rem, 2.3vw, 1.28rem);
+  font-size: clamp(1.05rem, 2.4vw, 1.32rem);
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: 0.01em;
-  text-shadow:
-    0 1px 0 rgba(8, 36, 72, 0.28),
-    0 2px 8px rgba(8, 28, 48, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  transform: translateY(-4px);
-  -webkit-backdrop-filter: blur(5px) saturate(1.2);
-  backdrop-filter: blur(5px) saturate(1.2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 8px 14px rgba(8, 28, 48, 0.14);
+  text-shadow: 0 1px 0 rgba(8, 36, 72, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .journey-status-remain {
-  justify-self: start;
-  background: linear-gradient(180deg, rgba(186, 224, 255, 0.32), rgba(64, 148, 226, 0.14));
+  background: linear-gradient(180deg, rgba(186, 224, 255, 0.96), rgba(62, 148, 224, 0.92));
 }
 
 .journey-status-streak {
-  justify-self: end;
-  background: linear-gradient(180deg, rgba(206, 255, 190, 0.34), rgba(52, 176, 96, 0.14));
+  background: linear-gradient(180deg, rgba(204, 248, 184, 0.96), rgba(52, 176, 96, 0.92));
 }
 
 .journey-chip {
