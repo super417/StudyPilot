@@ -203,11 +203,15 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       setScene('map');
       return;
     }
+    if (reducedMotion) {
+      setScene('map');
+      return;
+    }
     setScene('leaving');
     leaveTimer.current = window.setTimeout(() => {
       setScene('map');
       setClimb(true);
-    }, reducedMotion ? 180 : 900);
+    }, 900);
   };
 
   const onBlank = () => {

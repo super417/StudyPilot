@@ -3,18 +3,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapPlate from '@/assets/journey/map-plate.jpg';
 import { SproutAvatar, StarCrown } from '@/components/journey/glyphs';
 import {
-  climbSpan,
-  columnCenterX,
   contentHeight,
   DESKTOP_STEP,
   layoutDays,
   MOBILE_STEP,
   primaryTag,
   scrollTopForToday,
-  vinePath,
-  type NodePoint,
 } from '@/journey/layout';
-import { coverPoint, PLATE_SLOTS } from '@/journey/plate';
+import { climbPoints, coverPoint, phaseSignSide, PLATE_SLOTS, pointAlong, visiblePhaseSigns } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
@@ -34,12 +30,8 @@ export interface VineMapProps {
   celebrate?: boolean;
 }
 
-function spinePoints(points: NodePoint[], width: number, compact: boolean) {
-  return points.map((point) => ({
-    ...point,
-    x: columnCenterX(point.index, width, compact),
-  }));
-}
+const CLIMB_MS = 1100;
+const CLIMB_HOLD_MS = 420;
 
 export default function VineMap({
   days,
@@ -59,9 +51,9 @@ export default function VineMap({
   const [viewport, setViewport] = useState(640);
   const [scrollTop, setScrollTop] = useState<number | null>(null);
   const [showReturn, setShowReturn] = useState(false);
-  const [climber, setClimber] = useState<{ x: number; y: number } | null>(null);
-  const pathRef = useRef<SVGPathElement>(null);
+  const [climber, setClimber] = useState<{ x: number; y: number; opacity: number } | null>(null);
   const positioned = useRef(false);
+  const climbPlayed = useRef(false);
 
   useEffect(() => {
     const node = scroller.current;
@@ -80,33 +72,47 @@ export default function VineMap({
   const points = useMemo(() => layoutDays(dates, width, compact), [dates, width, compact]);
   const height = contentHeight(days.length, compact);
   const todayIndex = days.findIndex((day) => day.date === today);
-  const span = climbSpan(todayIndex);
-  const climbPath = span
-    ? vinePath(spinePoints(points.slice(span.start, span.end + 1), width, compact))
-    : '';
   const step = compact ? MOBILE_STEP : DESKTOP_STEP;
   const maxScroll = Math.max(0, height - viewport);
   const origin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
   const dayShift = scrollTop == null ? 0 : Math.round((scrollTop - origin) / step);
 
   useEffect(() => {
-    const path = pathRef.current;
-    if (!climb || !path || !climbPath) return undefined;
+    if (!climb || climbPlayed.current) return undefined;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const length = path.getTotalLength();
-    if (length <= 0) return undefined;
+    const node = scroller.current;
+    const viewW = node?.clientWidth ?? 0;
+    const viewH = node?.clientHeight ?? 0;
+    if (viewW < 100 || viewH < 100) return undefined;
+    const trail = climbPoints(viewW, viewH);
+    if (trail.length < 2) return undefined;
+    climbPlayed.current = true;
     let frame = 0;
+    let finished = false;
     const started = performance.now();
     const tick = (now: number) => {
-      const t = Math.min(1, (now - started) / 1100);
-      const point = path.getPointAtLength(length * t);
-      setClimber({ x: point.x, y: point.y });
-      if (t < 1) frame = requestAnimationFrame(tick);
-      else setClimber(null);
+      const elapsed = now - started;
+      if (elapsed < CLIMB_MS) {
+        const point = pointAlong(trail, elapsed / CLIMB_MS);
+        setClimber({ x: point.x, y: point.y, opacity: 1 });
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      if (elapsed < CLIMB_MS + CLIMB_HOLD_MS) {
+        const point = trail[trail.length - 1];
+        setClimber({ x: point.x, y: point.y, opacity: 1 });
+        frame = requestAnimationFrame(tick);
+        return;
+      }
+      finished = true;
+      setClimber(null);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [climb, climbPath]);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (!finished) climbPlayed.current = false;
+    };
+  }, [climb, viewport, width]);
 
   useEffect(() => {
     const node = scroller.current;
@@ -148,15 +154,23 @@ export default function VineMap({
     const node = scroller.current;
     if (!node || todayIndex < 0) return;
     const maxScroll = Math.max(0, height - node.clientHeight);
-    node.scrollTo({ top: scrollTopForToday(points[todayIndex].y, node.clientHeight, maxScroll), behavior: 'smooth' });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    node.scrollTo({
+      top: scrollTopForToday(points[todayIndex].y, node.clientHeight, maxScroll),
+      behavior: reduce ? 'auto' : 'smooth',
+    });
   };
 
+  const phaseSigns = visiblePhaseSigns(phases, days, todayIndex, dayShift);
+
   return (
-    <div ref={scroller} className="relative h-full overflow-y-auto overscroll-contain" data-journey-map="true">
+    <div
+      ref={scroller}
+      className="relative h-full overflow-y-auto overscroll-contain"
+      data-journey-map="true"
+      data-day-shift={dayShift}
+    >
       <div className="relative" style={{ height, width: '100%' }}>
-        <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true">
-          <path ref={pathRef} d={climbPath} />
-        </svg>
         <div className="sticky top-0 z-0 h-[100dvh] overflow-hidden" onClick={() => onBlank?.()}>
           <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           {plateDays.map(({ slot, day, at }) => {
@@ -215,7 +229,8 @@ export default function VineMap({
                 >
                   {day.state === 'today' ? (
                     <span
-                      className="pointer-events-none absolute rounded-full border-4 border-[#ffe56a]"
+                      className="journey-today-pulse pointer-events-none absolute rounded-full border-4 border-[#ffe56a]"
+                      data-today-ring="true"
                       style={{ inset: '-8%', boxShadow: '0 0 0 6px rgba(255,214,60,0.45)' }}
                     />
                   ) : null}
@@ -227,15 +242,49 @@ export default function VineMap({
               </div>
             );
           })}
+          {phaseSigns.map((sign) => {
+            const day = days.find((item) => item.date === sign.startDate);
+            if (!day) return null;
+            const at = coverPoint(sign.fx, sign.fy, width, viewport);
+            const side = phaseSignSide(at.x, width, Boolean(primaryTag(day.tags)));
+            return (
+              <button
+                key={sign.startDate}
+                type="button"
+                data-phase-sign={sign.name}
+                className="journey-wood journey-phase-sign"
+                style={
+                  side === 'left'
+                    ? { left: at.x - 48, top: at.y, transform: 'translate(-100%, -62%)' }
+                    : { left: at.x + 48, top: at.y, transform: 'translate(0, -62%)' }
+                }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(day);
+                }}
+              >
+                {sign.name}
+              </button>
+            );
+          })}
           {climber ? (
-            <div className="pointer-events-none absolute z-20" style={{ left: climber.x, top: climber.y, transform: 'translate(-50%, -110%)' }}>
+            <div
+              className="pointer-events-none absolute left-0 top-0 z-20"
+              data-climber="sprout"
+              style={{ opacity: climber.opacity, transform: `translate3d(${climber.x}px, ${climber.y}px, 0) translate(-50%, -120%)` }}
+            >
               <SproutAvatar size={compact ? 64 : 78} />
             </div>
           ) : null}
         </div>
       </div>
       {showReturn ? (
-        <button type="button" onClick={jumpToday} className="journey-chip fixed right-3 top-16 z-30 px-3 py-2 text-xs font-bold">
+        <button
+          type="button"
+          onClick={jumpToday}
+          data-return="today"
+          className="journey-chip fixed right-3 top-16 z-30 min-h-11 px-3 py-2 text-xs font-bold"
+        >
           回到今天
         </button>
       ) : null}

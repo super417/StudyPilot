@@ -95,6 +95,23 @@
   border-radius: 0 0 3px 3px;
 }
 
+.journey-phase-sign {
+  position: absolute;
+  z-index: 4;
+  width: 6.6rem;
+  min-height: 44px;
+  padding: 0.28rem 0.4rem 0.34rem;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: center;
+  font-weight: 800;
+}
+
+.journey-phase-sign::before {
+  height: 14px;
+  left: 12px;
+}
+
 .journey-sheet {
   border-radius: 28px 28px 0 0;
   background: linear-gradient(#fffef8, #f3ffe9);
@@ -139,7 +156,12 @@
 
 .journey-star-pop {
   transform-origin: center;
-  animation: journey-star-pop 700ms ease-out both;
+  animation: journey-star-pop 780ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.journey-today-pulse {
+  transform-origin: center;
+  animation: journey-today-pulse 2.4s ease-in-out infinite;
 }
 
 .journey-vine-tile {
@@ -284,15 +306,27 @@
 
 @keyframes journey-star-pop {
   0% {
-    transform: scale(0.45);
+    transform: scale(0.2);
     opacity: 0;
   }
-  70% {
-    transform: scale(1.12);
+  55% {
+    transform: scale(1.48);
     opacity: 1;
   }
   100% {
     transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes journey-today-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.12);
     opacity: 1;
   }
 }
@@ -333,8 +367,7 @@
 }
 
 @keyframes journey-fadeout {
-  0%,
-  55% {
+  0% {
     opacity: 1;
   }
   100% {
@@ -350,6 +383,7 @@
   .journey-breathe,
   .journey-ring,
   .journey-star-pop,
+  .journey-today-pulse,
   .journey-heat,
   .journey-fall,
   .journey-glass-wave {
@@ -364,7 +398,8 @@
   }
 
   .journey-leave {
-    animation: journey-fadeout 180ms linear forwards;
+    animation: none;
+    opacity: 0;
   }
 
   .journey-leave .journey-ripple {
