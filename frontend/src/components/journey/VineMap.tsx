@@ -76,9 +76,9 @@ function CloudBank({ width, height }: { width: number; height: number }) {
     <svg className="journey-cloud-body" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
       <defs>
         <radialGradient id="journey-cloud-fill" cx="50%" cy="52%" r="58%">
-          <stop offset="0%" stopColor="#f7fbff" />
-          <stop offset="62%" stopColor="#eef6ff" />
-          <stop offset="100%" stopColor="#d9ecff" />
+          <stop offset="0%" stopColor="#eaf4ff" />
+          <stop offset="62%" stopColor="#cfe6ff" />
+          <stop offset="100%" stopColor="#bcdcff" stopOpacity="0.6" />
         </radialGradient>
         <filter id="journey-cloud-outer" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation={blur} />
@@ -87,14 +87,14 @@ function CloudBank({ width, height }: { width: number; height: number }) {
           <feGaussianBlur stdDeviation={blur * 0.22} />
         </filter>
       </defs>
-      <g filter="url(#journey-cloud-outer)">
-        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={1.06} fill="#d9ecff" />
+      <g filter="url(#journey-cloud-outer)" opacity="0.4">
+        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={1.06} fill="#bcdcff" />
       </g>
-      <g filter="url(#journey-cloud-inner)">
+      <g filter="url(#journey-cloud-inner)" opacity="0.55">
         <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.95} fill="url(#journey-cloud-fill)" />
       </g>
-      <g filter="url(#journey-cloud-inner)" opacity="0.85">
-        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.78} fill="#f7fbff" />
+      <g filter="url(#journey-cloud-inner)" opacity="0.35">
+        <CloudPuffs sx={sx} sy={sy} ox={0} oy={0} k={0.78} fill="#eaf4ff" />
       </g>
     </svg>
   );
