@@ -435,9 +435,9 @@ export default function VineMap({
                 <svg className="journey-cloud-chain" viewBox="0 0 520 88" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
                     <linearGradient id="chain-glass" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-                      <stop offset="42%" stopColor="#E8D9FF" stopOpacity="0.78" />
-                      <stop offset="100%" stopColor="#C9B4F0" stopOpacity="0.62" />
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.62" />
+                      <stop offset="42%" stopColor="#dfe9ff" stopOpacity="0.42" />
+                      <stop offset="100%" stopColor="#cdb8f2" stopOpacity="0.36" />
                     </linearGradient>
                   </defs>
                   {CHAIN_LINKS.map((link) =>
@@ -451,6 +451,7 @@ export default function VineMap({
                         fill="none"
                         stroke="url(#chain-glass)"
                         strokeWidth="4.6"
+                        className="journey-chain-link"
                         transform={`rotate(${link.rot} ${link.x} ${link.y})`}
                       />
                     ) : (
@@ -462,8 +463,9 @@ export default function VineMap({
                         height="6.8"
                         rx="3.4"
                         fill="url(#chain-glass)"
-                        stroke="#b79be6"
-                        strokeOpacity="0.55"
+                        stroke="#ffffff"
+                        strokeOpacity="0.8"
+                        className="journey-chain-link"
                         strokeWidth="1"
                         transform={`rotate(${link.rot} ${link.x} ${link.y})`}
                       />
