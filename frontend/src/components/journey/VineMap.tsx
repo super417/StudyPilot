@@ -459,7 +459,7 @@ export default function VineMap({
                 ['--flag-x' as string]: `${cloud.poleX - cloud.left}px`,
                 ['--flag-y' as string]: `${cloud.poleY}px`,
                 ['--flag-scale' as string]: compact || flagOnLeft ? '1.15' : '1.35',
-                ['--lock' as string]: `${Math.round(Math.min(86, Math.max(64, cloud.height * 0.32)))}px`,
+                ['--lock' as string]: `${Math.round(Math.min(74, Math.max(56, cloud.height * 0.27)))}px`,
               }}
             >
               <CloudBank
@@ -491,14 +491,14 @@ export default function VineMap({
                   ))}
                 </svg>
                 <div className="journey-cloud-lock">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <svg viewBox="4 6 16 16" aria-hidden="true">
                     <ellipse cx="12" cy="14.5" rx="5.2" ry="6" fill="#8ed84a" />
                     <ellipse cx="10.2" cy="12.4" rx="1.6" ry="2.2" fill="#eaffc4" opacity="0.85" />
                     <path d="M12 9c.4-2.4 2.6-3.4 3.6-2.2" fill="none" stroke="#3f8f1e" strokeWidth="1.4" strokeLinecap="round" />
                   </svg>
                 </div>
                 <div className="journey-cloud-lock is-right">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <svg viewBox="4 6 16 16" aria-hidden="true">
                     <path d="M12 3.2 14.4 9h6.1l-4.9 3.6 1.9 5.8L12 14.9 6.5 18.4 8.4 12.6 3.5 9h6.1Z" fill="#ffe14a" />
                   </svg>
                 </div>

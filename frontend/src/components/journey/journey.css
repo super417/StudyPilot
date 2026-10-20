@@ -379,7 +379,7 @@
   width: var(--lock, 48px);
   height: var(--lock, 48px);
   place-items: center;
-  padding-top: 6%;
+  padding-top: 0;
   transform: translate(-50%, -50%);
   pointer-events: none;
   border: 2px solid rgba(255, 255, 255, 0.95);
@@ -413,8 +413,8 @@
 }
 
 .journey-cloud-lock svg {
-  width: 96%;
-  height: 96%;
+  width: calc(var(--lock, 48px) * 0.6);
+  height: calc(var(--lock, 48px) * 0.6);
   filter: drop-shadow(0 1px 1px rgba(80, 60, 40, 0.25));
 }
 
