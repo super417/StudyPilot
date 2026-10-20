@@ -13,47 +13,6 @@
   opacity: 0.85;
 }
 
-.journey-glass {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
-  color: white;
-  text-shadow: 0 1px 0 rgba(120, 30, 0, 0.28);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 10px 26px rgba(239, 68, 68, 0.42);
-}
-
-.journey-glass::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  left: 3%;
-  top: 8%;
-  width: 94%;
-  height: 46%;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 220, 200, 0.08));
-  pointer-events: none;
-}
-
-.journey-glass > span {
-  position: relative;
-  z-index: 1;
-}
-
-.journey-glass:hover {
-  filter: saturate(1.15);
-}
-
-.journey-glass:active {
-  filter: saturate(1.3);
-  transform: translateY(1px);
-}
-
 .journey-pill {
   border: 6px solid #f4fbff;
   border-radius: 999px;
@@ -392,7 +351,8 @@
   .journey-ring,
   .journey-star-pop,
   .journey-heat,
-  .journey-fall {
+  .journey-fall,
+  .journey-glass-wave {
     animation: none !important;
   }
 

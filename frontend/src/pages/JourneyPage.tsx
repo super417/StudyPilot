@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EntranceTree, type EntranceFruit } from '@/components/journey/EntranceTree';
+import GlassCta from '@/components/journey/GlassCta';
 import { CheerCard, DayDrawer } from '@/components/journey/Feedback';
 import VineMap from '@/components/journey/VineMap';
 import '@/components/journey/journey.css';
@@ -284,11 +285,11 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
         </button>
       </header>
       {data?.plan ? (
-        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <button type="button" className="journey-glass pointer-events-auto mx-auto block w-full max-w-lg px-8 py-3" onClick={openRoadmap}>
-            <span className="block text-2xl font-black tracking-wide">{cta.title}</span>
-            <span className="block text-xs font-semibold opacity-90">{cta.subtitle}</span>
-          </button>
+        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-3 pb-[max(8px,env(safe-area-inset-bottom))]">
+          <GlassCta label={cta.title} onClick={openRoadmap} />
+          <p className="pointer-events-none mt-1 text-center text-xs font-bold text-[#14321c] [text-shadow:0_1px_0_rgba(255,255,255,0.85)]">
+            {cta.subtitle}
+          </p>
         </footer>
       ) : null}
       {cheer && !selected ? <CheerCard cheer={cheer} onClose={() => setCheer(null)} /> : null}
