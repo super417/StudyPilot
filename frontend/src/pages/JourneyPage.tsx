@@ -279,20 +279,26 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       {scene === 'map' ? (
       <>
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-center px-3 pt-2">
-        <div className="journey-status-track">
-          {remainLabel ? <span aria-hidden="true" className="journey-status-face journey-status-remain">{remainLabel}</span> : null}
-          {streakLabel ? <span aria-hidden="true" className="journey-status-face journey-status-streak">{streakLabel}</span> : null}
-          <button
-            type="button"
-            className="journey-status-mid pointer-events-auto"
-            aria-label={[remainLabel, weekLabel, streakLabel].filter(Boolean).join('，') || '星藤航图'}
-            onClick={() => document.querySelector<HTMLButtonElement>('[data-return="today"]')?.click()}
-          >
-            {remainLabel ? <span>{remainLabel}</span> : <span>星藤航图</span>}
-            {weekLabel ? <span>{weekLabel}</span> : null}
-            {streakLabel ? <span>{streakLabel}</span> : null}
-          </button>
-        </div>
+        {remainLabel && weekLabel && streakLabel ? (
+          <div className="journey-glass-radio pointer-events-auto">
+            <input type="radio" name="journey-status" id="journey-status-remain" defaultChecked />
+            <label htmlFor="journey-status-remain">{remainLabel}</label>
+            <input
+              type="radio"
+              name="journey-status"
+              id="journey-status-week"
+              onChange={() => document.querySelector<HTMLButtonElement>('[data-return="today"]')?.click()}
+            />
+            <label htmlFor="journey-status-week">{weekLabel}</label>
+            <input type="radio" name="journey-status" id="journey-status-streak" />
+            <label htmlFor="journey-status-streak">{streakLabel}</label>
+            <div className="journey-glass-glider" />
+          </div>
+        ) : (
+          <div className="journey-glass-radio">
+            <span className="flex flex-1 items-center justify-center px-4 py-2 text-sm font-black text-white">星藤航图</span>
+          </div>
+        )}
         <button type="button" className="journey-chip pointer-events-auto absolute right-3 top-3 px-3 py-2 text-xs font-bold" onClick={onBack}>
           返回
         </button>
