@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 const SURF =
   'M 0 305.9828838196134 Q 227.6031525693441 450 600 302.17553022897005 Q 1010.7738828515054 450 1200 343.3024459932802 Q 1379.4406250195766 450 1800 320.38902780838214 Q 2153.573162029817 450 2400 314.38564046970816 L 2400 800 L 0 800 L 0 340.3112176762882 Z';
 
@@ -16,20 +14,14 @@ const SURF_LAYERS: Array<[string, number]> = [
   ['1', 245],
 ];
 
-/** 倒影画在盒外，留出与按钮相近的空白，避免被航图根节点裁掉，也避免压住副文案。 */
-const reflectStyle = {
-  WebkitBoxReflect: 'below 0px linear-gradient(to bottom, rgba(0,0,0,0.0), rgba(0,0,0,0.4))',
-} as CSSProperties;
-
 export default function GlassCta({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <div className="group pointer-events-auto mx-auto mb-24 w-fit">
+    <div className="group pointer-events-auto mx-auto w-fit">
       <button
         type="button"
         data-glass-cta="true"
-        style={reflectStyle}
         onClick={onClick}
-        className="relative z-10 min-w-[17.5rem] cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-emerald-300/70 to-green-400/60 px-10 py-4 font-serif text-3xl font-semibold uppercase tracking-widest text-transparent shadow-xl shadow-emerald-700/40 after:absolute after:left-1/2 after:top-1/2 after:h-[85%] after:w-[95%] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-white/45 after:content-[''] hover:saturate-[1.15] group-hover:shadow-2xl group-hover:shadow-emerald-500/50 active:saturate-[1.4]"
+        className="relative z-10 cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-emerald-300/70 to-green-400/60 px-10 py-3 font-serif text-2xl font-semibold uppercase tracking-widest text-transparent shadow-lg shadow-emerald-700/35 after:absolute after:left-1/2 after:top-1/2 after:h-[85%] after:w-[95%] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-white/40 after:content-[''] hover:saturate-[1.15] group-hover:shadow-xl group-hover:shadow-emerald-500/45 active:saturate-[1.4]"
       >
         <span className="whitespace-nowrap">{label}</span>
         <p
