@@ -18,6 +18,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import PhaseRings from '@/components/PhaseRings';
+import StatisticsWeeklyReview from '@/components/StatisticsWeeklyReview';
 import type { TabKey } from '@/components/TabNav';
 import type { ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { useAssistantStore, usePlanSessionStore } from '@/store';
@@ -820,6 +821,14 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         <h1 className="mt-1 text-2xl font-semibold text-brandDark">数据统计</h1>
         <p className="mt-1 text-sm text-slate-500">用作答、打卡与掌握度证据，看清学习投入与薄弱环节。</p>
       </header>
+
+      <StatisticsWeeklyReview
+        review={review}
+        empty={reviewEmpty}
+        loading={reviewLoading}
+        error={reviewError}
+        onRetry={() => void reloadReview()}
+      />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
         {cards.map((card) => {
