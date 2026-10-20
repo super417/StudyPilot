@@ -73,7 +73,7 @@ export function DayDrawer({
           </button>
         ) : null}
         {day.tags.includes('boss') ? (
-          <button type="button" className="journey-chip px-4 py-2 text-sm font-bold" onClick={onPractice}>
+          <button type="button" className="journey-chip px-4 py-2 text-sm font-bold" data-practice="today" onClick={onPractice}>
             去做练习
           </button>
         ) : null}

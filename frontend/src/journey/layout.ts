@@ -113,6 +113,12 @@ export function primaryTag(tags: JourneyTag[]): JourneyTag | null {
   return null;
 }
 
+/** 旗标贴在节点外侧空白的一侧，偏移用 max-content，避免被藤叶挤成窄条。 */
+export function flagAnchor(nodeX: number, viewW: number): { side: 'left' | 'right'; offset: string } {
+  const side = nodeX > viewW / 2 ? 'left' : 'right';
+  return { side, offset: 'calc(100% + 10px)' };
+}
+
 export function todayCta(day: JourneyDay | undefined): { title: string; subtitle: string } {
   if (!day || day.total <= 0 || day.state === 'empty') {
     return { title: '今天没有任务', subtitle: '去 Roadmap 看看安排' };

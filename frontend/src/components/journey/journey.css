@@ -137,6 +137,8 @@
 }
 
 .journey-flag {
+  width: max-content;
+  white-space: nowrap;
   border: 2px solid #fff6e4;
   border-radius: 3px 12px 12px 3px;
   background: linear-gradient(#ffc46a, #f08a1a);
@@ -144,6 +146,11 @@
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(120, 50, 0, 0.35);
   box-shadow: 0 3px 0 #c56a10;
+}
+
+.journey-flag[data-tag='boss'] {
+  background: #8b5cf6;
+  box-shadow: 0 3px 0 #5b21b6, 0 8px 16px rgba(40, 10, 80, 0.28);
 }
 
 .journey-wood {

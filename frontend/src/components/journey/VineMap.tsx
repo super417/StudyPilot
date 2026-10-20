@@ -7,6 +7,7 @@ import {
   DESKTOP_STEP,
   layoutDays,
   MOBILE_STEP,
+  flagAnchor,
   primaryTag,
   scrollTopForToday,
 } from '@/journey/layout';
@@ -131,12 +132,13 @@ export default function VineMap({
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags);
             const showStars = day.state === 'past' || day.state === 'today';
-            const outward = at.x > width / 2 ? { left: '108%' } : { right: '108%' };
+            const anchor = flagAnchor(at.x, width);
+            const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
             return (
               <div
                 key={slot.delta}
                 className="absolute"
-                style={{ left: at.x, top: at.y, transform: 'translate(-50%, -50%)', zIndex: day.state === 'today' ? 5 : 1 }}
+                style={{ left: at.x, top: at.y, transform: 'translate(-50%, -50%)', zIndex: tag === 'boss' ? 12 : day.state === 'today' ? 5 : 1 }}
               >
                 {showStars ? (
                   <div className="pointer-events-none absolute bottom-[70%] left-1/2 -translate-x-1/2">
@@ -159,8 +161,9 @@ export default function VineMap({
                 {tag ? (
                   <button
                     type="button"
-                    className="journey-flag absolute top-1/2 z-10 -translate-y-1/2 px-2 py-1 text-[11px]"
+                    className="journey-flag absolute top-1/2 z-30 -translate-y-1/2 px-2.5 py-1 text-xs"
                     style={{ background: TAG_COLOR[tag], ...outward }}
+                    data-tag={tag}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (tag === 'boss') onBoss(day);

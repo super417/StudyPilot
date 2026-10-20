@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { climbSpan, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { climbSpan, flagAnchor, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { buildJourneyDemo } from './mock';
 import type { JourneyDay } from './types';
 
 function day(partial: Partial<JourneyDay> & Pick<JourneyDay, 'date'>): JourneyDay {
@@ -59,6 +60,17 @@ describe('journey layout', () => {
   it('shows at most one tag, boss first', () => {
     expect(primaryTag(['carried', 'boss', 'reinforce'])).toBe('boss');
     expect(primaryTag(['carried'])).toBe('carried');
+  });
+
+  it('marks the demo phase-end day as boss', () => {
+    const day = buildJourneyDemo().days.find((item) => item.date === '2026-10-16');
+    expect(day?.tags).toContain('boss');
+    expect(buildJourneyDemo().days.find((item) => item.date === '2026-08-31')?.tags).toContain('boss');
+  });
+
+  it('hangs the flag outside the node on the open side', () => {
+    expect(flagAnchor(200, 1000)).toEqual({ side: 'right', offset: 'calc(100% + 10px)' });
+    expect(flagAnchor(800, 1000)).toEqual({ side: 'left', offset: 'calc(100% + 10px)' });
   });
 
   it('climbs at most ten nodes from the root', () => {
