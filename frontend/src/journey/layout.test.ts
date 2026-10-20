@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { climbSpan, flagAnchor, isCompactViewport, layoutDays, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { climbSpan, currentPhase, flagAnchor, isCompactViewport, layoutDays, maxDayShiftBeforeGate, phaseGateOpen, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
 import { buildJourneyDemo } from './mock';
 import { coverPoint } from './plate';
 import type { JourneyDay } from './types';
@@ -80,6 +80,30 @@ describe('journey layout', () => {
     expect(top.y - 32).toBeGreaterThan(bar);
     expect(lowest.y + 48).toBeLessThan(844 - footer);
     expect(lowest.y + 48).toBeLessThan(844 - (footer - 8 + homeIndicator));
+  });
+
+  it('keeps the current phase gate shut until that phase has ended and cleared', () => {
+    const demo = buildJourneyDemo();
+    const phase = currentPhase(demo.phases, demo.today);
+    expect(phase?.endDate).toBe('2026-11-18');
+    expect(phaseGateOpen(phase, demo.days)).toBe(false);
+    expect(
+      phaseGateOpen(
+        { id: 'p', name: '已结束', startDate: '2026-10-01', endDate: '2026-10-10', index: 1 },
+        [day({ date: '2026-10-10', total: 4, done: 4, rate: 100, state: 'past' })],
+      ),
+    ).toBe(true);
+    expect(
+      phaseGateOpen(
+        { id: 'p', name: '未清', startDate: '2026-10-01', endDate: '2026-10-10', index: 1 },
+        [day({ date: '2026-10-10', total: 4, done: 2, rate: 50, state: 'past' })],
+      ),
+    ).toBe(false);
+  });
+
+  it('stops the visible window on the phase-end day', () => {
+    expect(maxDayShiftBeforeGate(80, 100, 2)).toBe(18);
+    expect(maxDayShiftBeforeGate(80, 81, 2)).toBe(0);
   });
 
   it('hangs the flag outside the node on the open side', () => {

@@ -1,7 +1,7 @@
 import { addDaysISO } from '@/lib/dates';
 
 import { tasksUntilFourStars } from './stars';
-import type { JourneyDay, JourneyResponse, JourneyTag } from './types';
+import type { JourneyDay, JourneyPhase, JourneyResponse, JourneyTag } from './types';
 
 export const DESKTOP_STEP = 140;
 export const MOBILE_STEP = 110;
@@ -144,6 +144,24 @@ export function scrollTopForToday(todayY: number, viewport: number, maxScroll: n
 export function climbSpan(todayIndex: number): { start: number; end: number } | null {
   if (todayIndex <= 0 || todayIndex > 10) return null;
   return { start: 0, end: todayIndex };
+}
+
+/** 今天落在哪一段。没有覆盖今天的阶段就没有云门。 */
+export function currentPhase(phases: JourneyPhase[], today: string): JourneyPhase | null {
+  return phases.find((phase) => phase.startDate <= today && today <= phase.endDate) ?? null;
+}
+
+/** 阶段末日已过去且当天任务全清，云门才打开。未到的阶段末保持关上。 */
+export function phaseGateOpen(phase: JourneyPhase | null, days: JourneyDay[]): boolean {
+  if (!phase) return true;
+  const end = days.find((day) => day.date === phase.endDate);
+  if (!end || end.state === 'future') return false;
+  return end.rate === 100;
+}
+
+/** 最上一个槽位不能越过阶段末日，避免滚进下一段。 */
+export function maxDayShiftBeforeGate(todayIndex: number, gateIndex: number, topDelta: number): number {
+  return Math.max(0, gateIndex - todayIndex - topDelta);
 }
 
 /** 视口上下各多留一屏。 */

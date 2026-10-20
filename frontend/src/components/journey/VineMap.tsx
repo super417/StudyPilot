@@ -1,21 +1,54 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate.jpg';
 import { StarCrown } from '@/components/journey/glyphs';
+import { LanternFruit } from '@/components/journey/LanternFruit';
 import {
   contentHeight,
+  currentPhase,
   DESKTOP_STEP,
   layoutDays,
+  maxDayShiftBeforeGate,
   MOBILE_STEP,
   flagAnchor,
+  phaseGateOpen,
   primaryTag,
+  remainingDays,
   scrollTopForToday,
 } from '@/journey/layout';
 import { coverPoint, PLATE_SLOTS } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
-const TAG_COLOR = { boss: '#8b5cf6', reinforce: '#3b82f6', carried: '#f59e0b' } as const;
+const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
+
+function BossPennant({ date, className, onClick }: { date: string; className: string; onClick: (event: MouseEvent<HTMLButtonElement>) => void }) {
+  return (
+    <button type="button" className={className} data-tag="boss" onClick={onClick}>
+      <span className="journey-boss-pole" aria-hidden="true" />
+      <span className="journey-boss-cloth">
+        <svg viewBox="0 0 112 44" aria-hidden="true" preserveAspectRatio="none">
+          <defs>
+            <radialGradient id={`boss-jelly-${date}`} cx="38%" cy="48%" r="72%">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.96" />
+              <stop offset="48%" stopColor="#8b5cf6" stopOpacity="0.58" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.12" />
+            </radialGradient>
+          </defs>
+          <path
+            d="M2 5 H98 L76 22 L98 39 H2 Z"
+            fill={`url(#boss-jelly-${date})`}
+            stroke="#fff6e4"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
+          <path d="M8 11 Q48 7 90 10" fill="none" stroke="white" strokeOpacity="0.8" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        <span>阶段 Boss</span>
+      </span>
+    </button>
+  );
+}
 
 export interface VineMapProps {
   days: JourneyDay[];
@@ -66,6 +99,14 @@ export default function VineMap({
   const points = useMemo(() => layoutDays(dates, width, compact), [dates, width, compact]);
   const height = contentHeight(days.length, compact);
   const todayIndex = days.findIndex((day) => day.date === today);
+  const gatePhase = currentPhase(phases, today);
+  const gateOpen = phaseGateOpen(gatePhase, days);
+  const gateDay = gatePhase ? days.find((day) => day.date === gatePhase.endDate) : undefined;
+  const topDelta = Math.max(...PLATE_SLOTS.map((slot) => slot.delta));
+  const gateIndex = gateDay ? days.findIndex((day) => day.date === gateDay.date) : -1;
+  const maxShift = !gateOpen && gateIndex >= 0 && todayIndex >= 0 ? maxDayShiftBeforeGate(todayIndex, gateIndex, topDelta) : null;
+  const maxShiftRef = useRef(maxShift);
+  maxShiftRef.current = maxShift;
   const step = compact ? MOBILE_STEP : DESKTOP_STEP;
   const maxScroll = Math.max(0, height - viewport);
   const origin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
@@ -83,7 +124,12 @@ export default function VineMap({
     const node = scroller.current;
     if (!node || todayIndex < 0) return undefined;
     const onScroll = () => {
-      const top = node.scrollTop;
+      const limit = maxShiftRef.current;
+      let top = node.scrollTop;
+      if (limit !== null && Math.round((top - origin) / step) > limit) {
+        top = origin + limit * step;
+        node.scrollTop = top;
+      }
       setScrollTop(top);
       setShowReturn(Math.round((top - origin) / step) !== 0);
     };
@@ -130,7 +176,8 @@ export default function VineMap({
           <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           {plateDays.map(({ slot, day, at }) => {
             if (!day) return null;
-            const tag = day.loaded === false ? null : primaryTag(day.tags);
+            const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
+            const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -138,7 +185,14 @@ export default function VineMap({
               <div
                 key={slot.delta}
                 className="absolute"
-                style={{ left: at.x, top: at.y, transform: 'translate(-50%, -50%)', zIndex: tag === 'boss' ? 12 : day.state === 'today' ? 5 : 1 }}
+                style={{
+                  left: at.x,
+                  top: at.y,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: day.state === 'today' ? 5 : 1,
+                  opacity: beyondGate ? 0.35 : 1,
+                  pointerEvents: beyondGate ? 'none' : undefined,
+                }}
               >
                 {showStars ? (
                   <div className="pointer-events-none absolute bottom-[70%] left-1/2 -translate-x-1/2">
@@ -158,40 +212,12 @@ export default function VineMap({
                     }}
                   />
                 ) : null}
-                {tag === 'boss' ? (
-                  <button
-                    type="button"
-                    className={`journey-boss-flag absolute top-1/2 z-30 ${anchor.side === 'right' ? 'is-right' : 'is-left'}`}
-                    style={outward}
-                    data-tag="boss"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onBoss(day);
-                    }}
-                  >
-                    <span className="journey-boss-pole" aria-hidden="true" />
-                    <span className="journey-boss-cloth">
-                      <svg viewBox="0 0 112 44" aria-hidden="true" preserveAspectRatio="none">
-                        <defs>
-                          <radialGradient id={`boss-jelly-${day.date}`} cx="38%" cy="48%" r="72%">
-                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.96" />
-                            <stop offset="48%" stopColor="#8b5cf6" stopOpacity="0.58" />
-                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.12" />
-                          </radialGradient>
-                        </defs>
-                        <path
-                          d="M2 5 H98 L76 22 L98 39 H2 Z"
-                          fill={`url(#boss-jelly-${day.date})`}
-                          stroke="#fff6e4"
-                          strokeWidth="1.7"
-                          strokeLinejoin="round"
-                        />
-                        <path d="M8 11 Q48 7 90 10" fill="none" stroke="white" strokeOpacity="0.8" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                      <span>{TAG_LABEL[tag]}</span>
-                    </span>
-                  </button>
-                ) : tag ? (
+                {day.state === 'future' && day.loaded !== false ? (
+                  <span className="pointer-events-none absolute bottom-[46%] left-1/2 -translate-x-1/2">
+                    <LanternFruit size={compact ? 54 : 66} flip={at.x > width / 2 ? -1 : 1} />
+                  </span>
+                ) : null}
+                {tag === 'reinforce' || tag === 'carried' ? (
                   <button
                     type="button"
                     className="journey-flag absolute top-1/2 z-30 -translate-y-1/2 px-2.5 py-1 text-xs"
@@ -223,6 +249,57 @@ export default function VineMap({
               </div>
             );
           })}
+          {gatePhase && !gateOpen && gateDay ? (
+            <div className="journey-cloud-gate" data-cloud-gate="locked" style={{ top: '26%' }}>
+              <div className="journey-cloud-band" />
+              <svg className="journey-cloud-chain" viewBox="0 0 520 48" aria-hidden="true">
+                <path
+                  d="M8 28 H70 M120 28 H250 M300 28 H430 M470 28 H512"
+                  fill="none"
+                  stroke="#C3C6EE"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                />
+                <g fill="none" stroke="#BAC1EF" strokeWidth="7">
+                  {[40, 78, 150, 188, 226, 330, 368, 406].map((x) => (
+                    <rect key={x} x={x} y="14" width="28" height="22" rx="8" />
+                  ))}
+                </g>
+              </svg>
+              <div className="journey-cloud-lock" style={{ left: '22%' }}>
+                <span aria-hidden="true">✿</span>
+              </div>
+              <div className="journey-cloud-lock" style={{ left: '58%' }}>
+                <span aria-hidden="true">★</span>
+              </div>
+              <div className="journey-cloud-pill" style={{ left: '18%' }}>
+                {gatePhase.name.replace(/^阶段. · /, '')}
+              </div>
+              <div className="journey-cloud-pill" style={{ left: '54%' }}>
+                还差 {remainingDays(gatePhase.endDate, today)} 天
+              </div>
+              <button
+                type="button"
+                className="journey-cloud-frame"
+                data-boss-frame="true"
+                aria-label="阶段总测验"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onBoss(gateDay);
+                }}
+              >
+                <i />
+              </button>
+              <BossPennant
+                date={gateDay.date}
+                className="journey-boss-flag is-right is-gate"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onBoss(gateDay);
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
       {showReturn ? (
