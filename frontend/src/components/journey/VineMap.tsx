@@ -10,7 +10,7 @@ import {
   primaryTag,
   scrollTopForToday,
 } from '@/journey/layout';
-import { climbPoints, coverPoint, phaseSignSide, PLATE_SLOTS, pointAlong, visiblePhaseSigns } from '@/journey/plate';
+import { climbPoints, coverPoint, PLATE_SLOTS, pointAlong } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
@@ -161,8 +161,6 @@ export default function VineMap({
     });
   };
 
-  const phaseSigns = visiblePhaseSigns(phases, days, todayIndex, dayShift);
-
   return (
     <div
       ref={scroller}
@@ -240,31 +238,6 @@ export default function VineMap({
                   {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
                 </div>
               </div>
-            );
-          })}
-          {phaseSigns.map((sign) => {
-            const day = days.find((item) => item.date === sign.startDate);
-            if (!day) return null;
-            const at = coverPoint(sign.fx, sign.fy, width, viewport);
-            const side = phaseSignSide(at.x, width, Boolean(primaryTag(day.tags)));
-            return (
-              <button
-                key={sign.startDate}
-                type="button"
-                data-phase-sign={sign.name}
-                className="journey-wood journey-phase-sign"
-                style={
-                  side === 'left'
-                    ? { left: at.x - 48, top: at.y, transform: 'translate(-100%, -62%)' }
-                    : { left: at.x + 48, top: at.y, transform: 'translate(0, -62%)' }
-                }
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelect(day);
-                }}
-              >
-                {sign.name}
-              </button>
             );
           })}
           {climber ? (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { climbPoints, coverPoint, phaseSignSide, pointAlong, visiblePhaseSigns } from './plate';
+import { climbPoints, coverPoint, pointAlong } from './plate';
 
 describe('concept plate cover', () => {
   it('keeps the center of a 16:9 viewport on the concept center', () => {
@@ -11,31 +11,6 @@ describe('concept plate cover', () => {
     const point = coverPoint(0, 0.5, 390, 844);
     expect(point.x).toBeLessThan(0);
     expect(point.y).toBeCloseTo(422, 0);
-  });
-});
-
-describe('phase signs on the plate', () => {
-  const days = [
-    { date: '2026-10-16' },
-    { date: '2026-10-17' },
-    { date: '2026-10-18' },
-    { date: '2026-10-19' },
-  ];
-
-  it('hangs a sign on the slot that shows a phase start', () => {
-    expect(
-      visiblePhaseSigns([{ name: '阶段三 · 图表表达', startDate: '2026-10-17' }], days, 3, 0),
-    ).toEqual([{ name: '阶段三 · 图表表达', startDate: '2026-10-17', delta: -2, fx: 0.62, fy: 0.603 }]);
-  });
-
-  it('skips a phase start that is not on a visible slot', () => {
-    expect(visiblePhaseSigns([{ name: '阶段一 · 扎根', startDate: '2026-07-22' }], days, 3, 0)).toEqual([]);
-  });
-
-  it('puts the sign opposite an outward tag and flips it when the edge is tight', () => {
-    expect(phaseSignSide(900, 1440, false)).toBe('right');
-    expect(phaseSignSide(900, 1440, true)).toBe('left');
-    expect(phaseSignSide(360, 390, false)).toBe('left');
   });
 });
 

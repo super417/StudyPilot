@@ -26,45 +26,6 @@ export function coverPoint(fx: number, fy: number, viewW: number, viewH: number)
   };
 }
 
-export interface PhaseSignAnchor {
-  name: string;
-  startDate: string;
-  delta: number;
-  fx: number;
-  fy: number;
-}
-
-/** 阶段第一天正好落在某个果实槽上时，才挂木牌。 */
-export function visiblePhaseSigns(
-  phases: { name: string; startDate: string }[],
-  days: { date: string }[],
-  todayIndex: number,
-  dayShift: number,
-): PhaseSignAnchor[] {
-  if (todayIndex < 0) return [];
-  const signs: PhaseSignAnchor[] = [];
-  for (const phase of phases) {
-    const index = days.findIndex((day) => day.date === phase.startDate);
-    if (index < 0) continue;
-    const delta = index - todayIndex - dayShift;
-    const slot = PLATE_SLOTS.find((item) => item.delta === delta);
-    if (!slot) continue;
-    signs.push({ name: phase.name, startDate: phase.startDate, delta, fx: slot.fx, fy: slot.fy });
-  }
-  return signs;
-}
-
-/** 木牌让开果实热区；有旗标时放到旗标对侧，贴边就翻面。 */
-export function phaseSignSide(fruitX: number, viewW: number, hasOutwardTag: boolean): 'left' | 'right' {
-  const outward: 'left' | 'right' = fruitX > viewW / 2 ? 'right' : 'left';
-  let side: 'left' | 'right' = hasOutwardTag ? (outward === 'right' ? 'left' : 'right') : outward;
-  const signW = 112;
-  const gap = 48;
-  if (side === 'right' && fruitX + gap + signW > viewW - 8) side = 'left';
-  if (side === 'left' && fruitX - gap - signW < 8) side = 'right';
-  return side;
-}
-
 /** 从藤的下端爬到今天：只走 delta ≤ 0 的槽，y 从大到小。 */
 export function climbPoints(viewW: number, viewH: number): { x: number; y: number }[] {
   return PLATE_SLOTS.filter((slot) => slot.delta <= 0)
