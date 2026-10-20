@@ -77,7 +77,7 @@ function LeftRail({ displayName, userId, onEditProfile, onNavigate }: LeftRailPr
         </div>
         <p className="text-on-photo mt-3 text-sm font-medium text-brandDark">总体进度</p>
         <p className="text-on-photo mt-0.5 text-xs font-medium text-brandDark/80">
-          总体进度概览，助你把握备考节奏
+          总体进度概览，帮你盯住目标期限
         </p>
         <div className="mt-3.5 h-2 overflow-hidden rounded-full bg-white/55 ring-1 ring-white/60">
           <div

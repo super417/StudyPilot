@@ -107,7 +107,7 @@ function GoalCard({ plan, today }: GoalCardProps) {
             className="relative"
             style={{ width: RING_SIZE, height: RING_SIZE }}
             role="img"
-            aria-label={`备考时间流逝 ${percentLabel}%`}
+            aria-label={`目标期限进度 ${percentLabel}%`}
           >
             <svg
               width={RING_SIZE}
@@ -142,7 +142,7 @@ function GoalCard({ plan, today }: GoalCardProps) {
               <motion.span className="font-display text-3xl font-bold text-brandDark">
                 {displayPercent}
               </motion.span>
-              <span className="mt-0.5 text-xs text-gray-400">备考时间</span>
+              <span className="mt-0.5 text-xs text-gray-400">目标期限</span>
             </div>
           </div>
         </div>
