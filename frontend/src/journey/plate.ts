@@ -17,31 +17,50 @@ export const PLATE_SLOTS = [
 
 export interface CloudGateFrame {
   top: number;
+  left: number;
+  width: number;
   height: number;
   poleX: number;
   poleY: number;
 }
 
+/** 效果图上这一段藤干的中心和宽度。云团按 2.9 倍藤干宽来，不铺满屏幕。 */
+const PLATE_VINE_FX = 0.551;
+const PLATE_VINE_FY = 0.6;
+const PLATE_VINE_W = 72;
+
 /**
- * 阶段云门盖住右侧槽位（演示默认是 10-17）。
- * 旗杆底端的视口坐标等于该槽位，旗面从云里戳出来。
+ * 局部云团：宽约 2.9 倍藤干且不超过视口 42%，高约 0.55 倍云宽。
+ * 云心贴藤段中心，左右各留至少 28% 天空。旗杆落在云团厚实处。
  */
 export function cloudGateFrame(viewW: number, viewH: number): CloudGateFrame {
-  const slot = PLATE_SLOTS.find((item) => item.delta === -2) ?? PLATE_SLOTS[1];
-  const at = coverPoint(slot.fx, slot.fy, viewW, viewH);
-  const height = Math.max(220, Math.round(viewH * 0.32));
-  const poleY = Math.round(height * 0.42);
+  const scale = Math.max(viewW / PLATE_W, viewH / PLATE_H);
+  const vine = coverPoint(PLATE_VINE_FX, PLATE_VINE_FY, viewW, viewH);
+  const sky = viewW * 0.28;
+  let width = Math.round(Math.min(2.9 * PLATE_VINE_W * scale, viewW * 0.42, viewW - sky * 2));
+  width = Math.max(96, width);
+  const height = Math.round(width * 0.55);
+  const half = width / 2;
+  const minCenter = sky + half;
+  const maxCenter = viewW - sky - half;
+  const center = minCenter <= maxCenter ? Math.min(maxCenter, Math.max(minCenter, vine.x)) : viewW / 2;
+  const left = Math.round(center - half);
+  const top = Math.round(vine.y - height * 0.62);
   return {
-    top: Math.round(at.y - poleY),
+    top,
+    left,
+    width,
     height,
-    poleX: Math.round(at.x),
-    poleY,
+    poleX: Math.round(left + width * 0.76),
+    poleY: Math.round(height * 0.46),
   };
 }
 
-/** 节点中心落在云核里时，日期和星星要藏起来，也不能点。 */
-export function nodeUnderCloud(nodeY: number, frame: Pick<CloudGateFrame, 'top' | 'height'>): boolean {
-  return nodeY >= frame.top - 56 && nodeY <= frame.top + frame.height * 0.78;
+/** 节点中心落在这块云团里时，日期和星星要藏起来，也不能点。 */
+export function nodeUnderCloud(nodeX: number, nodeY: number, frame: Pick<CloudGateFrame, 'top' | 'left' | 'width' | 'height'>): boolean {
+  const yHit = nodeY >= frame.top - 36 && nodeY <= frame.top + frame.height * 0.8;
+  const xHit = nodeX >= frame.left + frame.width * 0.06 && nodeX <= frame.left + frame.width * 0.98;
+  return yHit && xHit;
 }
 
 /** object-fit: cover 时，效果图比例点落到视口坐标。 */

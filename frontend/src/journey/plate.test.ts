@@ -13,14 +13,17 @@ describe('concept plate cover', () => {
     expect(point.y).toBeCloseTo(422, 0);
   });
 
-  it('plants the phase flag in the cloud over the right-hand slot', () => {
+  it('keeps a local cloud on the vine with sky on both sides', () => {
     const frame = cloudGateFrame(1440, 900);
     const slot = coverPoint(0.62, 0.603, 1440, 900);
-    expect(frame.poleX).toBe(Math.round(slot.x));
-    expect(Math.abs(frame.top + frame.poleY - slot.y)).toBeLessThan(1);
-    expect(frame.height).toBeGreaterThanOrEqual(Math.round(900 * 0.28));
-    expect(nodeUnderCloud(slot.y, frame)).toBe(true);
-    expect(nodeUnderCloud(coverPoint(0.623, 0.464, 1440, 900).y, frame)).toBe(true);
-    expect(nodeUnderCloud(coverPoint(0.451, 0.381, 1440, 900).y, frame)).toBe(false);
+    expect(frame.width).toBeLessThanOrEqual(1440 * 0.42 + 1);
+    expect(frame.height / frame.width).toBeCloseTo(0.55, 1);
+    expect(frame.left).toBeGreaterThanOrEqual(1440 * 0.28 - 1);
+    expect(1440 - frame.left - frame.width).toBeGreaterThanOrEqual(1440 * 0.28 - 1);
+    expect(frame.poleX).toBeGreaterThan(frame.left + frame.width * 0.7);
+    expect(frame.poleX).toBeLessThan(frame.left + frame.width);
+    expect(nodeUnderCloud(slot.x, slot.y, frame)).toBe(true);
+    const today = coverPoint(0.451, 0.381, 1440, 900);
+    expect(nodeUnderCloud(today.x, today.y, frame)).toBe(false);
   });
 });

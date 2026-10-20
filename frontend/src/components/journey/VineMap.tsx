@@ -54,7 +54,7 @@ const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
   const t = index / 12;
   return {
     x: 22 + t * 476,
-    y: 26 + Math.sin(Math.PI * t) * 12,
+    y: 20 + Math.sin(Math.PI * t) * 28,
     rot: (0.5 - t) * 16,
   };
 });
@@ -218,7 +218,7 @@ export default function VineMap({
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
             const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
-            const buried = cloud ? nodeUnderCloud(at.y, cloud) : false;
+            const buried = cloud ? nodeUnderCloud(at.x, at.y, cloud) : false;
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -296,11 +296,14 @@ export default function VineMap({
               className="journey-cloud-gate"
               data-cloud-gate="locked"
               style={{
+                left: cloud.left,
+                width: cloud.width,
                 top: cloud.top,
                 height: cloud.height,
-                ['--flag-x' as string]: `${cloud.poleX}px`,
+                ['--flag-x' as string]: `${cloud.poleX - cloud.left}px`,
                 ['--flag-y' as string]: `${cloud.poleY}px`,
-                ['--flag-scale' as string]: compact || flagOnLeft ? '1.65' : '2.45',
+                ['--flag-scale' as string]: compact || flagOnLeft ? '1.25' : '1.7',
+                ['--lock' as string]: `${Math.round(cloud.width * 0.16)}px`,
               }}
             >
               <div className="journey-cloud-halo" />
@@ -339,22 +342,22 @@ export default function VineMap({
                     />
                   ))}
                 </svg>
-                <div className="journey-cloud-lock" style={{ left: '8%' }}>
+                <div className="journey-cloud-lock">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <ellipse cx="12" cy="14.5" rx="5.2" ry="6" fill="#8ed84a" />
                     <ellipse cx="10.2" cy="12.4" rx="1.6" ry="2.2" fill="#eaffc4" opacity="0.85" />
                     <path d="M12 9c.4-2.4 2.6-3.4 3.6-2.2" fill="none" stroke="#3f8f1e" strokeWidth="1.4" strokeLinecap="round" />
                   </svg>
                 </div>
-                <div className="journey-cloud-lock" style={{ left: '70%' }}>
+                <div className="journey-cloud-lock is-right">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 3.2 14.4 9h6.1l-4.9 3.6 1.9 5.8L12 14.9 6.5 18.4 8.4 12.6 3.5 9h6.1Z" fill="#ffe14a" />
                   </svg>
                 </div>
-                <div className="journey-cloud-pill" style={{ left: '2%' }}>
+                <div className="journey-cloud-pill">
                   {gatePhase.name.replace(/^阶段. · /, '')}
                 </div>
-                <div className="journey-cloud-pill is-mint" style={{ left: '64%' }}>
+                <div className="journey-cloud-pill is-mint">
                   还差 {remainingDays(gatePhase.endDate, today)} 天
                 </div>
               </div>
@@ -368,7 +371,7 @@ export default function VineMap({
               />
               <div
                 className="journey-cloud-puff is-front"
-                style={{ left: cloud.poleX - 48, top: cloud.poleY - 22, width: 104, height: 64 }}
+                style={{ left: cloud.poleX - cloud.left - 36, top: cloud.poleY - 16, width: 84, height: 48 }}
               />
             </div>
           ) : null}
