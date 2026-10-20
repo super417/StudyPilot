@@ -33,6 +33,7 @@ class ProfilePayload(BaseModel):
     direction: str | None = None
     target_school: str | None = None
     bio: str | None = None
+    assistant_name: str | None = None
 
 
 @router.get("")
@@ -61,6 +62,7 @@ def put_profile_route(
             direction=payload.direction,
             target_school=payload.target_school,
             bio=payload.bio,
+            assistant_name=payload.assistant_name,
         )
     except ProfileValidationError as error:
         return _json_error(400, error.code, str(error))

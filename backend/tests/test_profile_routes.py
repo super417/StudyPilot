@@ -123,6 +123,7 @@ class ProfileRouteTests(unittest.TestCase):
                 "direction": "计算机",
                 "targetSchool": "某某大学",
                 "bio": "冲刺考研",
+                "assistantName": "",
             },
         )
 

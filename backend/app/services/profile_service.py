@@ -1,4 +1,4 @@
-"""User profile fields (nickname / direction / school / bio)."""
+"""User profile fields (nickname / direction / school / bio / assistant name)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ NICKNAME_MAX = 64
 DIRECTION_MAX = 128
 TARGET_SCHOOL_MAX = 128
 BIO_MAX = 280
+ASSISTANT_NAME_MAX = 32
 
 
 class ProfileValidationError(ValueError):
@@ -29,12 +30,22 @@ def _clip(value: object, limit: int) -> str:
     return text
 
 
+def _sanitize_assistant_name(value: object) -> str:
+    """Strip, drop newlines/control chars, then apply length clip."""
+    raw = "" if value is None else str(value)
+    cleaned = "".join(
+        ch for ch in raw if ord(ch) >= 32 and ord(ch) != 127
+    )
+    return _clip(cleaned, ASSISTANT_NAME_MAX)
+
+
 def profile_dict(user: User) -> dict[str, str]:
     return {
         "nickname": user.nickname or "",
         "direction": user.direction or "",
         "targetSchool": user.target_school or "",
         "bio": user.bio or "",
+        "assistantName": user.assistant_name or "",
     }
 
 
@@ -53,6 +64,7 @@ def update_profile(
     direction: object = None,
     target_school: object = None,
     bio: object = None,
+    assistant_name: object = None,
 ) -> dict[str, str]:
     user = session.scalar(select(User).where(User.id == user_id))
     if user is None:
@@ -62,6 +74,7 @@ def update_profile(
     user.direction = _clip(direction, DIRECTION_MAX)
     user.target_school = _clip(target_school, TARGET_SCHOOL_MAX)
     user.bio = _clip(bio, BIO_MAX)
+    user.assistant_name = _sanitize_assistant_name(assistant_name)
 
     try:
         session.commit()
