@@ -804,3 +804,12 @@
   display: block;
   filter: drop-shadow(0 6px 5px rgba(20, 70, 10, 0.32));
 }
+
+.pod-fruit {
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55)) drop-shadow(0 4px 4px rgba(30, 90, 20, 0.28));
+}
+
+.pod-fruit.is-unripe {
+  filter: drop-shadow(0 3px 3px rgba(30, 90, 20, 0.22));
+}

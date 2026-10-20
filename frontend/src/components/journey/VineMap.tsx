@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate-clean.jpg';
-import { FruitGlyph, SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import { SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import { PodFruit } from '@/components/journey/PodFruit';
 import { LanternFruit } from '@/components/journey/LanternFruit';
 import { addDaysISO } from '@/lib/dates';
 import {
@@ -399,11 +400,8 @@ export default function VineMap({
                 }}
               >
                 {day.state === 'past' || day.state === 'empty' ? (
-                  <span
-                    className="journey-node-fruit pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[64%]"
-                    style={{ width: compact ? 66 : 88, height: compact ? 66 : 88, opacity: day.state === 'empty' ? 0.8 : 1 }}
-                  >
-                    <FruitGlyph color={day.state === 'empty' ? 'gray' : day.starColor} kind="fruit" cleared={false} />
+                  <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[72%]">
+                    <PodFruit color={day.starColor} unripe={day.state === 'empty'} size={compact ? 44 : 52} />
                   </span>
                 ) : null}
                 {day.state === 'today' ? (
@@ -415,9 +413,9 @@ export default function VineMap({
                   </span>
                 ) : null}
                 {showStars ? (
-                  <div className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${day.state === 'today' ? 'bottom-[150%]' : 'bottom-[122%]'}`}>
+                  <div className={`pointer-events-none absolute left-1/2 -translate-x-1/2 ${day.state === 'today' ? 'bottom-[150%]' : 'bottom-[92%]'}`}>
                     <div className={day.state === 'today' && celebrate ? 'journey-star-pop' : undefined}>
-                      <StarCrown filled={day.stars ?? 0} color={day.starColor} preview={day.state === 'today'} compact={compact} />
+                      <StarCrown filled={day.stars ?? 0} color={day.starColor} preview={day.state === 'today'} compact={compact || day.state !== 'today'} />
                     </div>
                   </div>
                 ) : null}
@@ -462,7 +460,7 @@ export default function VineMap({
                     onSelect(day);
                   }}
                 />
-                <div className={`journey-date pointer-events-none absolute left-1/2 top-[78%] -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-70' : ''}`}>
+                <div className={`journey-date pointer-events-none absolute left-1/2 ${day.state === 'today' ? 'top-[74%]' : 'top-[80%]'} -translate-x-1/2 whitespace-nowrap px-1.5 py-px text-center text-[10px] font-semibold ${day.state === 'empty' ? 'opacity-70' : ''}`}>
                   {day.date.slice(5)}
                   {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
                 </div>
