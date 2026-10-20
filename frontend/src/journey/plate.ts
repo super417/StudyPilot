@@ -29,7 +29,7 @@ export interface CloudGateFrame {
 export function cloudGateFrame(viewW: number, viewH: number): CloudGateFrame {
   const slot = PLATE_SLOTS.find((item) => item.delta === -2) ?? PLATE_SLOTS[1];
   const at = coverPoint(slot.fx, slot.fy, viewW, viewH);
-  const height = Math.max(200, Math.round(viewH * 0.24));
+  const height = Math.max(220, Math.round(viewH * 0.32));
   const poleY = Math.round(height * 0.42);
   return {
     top: Math.round(at.y - poleY),

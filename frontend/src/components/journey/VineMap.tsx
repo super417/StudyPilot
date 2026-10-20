@@ -23,23 +23,41 @@ const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' 
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
 const CLOUD_PUFFS = [
-  { x: -4, y: -8, w: 20, h: 58 },
-  { x: 8, y: -14, w: 22, h: 64 },
-  { x: 22, y: -6, w: 20, h: 60 },
-  { x: 36, y: -16, w: 24, h: 68 },
-  { x: 52, y: -10, w: 22, h: 64 },
-  { x: 66, y: -18, w: 24, h: 70 },
-  { x: 80, y: -8, w: 20, h: 62 },
-  { x: 92, y: -2, w: 14, h: 52 },
-  { x: 2, y: 18, w: 26, h: 58 },
-  { x: 22, y: 22, w: 28, h: 56 },
-  { x: 42, y: 16, w: 26, h: 62 },
-  { x: 62, y: 20, w: 28, h: 58 },
-  { x: 78, y: 14, w: 24, h: 56 },
-  { x: 12, y: 42, w: 30, h: 48 },
-  { x: 40, y: 46, w: 32, h: 46 },
-  { x: 68, y: 40, w: 28, h: 50 },
+  { x: -8, y: 6, w: 30, h: 54 },
+  { x: 8, y: -8, w: 32, h: 60 },
+  { x: 26, y: 2, w: 28, h: 52 },
+  { x: 40, y: -12, w: 34, h: 64 },
+  { x: 56, y: 0, w: 30, h: 56 },
+  { x: 70, y: -10, w: 32, h: 62 },
+  { x: 84, y: 8, w: 26, h: 50 },
+  { x: 14, y: 26, w: 38, h: 48 },
+  { x: 46, y: 22, w: 40, h: 52 },
+  { x: 72, y: 28, w: 34, h: 46 },
 ] as const;
+
+const CLOUD_SPARKS = [
+  [11, 28],
+  [19, 12],
+  [27, 34],
+  [36, 16],
+  [45, 30],
+  [54, 11],
+  [63, 33],
+  [71, 15],
+  [79, 36],
+  [88, 18],
+  [94, 32],
+  [41, 44],
+] as const;
+
+const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
+  const t = index / 12;
+  return {
+    x: 22 + t * 476,
+    y: 26 + Math.sin(Math.PI * t) * 12,
+    rot: (0.5 - t) * 16,
+  };
+});
 
 function BossPennant({ date, className, onClick }: { date: string; className: string; onClick: (event: MouseEvent<HTMLButtonElement>) => void }) {
   return (
@@ -294,42 +312,52 @@ export default function VineMap({
                   style={{ left: `${puff.x}%`, top: `${puff.y}%`, width: `${puff.w}%`, height: `${puff.h}%` }}
                 />
               ))}
-              <svg className="journey-cloud-chain" viewBox="0 0 640 70" aria-hidden="true">
-                <path d="M16 36 H624" fill="none" stroke="#C3C6EE" strokeWidth="11" strokeLinecap="round" />
-                <g fill="none" stroke="#BAC1EF" strokeWidth="8">
-                  {[28, 78, 128, 210, 260, 310, 392, 442, 492].map((x) => (
-                    <rect key={x} x={x} y="16" width="40" height="36" rx="16" />
+              <div className="journey-cloud-iris" />
+              {CLOUD_SPARKS.map(([x, y], index) => (
+                <i key={`${x}-${y}`} className="journey-cloud-spark" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${index * 0.22}s` }} />
+              ))}
+              <div className="journey-cloud-lockset">
+                <svg className="journey-cloud-chain" viewBox="0 0 520 88" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="chain-glass" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+                      <stop offset="42%" stopColor="#E8D9FF" stopOpacity="0.78" />
+                      <stop offset="100%" stopColor="#C9B4F0" stopOpacity="0.62" />
+                    </linearGradient>
+                  </defs>
+                  {CHAIN_LINKS.map((link) => (
+                    <ellipse
+                      key={link.x}
+                      cx={link.x}
+                      cy={link.y}
+                      rx="17"
+                      ry="10"
+                      fill="none"
+                      stroke="url(#chain-glass)"
+                      strokeWidth="4.2"
+                      transform={`rotate(${link.rot} ${link.x} ${link.y})`}
+                    />
                   ))}
-                </g>
-              </svg>
-              <div className="journey-cloud-lock" style={{ left: '18%' }}>
-                <span aria-hidden="true">✿</span>
+                </svg>
+                <div className="journey-cloud-lock" style={{ left: '8%' }}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <ellipse cx="12" cy="14.5" rx="5.2" ry="6" fill="#8ed84a" />
+                    <ellipse cx="10.2" cy="12.4" rx="1.6" ry="2.2" fill="#eaffc4" opacity="0.85" />
+                    <path d="M12 9c.4-2.4 2.6-3.4 3.6-2.2" fill="none" stroke="#3f8f1e" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <div className="journey-cloud-lock" style={{ left: '70%' }}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3.2 14.4 9h6.1l-4.9 3.6 1.9 5.8L12 14.9 6.5 18.4 8.4 12.6 3.5 9h6.1Z" fill="#ffe14a" />
+                  </svg>
+                </div>
+                <div className="journey-cloud-pill" style={{ left: '2%' }}>
+                  {gatePhase.name.replace(/^阶段. · /, '')}
+                </div>
+                <div className="journey-cloud-pill is-mint" style={{ left: '64%' }}>
+                  还差 {remainingDays(gatePhase.endDate, today)} 天
+                </div>
               </div>
-              <div className="journey-cloud-lock" style={{ left: '42%' }}>
-                <span aria-hidden="true">★</span>
-              </div>
-              <div className="journey-cloud-pill" style={{ left: '16%' }}>
-                {gatePhase.name.replace(/^阶段. · /, '')}
-              </div>
-              <div className="journey-cloud-pill" style={{ left: '40%' }}>
-                还差 {remainingDays(gatePhase.endDate, today)} 天
-              </div>
-              <button
-                type="button"
-                className="journey-cloud-frame"
-                data-boss-frame="true"
-                aria-label="阶段总测验"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onBoss(gateDay);
-                }}
-              >
-                <i />
-              </button>
-              <div
-                className="journey-cloud-puff is-nest"
-                style={{ left: cloud.poleX - 70, top: cloud.poleY - 108, width: 150, height: 96 }}
-              />
               <BossPennant
                 date={gateDay.date}
                 className={`journey-boss-flag is-gate ${flagOnLeft ? 'is-left' : 'is-right'}`}

@@ -18,7 +18,7 @@ describe('concept plate cover', () => {
     const slot = coverPoint(0.62, 0.603, 1440, 900);
     expect(frame.poleX).toBe(Math.round(slot.x));
     expect(Math.abs(frame.top + frame.poleY - slot.y)).toBeLessThan(1);
-    expect(frame.height).toBeGreaterThanOrEqual(Math.round(900 * 0.24));
+    expect(frame.height).toBeGreaterThanOrEqual(Math.round(900 * 0.28));
     expect(nodeUnderCloud(slot.y, frame)).toBe(true);
     expect(nodeUnderCloud(coverPoint(0.623, 0.464, 1440, 900).y, frame)).toBe(true);
     expect(nodeUnderCloud(coverPoint(0.451, 0.381, 1440, 900).y, frame)).toBe(false);
