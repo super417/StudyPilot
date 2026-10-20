@@ -68,7 +68,7 @@ export const VINE_LEFT = [
 
 /** 同一行藤的最右像素。和 VINE_LEFT 一样每 8 像素一行。 */
 export const VINE_RIGHT = [
-  999, 993, 985, 983, 989, 1004, 1004, 995, 945, 940, 939, 941, 938, 936, 933, 927, 919, 920, 914, 921, 927, 950, 950, 945, 939, 935, 934, 930, 923, 911, 885, 897, 897, 897, 906, 912, 920, 917, 881, 882, 882, 880, 879, 881, 879, 874, 870, 874, 876, 877, 877, 876, 883, 870, 915, 953, 958, 967, 832, 861, 964, 956, 857, 856, 854, 853, 856, 859, 859, 867, 866, 886, 900, 930, 935, 936, 935, 932, 925, 915, 906, 877, 890, 951, 957, 959, 959, 959, 954, 945,
+  999, 993, 985, 983, 989, 1004, 1004, 995, 945, 940, 939, 941, 938, 936, 933, 927, 919, 920, 914, 921, 927, 950, 950, 945, 939, 935, 934, 930, 923, 911, 885, 897, 897, 897, 906, 912, 920, 917, 881, 882, 882, 880, 879, 881, 879, 874, 870, 874, 876, 877, 877, 876, 875, 873, 871, 869, 866, 864, 861, 859, 857, 857, 858, 858, 859, 860, 861, 861, 860, 860, 859, 858, 858, 857, 854, 849, 859, 862, 866, 869, 872, 875, 878, 880, 902, 911, 887, 887, 954, 945,
 ] as const;
 
 function vineEdge(samples: readonly number[], y0: number, y1: number, pick: 'min' | 'max'): number {
@@ -115,24 +115,28 @@ export function cloudFrameForSegment(
   const bandBottom = Math.max(...plateYs) + 28;
   const vineL = vineLeftPlate(bandTop, bandBottom) * scale - offsetX;
   const vineR = vineRightPlate(bandTop, bandBottom) * scale - offsetX;
-  const spill = Math.max(140, (vineR - vineL) * 0.6);
-  const left = Math.max(8, Math.round(vineL - spill));
+  const spill = Math.max(110, (vineR - vineL) * 0.22);
+  let left = Math.max(8, Math.round(vineL - spill));
   const right = Math.min(viewW - 8, Math.round(vineR + spill));
   const maxY = Math.max(...nodes.map((node) => node.y));
-  const header = 36;
+  const header = 10;
   let bottom = Math.round(maxY + 60);
   if (floorY != null) bottom = Math.min(bottom, Math.round(floorY - 40));
   bottom = Math.min(viewH - 96, bottom);
-  const bandH = Math.round(Math.min(330, Math.max(220, viewH * 0.34)));
+  // 一朵团状云，宽约为高的 1.6 倍；顶部最多到 HUD 下沿，不够高就收窄宽度。
+  let bandH = Math.round((right - left) / 1.6);
   const top = Math.max(header, bottom - bandH);
+  bandH = bottom - top;
   const height = Math.max(140, bottom - top);
-  const width = Math.max(180, right - left);
+  const width = Math.max(180, Math.min(right - left, Math.round(height * 1.6)));
+  const cx = (left + right) / 2;
+  left = Math.round(cx - width / 2);
   return {
     top,
     left,
     width,
     height,
-    poleX: Math.round(left + width * 0.6),
+    poleX: Math.round(left + width * 0.62),
     poleY: Math.round(height * 0.3),
   };
 }

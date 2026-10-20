@@ -13,7 +13,7 @@ describe('concept plate cover', () => {
     expect(point.y).toBeCloseTo(422, 0);
   });
 
-  it('lays a wide band across the vine, stopping above today', () => {
+  it('puts one 1.6:1 cloud over the locked vine, spilling past both edges, stopping above today', () => {
     expect(VINE_RIGHT.length).toBe(VINE_LEFT.length);
     const viewW = 1440;
     const viewH = 900;
@@ -32,13 +32,16 @@ describe('concept plate cover', () => {
     const plateYs = nodes.map((node) => (node.y + offsetY) / scale);
     const vineL = vineLeftPlate(Math.min(...plateYs) - 28, Math.max(...plateYs) + 28) * scale - offsetX;
     const vineR = vineRightPlate(Math.min(...plateYs) - 28, Math.max(...plateYs) + 28) * scale - offsetX;
-    expect(frame.left).toBeLessThanOrEqual(vineL - 140);
-    expect(frame.left + frame.width).toBeGreaterThanOrEqual(Math.min(viewW - 8, vineR + 140));
+    expect(frame.left).toBeLessThan(vineL);
+    expect(frame.left + frame.width).toBeGreaterThan(vineR);
+    expect(frame.width / frame.height).toBeGreaterThan(1.4);
+    expect(frame.width / frame.height).toBeLessThan(1.8);
     expect(frame.left).toBeGreaterThanOrEqual(8);
     expect(frame.left + frame.width).toBeLessThanOrEqual(viewW - 8);
     expect(frame.top + frame.height).toBeLessThan(today.y - 30);
     expect(frame.top).toBeLessThan(Math.max(...nodes.map((node) => node.y)));
     expect(frame.height).toBeGreaterThanOrEqual(220);
+    expect(frame.top).toBeGreaterThanOrEqual(0);
   });
 });
 
