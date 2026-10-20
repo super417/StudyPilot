@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cloudFrameForSegment, coverPoint, vineLeftPlate } from './plate';
+import { VINE_LEFT, VINE_RIGHT, cloudFrameForSegment, coverPoint, vineLeftPlate, vineRightPlate } from './plate';
 
 describe('concept plate cover', () => {
   it('keeps the center of a 16:9 viewport on the concept center', () => {
@@ -13,28 +13,35 @@ describe('concept plate cover', () => {
     expect(point.y).toBeCloseTo(422, 0);
   });
 
-  it('stretches the locked cloud from that segment’s left vine to the map’s right edge', () => {
+  it('covers the locked vine from its left edge to just past its right edge', () => {
+    expect(VINE_RIGHT.length).toBe(VINE_LEFT.length);
     const viewW = 1440;
     const viewH = 900;
     const nodes = [coverPoint(0.51, 0.242, viewW, viewH), coverPoint(0.501, 0.125, viewW, viewH)];
-    const frame = cloudFrameForSegment(nodes, viewW, viewH);
+    const today = coverPoint(0.451, 0.381, viewW, viewH);
+    const frame = cloudFrameForSegment(nodes, viewW, viewH, today.y);
     expect(frame).not.toBeNull();
     if (!frame) return;
     const scale = Math.max(viewW / 1280, viewH / 720);
     const offsetY = (720 * scale - viewH) / 2;
-    const plateYs = nodes.map((node) => (node.y + offsetY) / scale);
-    const leftPlate = vineLeftPlate(Math.min(...plateYs) - 36, Math.max(...plateYs) + 36);
     const offsetX = (1280 * scale - viewW) / 2;
-    expect(frame.left).toBe(Math.max(0, Math.min(viewW - 120, Math.round(leftPlate * scale - offsetX))));
-    expect(frame.left + frame.width).toBe(viewW);
-    expect(frame.left).toBeGreaterThan(80);
+    const plateYs = nodes.map((node) => (node.y + offsetY) / scale);
+    const bandTop = Math.min(...plateYs) - 28;
+    const bandBottom = Math.max(...plateYs) + 28;
+    const left = Math.max(8, Math.round((vineLeftPlate(bandTop, bandBottom) - 42) * scale - offsetX));
+    const right = Math.min(viewW - 8, Math.round((vineRightPlate(bandTop, bandBottom) + 42) * scale - offsetX));
+    expect(frame.left).toBe(left);
+    expect(frame.left + frame.width).toBe(Math.max(180, right - left) + left);
+    expect(frame.left + frame.width).toBeLessThan(viewW - 40);
     expect(frame.left).toBeLessThan(Math.min(...nodes.map((node) => node.x)));
+    expect(frame.left + frame.width).toBeGreaterThan(Math.max(...nodes.map((node) => node.x)));
     expect(frame.top).toBeLessThan(Math.min(...nodes.map((node) => node.y)));
     expect(frame.top + frame.height).toBeGreaterThan(Math.max(...nodes.map((node) => node.y)));
+    expect(frame.top + frame.height).toBeLessThan(today.y);
     const lower = cloudFrameForSegment([coverPoint(0.62, 0.603, viewW, viewH)], viewW, viewH);
     expect(lower).not.toBeNull();
     expect(lower?.left).not.toBe(frame.left);
     expect(lower?.top).not.toBe(frame.top);
-    expect(lower && lower.left + lower.width).toBe(viewW);
+    expect(lower && lower.left + lower.width).toBeLessThan(viewW - 40);
   });
 });

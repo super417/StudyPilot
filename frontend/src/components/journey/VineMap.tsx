@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate.jpg';
-import signCover from '@/assets/journey/phase-sign-cover.png';
+import signErase from '@/assets/journey/phase-sign-erase.png';
 import { StarCrown } from '@/components/journey/glyphs';
 import { LanternFruit } from '@/components/journey/LanternFruit';
 import { addDaysISO } from '@/lib/dates';
@@ -21,58 +21,41 @@ import {
   scrollLead,
   scrollTopForToday,
 } from '@/journey/layout';
-import { cloudFrameForSegment, coverPoint, PLATE_H, PLATE_SLOTS, PLATE_W } from '@/journey/plate';
+import { cloudFrameForSegment, coverPoint, PLATE_H, PLATE_SLOTS, PLATE_W, vineRightPlate } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
-const CLOUD_FILLS = ['#f7fbff', '#e7f3fd', '#d3e6f8', '#b7d4f4', '#9ec4ee'] as const;
+/** 画在地图上的旧木牌范围。只盖掉牌子像素，藤蔓像素的透明度为 0。 */
+const SIGN_ERASE = { x: 818, y: 403, w: 175, h: 272 };
 
-function cloudLobes(width: number, height: number) {
-  const count = Math.max(8, Math.round(width / 72));
-  const lobes: Array<{ cx: number; cy: number; rx: number; ry: number; fill: string }> = [];
-  for (let index = 0; index < count; index += 1) {
-    const t = count === 1 ? 0.5 : index / (count - 1);
-    const cx = t * width;
-    const wave = Math.sin(index * 1.65) * height * 0.07;
-    lobes.push({
-      cx,
-      cy: height * 0.4 + wave + (index % 2 === 0 ? -height * 0.05 : height * 0.04),
-      rx: height * (0.3 + (index % 3) * 0.045),
-      ry: height * (0.26 + (index % 4) * 0.03),
-      fill: CLOUD_FILLS[index % CLOUD_FILLS.length],
-    });
-    lobes.push({
-      cx: cx + (index % 2 === 0 ? height * 0.04 : -height * 0.03),
-      cy: height * 0.66 + wave * 0.35,
-      rx: height * (0.28 + (index % 2) * 0.04),
-      ry: height * 0.2,
-      fill: index % 2 === 0 ? '#a9ccef' : '#8eb6e4',
-    });
+function mistOutline(width: number, height: number): string {
+  const steps = 8;
+  const top: Array<[number, number]> = [];
+  const bottom: Array<[number, number]> = [];
+  for (let index = 0; index <= steps; index += 1) {
+    const t = index / steps;
+    const x = width * (0.02 + t * 0.96);
+    const belly = Math.sin(t * Math.PI);
+    const topWave = Math.sin(t * Math.PI * 1.35 + 0.4) * 0.035;
+    const botWave = Math.sin(t * Math.PI * 1.1 + 0.2) * 0.04;
+    top.push([x, height * (0.4 - belly * 0.2 + topWave)]);
+    bottom.push([x, height * (0.6 + belly * 0.24 + botWave)]);
   }
-  return lobes;
-}
-
-function cloudSilhouette(width: number, height: number): string {
-  const steps = Math.max(6, Math.round(width / 96));
-  let path = `M 0 ${height * 0.46}`;
-  for (let index = 1; index <= steps; index += 1) {
-    const x = (width * index) / steps;
-    const y = height * (index % 2 === 0 ? 0.2 : 0.34);
-    const cx = x - width / steps / 2;
-    const cy = height * (index % 2 === 0 ? 0.08 : 0.28);
-    path += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }
-  path += ` L ${width} ${height * 0.72}`;
-  for (let index = steps; index >= 0; index -= 1) {
-    const x = (width * index) / steps;
-    const y = height * (index % 2 === 0 ? 0.9 : 0.74);
-    const cx = x + width / steps / 2;
-    const cy = height * (index % 2 === 0 ? 0.98 : 0.7);
-    path += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }
-  return `${path} Z`;
+  const curve = (points: Array<[number, number]>) =>
+    points
+      .slice(1)
+      .map((point, index) => {
+        const prev = points[index];
+        const cx = (prev[0] + point[0]) / 2;
+        const cy = (prev[1] + point[1]) / 2;
+        return `Q ${cx.toFixed(1)} ${prev[1].toFixed(1)} ${point[0].toFixed(1)} ${cy.toFixed(1)}`;
+      })
+      .join(' ');
+  const first = top[0];
+  const last = bottom[bottom.length - 1];
+  return `M ${first[0].toFixed(1)} ${first[1].toFixed(1)} ${curve(top)} ${curve([...bottom].reverse())} Q ${first[0].toFixed(1)} ${last[1].toFixed(1)} ${first[0].toFixed(1)} ${first[1].toFixed(1)} Z`;
 }
 
 const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
@@ -85,38 +68,64 @@ const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
 });
 
 function CloudBank({ width, height }: { width: number; height: number }) {
-  const lobes = cloudLobes(width, height);
   return (
     <svg className="journey-cloud-body" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
       <defs>
-        <filter id="journey-cloud-feather" x="-8%" y="-18%" width="116%" height="136%">
-          <feGaussianBlur stdDeviation="5" />
+        <filter id="journey-mist-feather" x="-30%" y="-60%" width="160%" height="220%">
+          <feGaussianBlur stdDeviation="28" />
         </filter>
-        <linearGradient id="journey-cloud-core" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#f7fbff" />
-          <stop offset="36%" stopColor="#e5f1fc" />
-          <stop offset="70%" stopColor="#c5daf6" />
-          <stop offset="100%" stopColor="#9dbeea" />
-        </linearGradient>
-        <radialGradient id="journey-cloud-hi" cx="50%" cy="42%" r="55%">
+        <filter id="journey-mist-core" x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="12" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="2.8" intercept="-0.55" />
+          </feComponentTransfer>
+        </filter>
+        <linearGradient id="journey-mist-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="62%" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="55%" stopColor="#f7fbff" />
+          <stop offset="100%" stopColor="#eaf5fd" />
+        </linearGradient>
+        <radialGradient id="journey-mist-hi" cx="46%" cy="40%" r="46%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
       </defs>
-      <g filter="url(#journey-cloud-feather)">
-        {lobes.map((lobe) => (
-          <ellipse key={`feather-${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx + 8} ry={lobe.ry + 6} fill="#d5e7f8" />
-        ))}
-      </g>
-      <path d={cloudSilhouette(width, height)} fill="url(#journey-cloud-core)" />
-      {lobes.map((lobe) => (
-        <ellipse key={`${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx} ry={lobe.ry} fill={lobe.fill} />
-      ))}
-      {lobes.filter((_, index) => index % 4 === 0).map((lobe) => (
-        <ellipse key={`hi-${lobe.cx}`} cx={lobe.cx} cy={lobe.cy - lobe.ry * 0.35} rx={lobe.rx * 0.42} ry={lobe.ry * 0.28} fill="url(#journey-cloud-hi)" />
-      ))}
+      <path d={mistOutline(width, height)} fill="#f3f9ff" filter="url(#journey-mist-feather)" />
+      <path d={mistOutline(width, height)} fill="url(#journey-mist-fill)" filter="url(#journey-mist-core)" />
+      <ellipse cx={width * 0.46} cy={height * 0.46} rx={width * 0.24} ry={height * 0.14} fill="url(#journey-mist-hi)" />
     </svg>
+  );
+}
+
+function PhaseArrowSign({ name, id }: { name: string; id: string }) {
+  const face = `wood-face-${id}`;
+  const edge = `wood-edge-${id}`;
+  return (
+    <div className="journey-phase-arrow">
+      <div className="journey-phase-arrow-board">
+        <svg viewBox="0 0 220 52" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id={edge} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#a56a32" />
+              <stop offset="100%" stopColor="#6e3e16" />
+            </linearGradient>
+            <linearGradient id={face} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#f8dcb0" />
+              <stop offset="38%" stopColor="#e2ae62" />
+              <stop offset="100%" stopColor="#c4843a" />
+            </linearGradient>
+          </defs>
+          <path d="M8 7 H162 L210 26 L162 45 H8 Q2 26 8 7 Z" fill={`url(#${edge})`} />
+          <path d="M12 11 H158 L196 26 L158 41 H12 Q8 26 12 11 Z" fill={`url(#${face})`} />
+          <path d="M22 16 H148" stroke="#fff4df" strokeOpacity="0.7" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M24 35 H132" stroke="#8d5a28" strokeOpacity="0.35" strokeWidth="2" strokeLinecap="round" />
+          <path d="M48 12 V40" stroke="#d7b07a" strokeOpacity="0.45" strokeWidth="3" />
+          <path d="M92 12 V40" stroke="#b88345" strokeOpacity="0.28" strokeWidth="2" />
+        </svg>
+        <span>{name}</span>
+      </div>
+      <span className="journey-phase-arrow-post" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -248,16 +257,34 @@ export default function VineMap({
   );
 
   const lockedNodes = plateDays.filter((item) => item.day && item.day.state === 'future');
-  const cloud = gatePhase && !gateOpen && lockedNodes.length > 0 ? cloudFrameForSegment(lockedNodes.map((item) => item.at), width, viewport) : null;
-  const flagOnLeft = cloud ? cloud.poleX > width * 0.75 : false;
+  const unlockedFloor = plateDays
+    .filter((item) => item.day && item.day.state !== 'future')
+    .map((item) => item.at.y)
+    .filter((y) => lockedNodes.length === 0 || y > Math.max(...lockedNodes.map((item) => item.at.y)));
+  const cloud =
+    gatePhase && !gateOpen && lockedNodes.length > 0
+      ? cloudFrameForSegment(
+          lockedNodes.map((item) => item.at),
+          width,
+          viewport,
+          unlockedFloor.length ? Math.min(...unlockedFloor) : undefined,
+        )
+      : null;
+  const flagOnLeft = cloud ? cloud.poleX > width * 0.72 : false;
   const spans = phaseSpans(phases);
   const phaseMarks = spans.flatMap((span) => {
     const top = plateDays.find((item) => item.day?.date === span.topDate);
     if (!top) return [];
     const next = plateDays.find((item) => item.day?.date === addDaysISO(span.topDate, 1));
     const anchor = phaseSignPoint(top.at, next ? next.at : null);
-    const outward = anchor.x > width * 0.55 ? 84 : -84;
-    return [{ span, x: Math.min(width - 78, Math.max(78, anchor.x + outward)), y: anchor.y }];
+    const scale = Math.max(width / PLATE_W, viewport / PLATE_H);
+    const offsetX = (PLATE_W * scale - width) / 2;
+    const offsetY = (PLATE_H * scale - viewport) / 2;
+    const plateY = (anchor.y + offsetY) / scale;
+    const vineRight = vineRightPlate(plateY - 10, plateY + 10) * scale - offsetX;
+    const nodeRight = Math.max(top.at.x, next ? next.at.x : top.at.x) + 24;
+    const x = Math.min(width - 228, Math.max(nodeRight, vineRight + 4));
+    return [{ span, x, y: anchor.y }];
   });
 
   useEffect(() => {
@@ -266,7 +293,7 @@ export default function VineMap({
   }, [onNeed, plateDays]);
 
   const plateScale = Math.max(width / PLATE_W, viewport / PLATE_H);
-  const signCoverAt = coverPoint(818 / PLATE_W, 408 / PLATE_H, width, viewport);
+  const signEraseAt = coverPoint(SIGN_ERASE.x / PLATE_W, SIGN_ERASE.y / PLATE_H, width, viewport);
 
   const jumpToday = () => {
     const node = scroller.current;
@@ -289,15 +316,15 @@ export default function VineMap({
         <div className="sticky top-0 z-0 h-[100dvh] overflow-hidden" onClick={() => onBlank?.()}>
           <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           <img
-            src={signCover}
+            src={signErase}
             alt=""
             draggable={false}
             className="pointer-events-none absolute z-[1]"
             style={{
-              left: signCoverAt.x,
-              top: signCoverAt.y,
-              width: 182 * plateScale,
-              height: 184 * plateScale,
+              left: signEraseAt.x,
+              top: signEraseAt.y,
+              width: SIGN_ERASE.w * plateScale,
+              height: SIGN_ERASE.h * plateScale,
             }}
           />
           {plateDays.map(({ slot, day, at }) => {
@@ -305,6 +332,7 @@ export default function VineMap({
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
             const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
             const locked = day.state === 'future';
+            const buried = Boolean(cloud) && locked;
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -317,8 +345,8 @@ export default function VineMap({
                   top: at.y,
                   transform: 'translate(-50%, -50%)',
                   zIndex: locked ? 2 : day.state === 'today' ? 9 : 8,
-                  opacity: beyondGate ? 0.35 : 1,
-                  pointerEvents: beyondGate ? 'none' : undefined,
+                  opacity: buried ? 0 : beyondGate ? 0.35 : 1,
+                  pointerEvents: buried || beyondGate ? 'none' : undefined,
                 }}
               >
                 {showStars ? (
@@ -379,12 +407,12 @@ export default function VineMap({
           {phaseMarks.map(({ span, x, y }) => (
             <div
               key={span.id}
-              className="journey-wood journey-phase-sign"
+              className="journey-phase-sign"
               data-phase-sign={span.id}
               data-phase-top={span.topDate}
               style={{ left: x, top: y }}
             >
-              {span.name.replace(' · ', '：')}
+              <PhaseArrowSign id={span.id} name={span.name.replace(' · ', '：')} />
             </div>
           ))}
           {cloud && gatePhase && gateDay ? (
@@ -398,8 +426,8 @@ export default function VineMap({
                 height: cloud.height,
                 ['--flag-x' as string]: `${cloud.poleX - cloud.left}px`,
                 ['--flag-y' as string]: `${cloud.poleY}px`,
-                ['--flag-scale' as string]: compact || flagOnLeft ? '1.25' : '1.7',
-                ['--lock' as string]: `${Math.round(Math.min(52, Math.max(34, cloud.height * 0.2)))}px`,
+                ['--flag-scale' as string]: compact || flagOnLeft ? '1.15' : '1.35',
+                ['--lock' as string]: `${Math.round(Math.min(86, Math.max(64, cloud.height * 0.32)))}px`,
               }}
             >
               <CloudBank width={cloud.width} height={cloud.height} />
@@ -421,7 +449,7 @@ export default function VineMap({
                       ry="10"
                       fill="none"
                       stroke="url(#chain-glass)"
-                      strokeWidth="4.2"
+                      strokeWidth="5.4"
                       transform={`rotate(${link.rot} ${link.x} ${link.y})`}
                     />
                   ))}

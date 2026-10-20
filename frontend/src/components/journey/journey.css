@@ -300,13 +300,58 @@
 .journey-phase-sign {
   position: absolute;
   z-index: 12;
-  padding: 6px 12px 8px;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.15;
-  white-space: nowrap;
   pointer-events: none;
-  transform: translate(-50%, -50%);
+}
+
+.journey-phase-arrow {
+  width: 210px;
+  transform: translate(0, -78%) rotate(-8deg);
+  transform-origin: 18px 78%;
+  filter: drop-shadow(0 8px 5px rgba(70, 36, 8, 0.28));
+}
+
+.journey-phase-arrow-board {
+  position: relative;
+  height: 52px;
+}
+
+.journey-phase-arrow-board svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.journey-phase-arrow-board span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 0 42px 0 16px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 0 #5c3412,
+    1px 0 0 #5c3412,
+    -1px 0 0 #5c3412,
+    0 -1px 0 #5c3412,
+    0 2px 1px rgba(70, 32, 8, 0.4);
+}
+
+.journey-phase-arrow-post {
+  display: block;
+  width: 12px;
+  height: 46px;
+  margin-top: -6px;
+  margin-left: 26px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, #7a4a1e, #c48945 42%, #6a3c14);
+  box-shadow: inset 2px 0 0 rgba(255, 236, 210, 0.35);
 }
 
 .journey-cloud-lockset {
@@ -317,10 +362,10 @@
 
 .journey-cloud-chain {
   position: absolute;
-  top: 46%;
+  top: 36%;
   left: 50%;
-  width: min(74%, 460px);
-  height: 22%;
+  width: min(92%, 560px);
+  height: 32%;
   overflow: visible;
   transform: translateX(-50%);
 }
@@ -328,7 +373,7 @@
 .journey-cloud-lock {
   position: absolute;
   top: 64%;
-  left: 37%;
+  left: 34%;
   z-index: 3;
   display: grid;
   width: var(--lock, 48px);
@@ -363,7 +408,7 @@
 }
 
 .journey-cloud-lock.is-right {
-  left: 63%;
+  left: 66%;
 }
 
 .journey-cloud-lock svg {
@@ -374,8 +419,8 @@
 
 .journey-cloud-pill {
   position: absolute;
-  top: 80%;
-  left: 37%;
+  top: 86%;
+  left: 34%;
   z-index: 3;
   transform: translateX(-50%);
   border: 1.5px solid rgba(90, 170, 220, 0.85);
@@ -389,7 +434,7 @@
 }
 
 .journey-cloud-pill.is-mint {
-  left: 63%;
+  left: 66%;
   border-color: rgba(70, 180, 110, 0.85);
   color: #1c7a42;
 }
