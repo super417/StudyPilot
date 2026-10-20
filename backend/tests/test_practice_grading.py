@@ -391,7 +391,7 @@ class PracticeGradingTests(unittest.TestCase):
         plan, phase = self._phase(user)
         task = self._task(plan, phase)
         quiz_q = self._question(user, task, "闭区间条件")
-        explain_q = self._question(user, task, "可导条件")
+        explain_q = self._question(user, task, "中值定理要求函数在开区间可导吗？")
         self._chunk(user, "中值定理要求函数在闭区间连续、开区间可导")
 
         def quiz_grader(question_text, answer, source):

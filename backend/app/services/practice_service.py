@@ -36,7 +36,7 @@ from app.services.retrieval import rank
 QuestionGenerator = Callable[[list[str], str], dict | Awaitable[dict]]
 
 _VALID_STATUS = ("pending", "correct", "wrong")
-_SOURCE_MIN_COVERAGE = 0.25
+_SOURCE_MIN_COVERAGE = 0.43
 
 
 class PracticeNotFoundError(ValueError):

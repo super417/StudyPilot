@@ -14,6 +14,7 @@ from app.core.crypto import get_cipher
 from app.models.base import Base
 from app.models.entities import User, UserDocument
 from app.services.document_service import build_context
+from app.services.practice_service import _SOURCE_MIN_COVERAGE
 from app.services.retrieval import rank, tokenize
 
 
@@ -27,6 +28,24 @@ def _chunk(doc_id: str, index: int, content: str) -> dict:
 
 
 class RetrievalRankTests(unittest.TestCase):
+    def test_source_threshold_rejects_generic_python_overlap(self) -> None:
+        # 当前真实语料中的无关题可借通用词得到 0.400 覆盖率。
+        unrelated = [_chunk("generic", 0, "判断：Python 中两个值是否相等。")]
+        self.assertEqual(
+            rank(
+                "判断：Python 的 bool 类型只有 True 和 False 两个值。",
+                unrelated,
+                min_coverage=_SOURCE_MIN_COVERAGE,
+            ),
+            [],
+        )
+        self.assertEqual(_SOURCE_MIN_COVERAGE, 0.43)
+        related = [_chunk("algorithm", 0, "二分查找的常见错误有 5 类")]
+        self.assertEqual(
+            len(rank("二分查找有哪些常见错误？", related, min_coverage=_SOURCE_MIN_COVERAGE)),
+            1,
+        )
+
     def test_min_coverage_rejects_generic_overlap(self) -> None:
         chunks = [_chunk("algorithm", 0, "二分查找的常见错误有 5 类")]
         self.assertEqual(
