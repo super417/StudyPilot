@@ -501,9 +501,9 @@
 }
 
 .journey-root[data-compact='1'] [data-glass-cta='true'] {
-  min-width: min(15.5rem, 72vw);
+  min-width: 0;
   min-height: 3rem;
-  padding: 0.45rem 1rem;
+  padding: 0.45rem 1.25rem;
   font-size: 1.2rem;
 }
 

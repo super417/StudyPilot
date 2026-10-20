@@ -21,7 +21,7 @@ export default function GlassCta({ label, onClick }: { label: string; onClick: (
         type="button"
         data-glass-cta="true"
         onClick={onClick}
-        className="relative z-10 min-h-[4.75rem] min-w-[min(26rem,92vw)] cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-emerald-300/70 to-green-400/60 px-12 py-4 font-serif text-3xl font-semibold uppercase tracking-widest text-transparent shadow-lg shadow-emerald-700/35 after:absolute after:left-1/2 after:top-1/2 after:h-[85%] after:w-[95%] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-white/40 after:content-[''] hover:saturate-[1.15] group-hover:shadow-xl group-hover:shadow-emerald-500/45 active:saturate-[1.4] sm:min-w-[28rem] sm:px-16 sm:py-5 sm:text-4xl"
+        className="relative z-10 min-h-[4.75rem] w-max max-w-[92vw] cursor-pointer overflow-hidden rounded-full bg-gradient-to-r from-emerald-300 to-green-400 px-10 py-4 font-serif text-3xl font-semibold uppercase tracking-widest text-transparent shadow-lg shadow-emerald-700/35 after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:bg-white/30 after:content-[''] hover:saturate-[1.15] group-hover:shadow-xl group-hover:shadow-emerald-500/45 active:saturate-[1.4] sm:px-12 sm:py-5 sm:text-4xl"
       >
         <span className="whitespace-nowrap">{label}</span>
         <p
