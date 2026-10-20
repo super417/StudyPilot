@@ -45,7 +45,6 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
   const [cheer, setCheer] = useState<CheerResponse | null>(null);
   const [dayCheer, setDayCheer] = useState<CheerResponse | null>(null);
   const [scene, setScene] = useState<'entrance' | 'leaving' | 'map'>('entrance');
-  const [climb, setClimb] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const leaveTimer = useRef(0);
 
@@ -210,7 +209,6 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
     setScene('leaving');
     leaveTimer.current = window.setTimeout(() => {
       setScene('map');
-      setClimb(true);
     }, 900);
   };
 
@@ -272,7 +270,6 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
           onBoss={openPractice}
           onNeed={loadAround}
           onBlank={onBlank}
-          climb={climb}
           celebrate={celebrate}
         />
       )}

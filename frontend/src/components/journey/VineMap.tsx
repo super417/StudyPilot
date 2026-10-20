@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate.jpg';
-import { SproutAvatar, StarCrown } from '@/components/journey/glyphs';
+import { StarCrown } from '@/components/journey/glyphs';
 import {
   contentHeight,
   DESKTOP_STEP,
@@ -10,7 +10,7 @@ import {
   primaryTag,
   scrollTopForToday,
 } from '@/journey/layout';
-import { climbPoints, coverPoint, PLATE_SLOTS, pointAlong } from '@/journey/plate';
+import { coverPoint, PLATE_SLOTS } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
@@ -26,12 +26,8 @@ export interface VineMapProps {
   onBoss: (day: JourneyDay) => void;
   onNeed?: (date: string) => void;
   onBlank?: () => void;
-  climb?: boolean;
   celebrate?: boolean;
 }
-
-const CLIMB_MS = 1100;
-const CLIMB_HOLD_MS = 420;
 
 export default function VineMap({
   days,
@@ -43,7 +39,6 @@ export default function VineMap({
   onBoss,
   onNeed,
   onBlank,
-  climb = false,
   celebrate = false,
 }: VineMapProps) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -51,9 +46,7 @@ export default function VineMap({
   const [viewport, setViewport] = useState(640);
   const [scrollTop, setScrollTop] = useState<number | null>(null);
   const [showReturn, setShowReturn] = useState(false);
-  const [climber, setClimber] = useState<{ x: number; y: number; opacity: number } | null>(null);
   const positioned = useRef(false);
-  const climbPlayed = useRef(false);
 
   useEffect(() => {
     const node = scroller.current;
@@ -76,43 +69,6 @@ export default function VineMap({
   const maxScroll = Math.max(0, height - viewport);
   const origin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
   const dayShift = scrollTop == null ? 0 : Math.round((scrollTop - origin) / step);
-
-  useEffect(() => {
-    if (!climb || climbPlayed.current) return undefined;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const node = scroller.current;
-    const viewW = node?.clientWidth ?? 0;
-    const viewH = node?.clientHeight ?? 0;
-    if (viewW < 100 || viewH < 100) return undefined;
-    const trail = climbPoints(viewW, viewH);
-    if (trail.length < 2) return undefined;
-    climbPlayed.current = true;
-    let frame = 0;
-    let finished = false;
-    const started = performance.now();
-    const tick = (now: number) => {
-      const elapsed = now - started;
-      if (elapsed < CLIMB_MS) {
-        const point = pointAlong(trail, elapsed / CLIMB_MS);
-        setClimber({ x: point.x, y: point.y, opacity: 1 });
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-      if (elapsed < CLIMB_MS + CLIMB_HOLD_MS) {
-        const point = trail[trail.length - 1];
-        setClimber({ x: point.x, y: point.y, opacity: 1 });
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-      finished = true;
-      setClimber(null);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      if (!finished) climbPlayed.current = false;
-    };
-  }, [climb, viewport, width]);
 
   useEffect(() => {
     const node = scroller.current;
@@ -240,15 +196,6 @@ export default function VineMap({
               </div>
             );
           })}
-          {climber ? (
-            <div
-              className="pointer-events-none absolute left-0 top-0 z-20"
-              data-climber="sprout"
-              style={{ opacity: climber.opacity, transform: `translate3d(${climber.x}px, ${climber.y}px, 0) translate(-50%, -120%)` }}
-            >
-              <SproutAvatar size={compact ? 64 : 78} />
-            </div>
-          ) : null}
         </div>
       </div>
       {showReturn ? (

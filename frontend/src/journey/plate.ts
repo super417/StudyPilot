@@ -25,25 +25,3 @@ export function coverPoint(fx: number, fy: number, viewW: number, viewH: number)
     y: fy * PLATE_H * scale - offsetY,
   };
 }
-
-/** 从藤的下端爬到今天：只走 delta ≤ 0 的槽，y 从大到小。 */
-export function climbPoints(viewW: number, viewH: number): { x: number; y: number }[] {
-  return PLATE_SLOTS.filter((slot) => slot.delta <= 0)
-    .slice()
-    .sort((a, b) => b.fy - a.fy)
-    .map((slot) => coverPoint(slot.fx, slot.fy, viewW, viewH));
-}
-
-/** 按折线插值。t=0 在第一点，t=1 在最后一点。 */
-export function pointAlong(points: { x: number; y: number }[], t: number): { x: number; y: number } {
-  if (points.length === 0) return { x: 0, y: 0 };
-  if (points.length === 1 || t <= 0) return points[0];
-  if (t >= 1) return points[points.length - 1];
-  const segments = points.length - 1;
-  const scaled = t * segments;
-  const index = Math.min(segments - 1, Math.floor(scaled));
-  const local = scaled - index;
-  const from = points[index];
-  const to = points[index + 1];
-  return { x: from.x + (to.x - from.x) * local, y: from.y + (to.y - from.y) * local };
-}
