@@ -162,7 +162,7 @@ export default function VineMap({
                   <button
                     type="button"
                     className="journey-flag absolute top-1/2 z-30 -translate-y-1/2 px-2.5 py-1 text-xs"
-                    style={{ background: TAG_COLOR[tag], ...outward }}
+                    style={tag === 'boss' ? outward : { background: TAG_COLOR[tag], ...outward }}
                     data-tag={tag}
                     onClick={(event) => {
                       event.stopPropagation();
