@@ -140,10 +140,67 @@ export function scrollTopForToday(todayY: number, viewport: number, maxScroll: n
   return Math.min(maxScroll, Math.max(0, todayY - viewport * 0.6));
 }
 
+/**
+ * 今天落在视口里之后，向上还要留出够滚到计划第一天的空白。
+ * 最负的 dayShift 要让最早一关落到最下面的槽位。
+ */
+export function scrollLead(todayIndex: number, slotMinDelta: number, step: number, baseOrigin: number): number {
+  if (todayIndex < 0 || step <= 0) return 0;
+  const minShift = -todayIndex - slotMinDelta;
+  return Math.max(0, Math.round(-minShift * step - baseOrigin));
+}
+
 /** 从藤根爬到今天。超过 10 节就不爬，直接落在今天。 */
 export function climbSpan(todayIndex: number): { start: number; end: number } | null {
   if (todayIndex <= 0 || todayIndex > 10) return null;
   return { start: 0, end: todayIndex };
+}
+
+export interface PhaseSpan {
+  id: string;
+  name: string;
+  index: number;
+  firstDate: string;
+  lastDate: string;
+  /** 上边界。地图从下往上，这一阶段最靠上的一关就是阶段末日。 */
+  topDate: string;
+}
+
+/** 按时间从早到晚列出阶段。第一关是 startDate，最后一关和上边界都是 endDate。 */
+export function phaseSpans(phases: JourneyPhase[]): PhaseSpan[] {
+  return [...phases]
+    .sort((left, right) => left.startDate.localeCompare(right.startDate) || left.index - right.index)
+    .map((phase) => ({
+      id: phase.id,
+      name: phase.name,
+      index: phase.index,
+      firstDate: phase.startDate,
+      lastDate: phase.endDate,
+      topDate: phase.endDate,
+    }));
+}
+
+/** 相邻两段的分界：前一段的最后一关，和后一段的第一关。 */
+export function phaseBoundary(spans: PhaseSpan[], earlierIndex: number): { endDate: string; startDate: string } | null {
+  const earlier = spans[earlierIndex];
+  const later = spans[earlierIndex + 1];
+  if (!earlier || !later) return null;
+  return { endDate: earlier.lastDate, startDate: later.firstDate };
+}
+
+/**
+ * 牌子锚在阶段上边界：最后一关和下一关的中点。
+ * 没有下一关在画面上时，锚在最后一关上方，不压在关卡中心。
+ */
+export function phaseSignPoint(
+  topNode: { x: number; y: number },
+  nextNode: { x: number; y: number } | null,
+): { x: number; y: number } {
+  if (!nextNode) return { x: topNode.x, y: topNode.y - 68 };
+  return {
+    x: topNode.x + (nextNode.x - topNode.x) / 2,
+    y: topNode.y + (nextNode.y - topNode.y) / 2,
+  };
 }
 
 /** 今天落在哪一段。没有覆盖今天的阶段就没有云门。 */

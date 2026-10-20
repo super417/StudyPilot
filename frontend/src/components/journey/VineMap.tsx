@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
 import mapPlate from '@/assets/journey/map-plate.jpg';
+import signCover from '@/assets/journey/phase-sign-cover.png';
 import { StarCrown } from '@/components/journey/glyphs';
 import { LanternFruit } from '@/components/journey/LanternFruit';
+import { addDaysISO } from '@/lib/dates';
 import {
   contentHeight,
   currentPhase,
@@ -12,32 +14,66 @@ import {
   MOBILE_STEP,
   flagAnchor,
   phaseGateOpen,
+  phaseSignPoint,
+  phaseSpans,
   primaryTag,
   remainingDays,
+  scrollLead,
   scrollTopForToday,
 } from '@/journey/layout';
-import { cloudGateFrame, coverPoint, PLATE_SLOTS } from '@/journey/plate';
+import { cloudFrameForSegment, coverPoint, PLATE_H, PLATE_SLOTS, PLATE_W } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
-/** 云团各瓣在 viewBox 248×160 里的位置。中心不透明，只有最外圈才淡出。 */
-const CLOUD_LOBES = [
-  { cx: 78, cy: 112, rx: 40, ry: 26, fill: '#9ec4ee' },
-  { cx: 168, cy: 114, rx: 42, ry: 24, fill: '#8eb6e6' },
-  { cx: 124, cy: 128, rx: 36, ry: 18, fill: '#a9ccef' },
-  { cx: 40, cy: 96, rx: 34, ry: 26, fill: '#c5ddf6' },
-  { cx: 206, cy: 96, rx: 34, ry: 26, fill: '#b7d2f3' },
-  { cx: 74, cy: 74, rx: 44, ry: 34, fill: '#e7f2fc' },
-  { cx: 124, cy: 64, rx: 50, ry: 36, fill: '#f4f9ff' },
-  { cx: 172, cy: 72, rx: 46, ry: 34, fill: '#d5e6f8' },
-  { cx: 98, cy: 98, rx: 34, ry: 24, fill: '#c9dff6' },
-  { cx: 154, cy: 100, rx: 38, ry: 22, fill: '#b9d4f4' },
-  { cx: 136, cy: 42, rx: 32, ry: 20, fill: '#ffffff' },
-  { cx: 184, cy: 38, rx: 28, ry: 20, fill: '#f7fbff' },
-  { cx: 92, cy: 48, rx: 24, ry: 16, fill: '#ffffff' },
-] as const;
+const CLOUD_FILLS = ['#f7fbff', '#e7f3fd', '#d3e6f8', '#b7d4f4', '#9ec4ee'] as const;
+
+function cloudLobes(width: number, height: number) {
+  const count = Math.max(8, Math.round(width / 72));
+  const lobes: Array<{ cx: number; cy: number; rx: number; ry: number; fill: string }> = [];
+  for (let index = 0; index < count; index += 1) {
+    const t = count === 1 ? 0.5 : index / (count - 1);
+    const cx = t * width;
+    const wave = Math.sin(index * 1.65) * height * 0.07;
+    lobes.push({
+      cx,
+      cy: height * 0.4 + wave + (index % 2 === 0 ? -height * 0.05 : height * 0.04),
+      rx: height * (0.3 + (index % 3) * 0.045),
+      ry: height * (0.26 + (index % 4) * 0.03),
+      fill: CLOUD_FILLS[index % CLOUD_FILLS.length],
+    });
+    lobes.push({
+      cx: cx + (index % 2 === 0 ? height * 0.04 : -height * 0.03),
+      cy: height * 0.66 + wave * 0.35,
+      rx: height * (0.28 + (index % 2) * 0.04),
+      ry: height * 0.2,
+      fill: index % 2 === 0 ? '#a9ccef' : '#8eb6e4',
+    });
+  }
+  return lobes;
+}
+
+function cloudSilhouette(width: number, height: number): string {
+  const steps = Math.max(6, Math.round(width / 96));
+  let path = `M 0 ${height * 0.46}`;
+  for (let index = 1; index <= steps; index += 1) {
+    const x = (width * index) / steps;
+    const y = height * (index % 2 === 0 ? 0.2 : 0.34);
+    const cx = x - width / steps / 2;
+    const cy = height * (index % 2 === 0 ? 0.08 : 0.28);
+    path += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  path += ` L ${width} ${height * 0.72}`;
+  for (let index = steps; index >= 0; index -= 1) {
+    const x = (width * index) / steps;
+    const y = height * (index % 2 === 0 ? 0.9 : 0.74);
+    const cx = x + width / steps / 2;
+    const cy = height * (index % 2 === 0 ? 0.98 : 0.7);
+    path += ` Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  return `${path} Z`;
+}
 
 const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
   const t = index / 12;
@@ -48,42 +84,38 @@ const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
   };
 });
 
-function CloudBank() {
+function CloudBank({ width, height }: { width: number; height: number }) {
+  const lobes = cloudLobes(width, height);
   return (
-    <svg className="journey-cloud-body" viewBox="0 0 248 160" preserveAspectRatio="none" aria-hidden="true">
+    <svg className="journey-cloud-body" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
       <defs>
-        <filter id="journey-cloud-feather" x="-18%" y="-22%" width="136%" height="144%">
-          <feGaussianBlur stdDeviation="3.2" />
+        <filter id="journey-cloud-feather" x="-8%" y="-18%" width="116%" height="136%">
+          <feGaussianBlur stdDeviation="5" />
         </filter>
-        <radialGradient id="journey-cloud-hi" cx="42%" cy="38%" r="62%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="58%" stopColor="#ffffff" stopOpacity="0.92" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
         <linearGradient id="journey-cloud-core" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#f7fbff" />
-          <stop offset="38%" stopColor="#e4f0fc" />
-          <stop offset="72%" stopColor="#c5daf6" />
-          <stop offset="100%" stopColor="#9ec0ea" />
+          <stop offset="36%" stopColor="#e5f1fc" />
+          <stop offset="70%" stopColor="#c5daf6" />
+          <stop offset="100%" stopColor="#9dbeea" />
         </linearGradient>
+        <radialGradient id="journey-cloud-hi" cx="50%" cy="42%" r="55%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="62%" stopColor="#ffffff" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
       </defs>
       <g filter="url(#journey-cloud-feather)">
-        {CLOUD_LOBES.map((lobe) => (
-          <ellipse key={`feather-${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx + 5} ry={lobe.ry + 4} fill="#d4e6f8" />
+        {lobes.map((lobe) => (
+          <ellipse key={`feather-${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx + 8} ry={lobe.ry + 6} fill="#d5e7f8" />
         ))}
       </g>
-      <path
-        fill="url(#journey-cloud-core)"
-        d="M48 98 C36 74 58 44 96 40 C120 22 162 20 186 36 C214 26 234 52 224 78 C238 96 228 122 202 128 C184 148 132 152 104 136 C70 150 34 128 34 106 C28 100 36 98 48 98 Z"
-      />
-      {CLOUD_LOBES.map((lobe) => (
+      <path d={cloudSilhouette(width, height)} fill="url(#journey-cloud-core)" />
+      {lobes.map((lobe) => (
         <ellipse key={`${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx} ry={lobe.ry} fill={lobe.fill} />
       ))}
-      <ellipse cx="112" cy="84" rx="14" ry="9" fill="#8eb4e4" />
-      <ellipse cx="158" cy="88" rx="12" ry="8" fill="#9abbe6" />
-      <ellipse cx="108" cy="52" rx="18" ry="10" fill="url(#journey-cloud-hi)" />
-      <ellipse cx="164" cy="50" rx="16" ry="9" fill="url(#journey-cloud-hi)" />
-      <ellipse cx="78" cy="60" rx="11" ry="7" fill="url(#journey-cloud-hi)" />
+      {lobes.filter((_, index) => index % 4 === 0).map((lobe) => (
+        <ellipse key={`hi-${lobe.cx}`} cx={lobe.cx} cy={lobe.cy - lobe.ry * 0.35} rx={lobe.rx * 0.42} ry={lobe.ry * 0.28} fill="url(#journey-cloud-hi)" />
+      ))}
     </svg>
   );
 }
@@ -175,16 +207,17 @@ export default function VineMap({
   maxShiftRef.current = maxShift;
   const step = compact ? MOBILE_STEP : DESKTOP_STEP;
   const maxScroll = Math.max(0, height - viewport);
-  const origin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
+  const baseOrigin = todayIndex < 0 ? 0 : scrollTopForToday(points[todayIndex]?.y ?? 0, viewport, maxScroll);
+  const slotMinDelta = Math.min(...PLATE_SLOTS.map((slot) => slot.delta));
+  const origin = baseOrigin + scrollLead(todayIndex, slotMinDelta, step, baseOrigin);
   const dayShift = scrollTop == null ? 0 : Math.round((scrollTop - origin) / step);
 
   useEffect(() => {
     const node = scroller.current;
     if (!node || positioned.current || todayIndex < 0 || width < 100) return;
-    const maxScroll = Math.max(0, height - node.clientHeight);
-    node.scrollTop = scrollTopForToday(points[todayIndex]?.y ?? 0, node.clientHeight, maxScroll);
+    node.scrollTop = origin;
     positioned.current = true;
-  }, [height, points, todayIndex, width]);
+  }, [height, origin, points, todayIndex, width]);
 
   useEffect(() => {
     const node = scroller.current;
@@ -204,9 +237,6 @@ export default function VineMap({
     return () => node.removeEventListener('scroll', onScroll);
   }, [origin, points, step, todayIndex]);
 
-  const cloud = gatePhase && !gateOpen && gateDay ? cloudGateFrame(width, viewport) : null;
-  const flagOnLeft = cloud ? cloud.poleX > width * 0.75 : false;
-
   const plateDays = useMemo(
     () =>
       PLATE_SLOTS.map((slot) => {
@@ -217,18 +247,33 @@ export default function VineMap({
     [dayShift, days, todayIndex, viewport, width],
   );
 
+  const lockedNodes = plateDays.filter((item) => item.day && item.day.state === 'future');
+  const cloud = gatePhase && !gateOpen && lockedNodes.length > 0 ? cloudFrameForSegment(lockedNodes.map((item) => item.at), width, viewport) : null;
+  const flagOnLeft = cloud ? cloud.poleX > width * 0.75 : false;
+  const spans = phaseSpans(phases);
+  const phaseMarks = spans.flatMap((span) => {
+    const top = plateDays.find((item) => item.day?.date === span.topDate);
+    if (!top) return [];
+    const next = plateDays.find((item) => item.day?.date === addDaysISO(span.topDate, 1));
+    const anchor = phaseSignPoint(top.at, next ? next.at : null);
+    const outward = anchor.x > width * 0.55 ? 84 : -84;
+    return [{ span, x: Math.min(width - 78, Math.max(78, anchor.x + outward)), y: anchor.y }];
+  });
+
   useEffect(() => {
     const missing = plateDays.find((item) => item.day && item.day.loaded === false);
     if (missing?.day) onNeed?.(missing.day.date);
   }, [onNeed, plateDays]);
 
+  const plateScale = Math.max(width / PLATE_W, viewport / PLATE_H);
+  const signCoverAt = coverPoint(818 / PLATE_W, 408 / PLATE_H, width, viewport);
+
   const jumpToday = () => {
     const node = scroller.current;
     if (!node || todayIndex < 0) return;
-    const maxScroll = Math.max(0, height - node.clientHeight);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     node.scrollTo({
-      top: scrollTopForToday(points[todayIndex].y, node.clientHeight, maxScroll),
+      top: origin,
       behavior: reduce ? 'auto' : 'smooth',
     });
   };
@@ -240,13 +285,26 @@ export default function VineMap({
       data-journey-map="true"
       data-day-shift={dayShift}
     >
-      <div className="relative" style={{ height, width: '100%' }}>
+      <div className="relative" style={{ height: Math.max(height, origin + viewport + 1), width: '100%' }}>
         <div className="sticky top-0 z-0 h-[100dvh] overflow-hidden" onClick={() => onBlank?.()}>
           <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
+          <img
+            src={signCover}
+            alt=""
+            draggable={false}
+            className="pointer-events-none absolute z-[1]"
+            style={{
+              left: signCoverAt.x,
+              top: signCoverAt.y,
+              width: 182 * plateScale,
+              height: 184 * plateScale,
+            }}
+          />
           {plateDays.map(({ slot, day, at }) => {
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
             const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
+            const locked = day.state === 'future';
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -258,7 +316,7 @@ export default function VineMap({
                   left: at.x,
                   top: at.y,
                   transform: 'translate(-50%, -50%)',
-                  zIndex: day.state === 'today' ? 9 : 8,
+                  zIndex: locked ? 2 : day.state === 'today' ? 9 : 8,
                   opacity: beyondGate ? 0.35 : 1,
                   pointerEvents: beyondGate ? 'none' : undefined,
                 }}
@@ -318,6 +376,17 @@ export default function VineMap({
               </div>
             );
           })}
+          {phaseMarks.map(({ span, x, y }) => (
+            <div
+              key={span.id}
+              className="journey-wood journey-phase-sign"
+              data-phase-sign={span.id}
+              data-phase-top={span.topDate}
+              style={{ left: x, top: y }}
+            >
+              {span.name.replace(' · ', '：')}
+            </div>
+          ))}
           {cloud && gatePhase && gateDay ? (
             <div
               className="journey-cloud-gate"
@@ -330,12 +399,12 @@ export default function VineMap({
                 ['--flag-x' as string]: `${cloud.poleX - cloud.left}px`,
                 ['--flag-y' as string]: `${cloud.poleY}px`,
                 ['--flag-scale' as string]: compact || flagOnLeft ? '1.25' : '1.7',
-                ['--lock' as string]: `${Math.round(cloud.width * 0.16)}px`,
+                ['--lock' as string]: `${Math.round(Math.min(52, Math.max(34, cloud.height * 0.2)))}px`,
               }}
             >
-              <CloudBank />
+              <CloudBank width={cloud.width} height={cloud.height} />
               <div className="journey-cloud-lockset">
-                <svg className="journey-cloud-chain" viewBox="0 0 520 88" aria-hidden="true">
+                <svg className="journey-cloud-chain" viewBox="0 0 520 88" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                   <defs>
                     <linearGradient id="chain-glass" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />

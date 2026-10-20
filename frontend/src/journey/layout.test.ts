@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { climbSpan, currentPhase, flagAnchor, isCompactViewport, layoutDays, maxDayShiftBeforeGate, phaseGateOpen, primaryTag, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
+import { climbSpan, currentPhase, flagAnchor, isCompactViewport, layoutDays, maxDayShiftBeforeGate, phaseBoundary, phaseGateOpen, phaseSignPoint, phaseSpans, primaryTag, scrollLead, scrollTopForToday, todayCta, vinePath, visibleIndices } from './layout';
 import { buildJourneyDemo } from './mock';
 import { coverPoint } from './plate';
 import type { JourneyDay } from './types';
@@ -99,6 +99,35 @@ describe('journey layout', () => {
         [day({ date: '2026-10-10', total: 4, done: 2, rate: 50, state: 'past' })],
       ),
     ).toBe(false);
+  });
+
+  it('lists phases from the bottom up and anchors a sign on the upper boundary', () => {
+    const demo = buildJourneyDemo();
+    const spans = phaseSpans(demo.phases);
+    expect(spans.map((span) => [span.name, span.firstDate, span.lastDate, span.topDate])).toEqual([
+      ['阶段一 · 扎根', '2026-07-22', '2026-08-31', '2026-08-31'],
+      ['阶段二 · 数据分析', '2026-09-01', '2026-10-16', '2026-10-16'],
+      ['阶段三 · 图表表达', '2026-10-17', '2026-11-18', '2026-11-18'],
+    ]);
+    expect(phaseBoundary(spans, 0)).toEqual({ endDate: '2026-08-31', startDate: '2026-09-01' });
+    const phaseTwoTop = { x: 700, y: 720 };
+    const nextLevel = { x: 900, y: 540 };
+    const anchor = phaseSignPoint(phaseTwoTop, nextLevel);
+    expect(anchor.y).toBeGreaterThan(nextLevel.y);
+    expect(anchor.y).toBeLessThan(phaseTwoTop.y);
+    const phaseStart = { x: 400, y: 1100 };
+    const middle = (phaseStart.y + phaseTwoTop.y) / 2;
+    expect(Math.abs(anchor.y - middle)).toBeGreaterThan(40);
+  });
+
+  it('leaves enough scroll above today to reach the first day', () => {
+    const todayIndex = 89;
+    const step = 140;
+    const baseOrigin = 3828;
+    const lead = scrollLead(todayIndex, -3, step, baseOrigin);
+    const origin = baseOrigin + lead;
+    const dayShiftAtTop = Math.round((0 - origin) / step);
+    expect(todayIndex + -3 + dayShiftAtTop).toBeLessThanOrEqual(0);
   });
 
   it('stops the visible window on the phase-end day', () => {
