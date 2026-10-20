@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 
-import mapPlate from '@/assets/journey/map-plate.jpg';
-import signErase from '@/assets/journey/phase-sign-erase.png';
+import mapPlate from '@/assets/journey/map-plate-clean.jpg';
 import { StarCrown } from '@/components/journey/glyphs';
 import { LanternFruit } from '@/components/journey/LanternFruit';
 import { addDaysISO } from '@/lib/dates';
@@ -26,9 +25,6 @@ import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
-
-/** 画在地图上的旧木牌范围。只盖掉牌子像素，藤蔓像素的透明度为 0。 */
-const SIGN_ERASE = { x: 818, y: 403, w: 175, h: 272 };
 
 function mistOutline(width: number, height: number): string {
   const steps = 8;
@@ -292,9 +288,6 @@ export default function VineMap({
     if (missing?.day) onNeed?.(missing.day.date);
   }, [onNeed, plateDays]);
 
-  const plateScale = Math.max(width / PLATE_W, viewport / PLATE_H);
-  const signEraseAt = coverPoint(SIGN_ERASE.x / PLATE_W, SIGN_ERASE.y / PLATE_H, width, viewport);
-
   const jumpToday = () => {
     const node = scroller.current;
     if (!node || todayIndex < 0) return;
@@ -315,18 +308,6 @@ export default function VineMap({
       <div className="relative" style={{ height: Math.max(height, origin + viewport + 1), width: '100%' }}>
         <div className="sticky top-0 z-0 h-[100dvh] overflow-hidden" onClick={() => onBlank?.()}>
           <img src={mapPlate} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
-          <img
-            src={signErase}
-            alt=""
-            draggable={false}
-            className="pointer-events-none absolute z-[1]"
-            style={{
-              left: signEraseAt.x,
-              top: signEraseAt.y,
-              width: SIGN_ERASE.w * plateScale,
-              height: SIGN_ERASE.h * plateScale,
-            }}
-          />
           {plateDays.map(({ slot, day, at }) => {
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
