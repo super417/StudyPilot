@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PLATE_SLOTS, VINE_LEFT, VINE_RIGHT, cloudFrameForSegment, coverPoint, vineLeftPlate, vineRightPlate } from './plate';
+import { PLATE_SLOTS, TENDRIL_WRAPS, tendrilY, VINE_LEFT, VINE_RIGHT, cloudFrameForSegment, coverPoint, vineLeftPlate, vineRightPlate } from './plate';
 
 describe('concept plate cover', () => {
   it('keeps the center of a 16:9 viewport on the concept center', () => {
@@ -67,6 +67,15 @@ describe('PLATE_SLOTS', () => {
       const y = slot.fy * 720;
       expect(x).toBeGreaterThan(vineLeftPlate(y - 4, y + 4) + 30);
       expect(x).toBeLessThan(vineRightPlate(y - 4, y + 4) - 30);
+    }
+  });
+
+  it('sits every slot on the centre line of its spiral tendril', () => {
+    expect(PLATE_SLOTS.length).toBe(TENDRIL_WRAPS.length * 3);
+    for (const slot of PLATE_SLOTS) {
+      const x = slot.fx * 1280;
+      const y = slot.fy * 720;
+      expect(Math.abs(y - tendrilY(x, slot.segment))).toBeLessThan(6);
     }
   });
 });

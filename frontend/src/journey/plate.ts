@@ -3,22 +3,50 @@ export const PLATE_W = 1280;
 export const PLATE_H = 720;
 
 /**
- * 底图上关卡果实的锚点（底图比例坐标）。fy 越大越靠下，对应更早的日期。
- * delta 0 是今天，负数是过去，正数是未来。
- * 每 3 颗一段，沿藤的螺旋条从左下斜向右上；一段走完回到左下开始下一段（之字形）。
- * segment 是段号，从下往上 0、1、2。
+ * 缠在主茎上的那条螺旋藤条的中心线（底图像素，最下面一圈）。
+ * 用户在截图上红线标出藤条两边，取两线中点换算到底图得到；
+ * 往上每一圈是同一条线整体上移 TENDRIL_WRAPS 里的像素（沿线做纹理相关找到的周期）。
  */
-export const PLATE_SLOTS = [
-  { fx: 0.4414, fy: 0.7986, delta: -4, segment: 0 },
-  { fx: 0.5156, fy: 0.7569, delta: -3, segment: 0 },
-  { fx: 0.5898, fy: 0.7111, delta: -2, segment: 0 },
-  { fx: 0.4281, fy: 0.5903, delta: -1, segment: 1 },
-  { fx: 0.5023, fy: 0.5444, delta: 0, segment: 1 },
-  { fx: 0.5797, fy: 0.4972, delta: 1, segment: 1 },
-  { fx: 0.4922, fy: 0.3472, delta: 2, segment: 2 },
-  { fx: 0.5406, fy: 0.3028, delta: 3, segment: 2 },
-  { fx: 0.6000, fy: 0.2569, delta: 4, segment: 2 },
+export const TENDRIL_BASE: ReadonlyArray<readonly [number, number]> = [
+  [488, 598],
+  [590, 551],
+  [693, 495],
+  [786, 453],
+  [854, 402],
+];
+export const TENDRIL_WRAPS = [0, -144, -284] as const;
+
+/** 第 wrap 圈藤条在底图 x 处的中心线 y。 */
+export function tendrilY(x: number, wrap: number): number {
+  const pts = TENDRIL_BASE;
+  let index = 0;
+  while (index < pts.length - 2 && x > pts[index + 1][0]) index += 1;
+  const [x0, y0] = pts[index];
+  const [x1, y1] = pts[index + 1];
+  return y0 + ((x - x0) / (x1 - x0)) * (y1 - y0) + TENDRIL_WRAPS[wrap];
+}
+
+/** 每圈藤条上的 3 个落点（底图 x），左下到右上大致等距。最上一圈藤条更靠右，起点右移。 */
+const WRAP_XS = [
+  [540, 650, 760],
+  [540, 650, 760],
+  [625, 705, 785],
 ] as const;
+
+/**
+ * 关卡果实的锚点（底图比例坐标）。fy 越大越靠下，对应更早的日期。
+ * delta 0 是今天，负数是过去，正数是未来。
+ * 每 3 颗一段坐在同一圈螺旋藤条的中心线上，从左下斜向右上；
+ * 一段走完回到左下，坐上一圈藤条（之字形）。segment 是段号（= 藤条圈号），从下往上 0、1、2。
+ */
+export const PLATE_SLOTS = WRAP_XS.flatMap((xs, segment) =>
+  xs.map((x, index) => ({
+    fx: x / PLATE_W,
+    fy: tendrilY(x, segment) / PLATE_H,
+    delta: segment * 3 + index - 4,
+    segment,
+  })),
+);
 
 export interface CloudGateFrame {
   top: number;
