@@ -180,15 +180,7 @@ export default function VineMap({
                     event.stopPropagation();
                     onSelect(day);
                   }}
-                >
-                  {day.state === 'today' ? (
-                    <span
-                      className="journey-today-pulse pointer-events-none absolute rounded-full border-4 border-[#ffe56a]"
-                      data-today-ring="true"
-                      style={{ inset: '-8%', boxShadow: '0 0 0 6px rgba(255,214,60,0.45)' }}
-                    />
-                  ) : null}
-                </button>
+                />
                 <div className={`journey-date pointer-events-none absolute left-1/2 top-[78%] -translate-x-1/2 whitespace-nowrap px-2 py-0.5 text-center text-[11px] font-semibold ${day.state === 'empty' ? 'opacity-70' : ''}`}>
                   {day.date.slice(5)}
                   {day.state === 'future' && day.total > 0 ? ` · ${day.total}项` : ''}
