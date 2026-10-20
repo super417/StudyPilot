@@ -34,19 +34,68 @@
 }
 
 .journey-status {
+  position: relative;
+  isolation: isolate;
   display: flex;
   max-width: min(720px, calc(100% - 92px));
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: 8px 16px;
-  border: 4px solid #e9f7ff;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 999px;
-  background: linear-gradient(#8fd4ff, #2f96e4);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.46) 0%, rgba(255, 255, 255, 0.14) 48%, rgba(255, 255, 255, 0.06) 100%);
   color: white;
-  text-shadow: 0 2px 0 rgba(10, 70, 120, 0.35);
+  text-shadow: 0 1px 2px rgba(6, 28, 52, 0.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
   box-shadow:
-    0 8px 0 #1b6eab,
-    inset 0 2px 0 rgba(255, 255, 255, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -12px 18px rgba(255, 255, 255, 0.18),
+    0 10px 26px rgba(16, 48, 78, 0.16);
+}
+
+.journey-status::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 10%;
+  right: 10%;
+  top: 1px;
+  height: 48%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.journey-status::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: -6%;
+  right: -6%;
+  bottom: -62%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 68%);
+  pointer-events: none;
+}
+
+.journey-status > span {
+  position: relative;
+  z-index: 1;
+}
+
+.journey-status > span + span {
+  margin-left: 0.8rem;
+  padding-left: 0.8rem;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.55);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .journey-status {
+    background: rgba(255, 255, 255, 0.55);
+  }
 }
 
 .journey-chip {
