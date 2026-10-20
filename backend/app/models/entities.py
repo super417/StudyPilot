@@ -41,6 +41,7 @@ class User(Base):
     direction: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     target_school: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     bio: Mapped[str] = mapped_column(String(280), default="", nullable=False)
+    assistant_name: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     failed_login_count: Mapped[int] = mapped_column(
         Integer, default=0, nullable=False
     )

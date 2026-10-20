@@ -303,11 +303,13 @@ class SourceRefsMigrationTests(unittest.TestCase):
             config.set_main_option("script_location", str(backend / "alembic"))
             config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
             try:
-                command.upgrade(config, "head")
+                # Pin to the source_refs revision pair so later heads (e.g. assistant_name)
+                # do not change what downgrade -1 means for this older migration.
+                command.upgrade(config, "b7c8d9e0f1a2")
                 self._assert_column(database, True)
-                command.downgrade(config, "-1")
+                command.downgrade(config, "a6b7c8d9e0f1")
                 self._assert_column(database, False)
-                command.upgrade(config, "head")
+                command.upgrade(config, "b7c8d9e0f1a2")
                 self._assert_column(database, True)
             finally:
                 get_settings.cache_clear()
