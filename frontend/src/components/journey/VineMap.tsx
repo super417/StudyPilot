@@ -16,38 +16,27 @@ import {
   remainingDays,
   scrollTopForToday,
 } from '@/journey/layout';
-import { cloudGateFrame, coverPoint, nodeUnderCloud, PLATE_SLOTS } from '@/journey/plate';
+import { cloudGateFrame, coverPoint, PLATE_SLOTS } from '@/journey/plate';
 import type { JourneyDay, JourneyPhase } from '@/journey/types';
 
 const TAG_LABEL = { boss: '阶段 Boss', reinforce: '补强', carried: '顺延' } as const;
 const TAG_COLOR = { reinforce: '#3b82f6', carried: '#f59e0b' } as const;
 
-const CLOUD_PUFFS = [
-  { x: -8, y: 6, w: 30, h: 54 },
-  { x: 8, y: -8, w: 32, h: 60 },
-  { x: 26, y: 2, w: 28, h: 52 },
-  { x: 40, y: -12, w: 34, h: 64 },
-  { x: 56, y: 0, w: 30, h: 56 },
-  { x: 70, y: -10, w: 32, h: 62 },
-  { x: 84, y: 8, w: 26, h: 50 },
-  { x: 14, y: 26, w: 38, h: 48 },
-  { x: 46, y: 22, w: 40, h: 52 },
-  { x: 72, y: 28, w: 34, h: 46 },
-] as const;
-
-const CLOUD_SPARKS = [
-  [11, 28],
-  [19, 12],
-  [27, 34],
-  [36, 16],
-  [45, 30],
-  [54, 11],
-  [63, 33],
-  [71, 15],
-  [79, 36],
-  [88, 18],
-  [94, 32],
-  [41, 44],
+/** 云团各瓣在 viewBox 248×160 里的位置。中心不透明，只有最外圈才淡出。 */
+const CLOUD_LOBES = [
+  { cx: 78, cy: 112, rx: 40, ry: 26, fill: '#9ec4ee' },
+  { cx: 168, cy: 114, rx: 42, ry: 24, fill: '#8eb6e6' },
+  { cx: 124, cy: 128, rx: 36, ry: 18, fill: '#a9ccef' },
+  { cx: 40, cy: 96, rx: 34, ry: 26, fill: '#c5ddf6' },
+  { cx: 206, cy: 96, rx: 34, ry: 26, fill: '#b7d2f3' },
+  { cx: 74, cy: 74, rx: 44, ry: 34, fill: '#e7f2fc' },
+  { cx: 124, cy: 64, rx: 50, ry: 36, fill: '#f4f9ff' },
+  { cx: 172, cy: 72, rx: 46, ry: 34, fill: '#d5e6f8' },
+  { cx: 98, cy: 98, rx: 34, ry: 24, fill: '#c9dff6' },
+  { cx: 154, cy: 100, rx: 38, ry: 22, fill: '#b9d4f4' },
+  { cx: 136, cy: 42, rx: 32, ry: 20, fill: '#ffffff' },
+  { cx: 184, cy: 38, rx: 28, ry: 20, fill: '#f7fbff' },
+  { cx: 92, cy: 48, rx: 24, ry: 16, fill: '#ffffff' },
 ] as const;
 
 const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
@@ -58,6 +47,46 @@ const CHAIN_LINKS = Array.from({ length: 13 }, (_, index) => {
     rot: (0.5 - t) * 16,
   };
 });
+
+function CloudBank() {
+  return (
+    <svg className="journey-cloud-body" viewBox="0 0 248 160" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <filter id="journey-cloud-feather" x="-18%" y="-22%" width="136%" height="144%">
+          <feGaussianBlur stdDeviation="3.2" />
+        </filter>
+        <radialGradient id="journey-cloud-hi" cx="42%" cy="38%" r="62%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="58%" stopColor="#ffffff" stopOpacity="0.92" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="journey-cloud-core" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f7fbff" />
+          <stop offset="38%" stopColor="#e4f0fc" />
+          <stop offset="72%" stopColor="#c5daf6" />
+          <stop offset="100%" stopColor="#9ec0ea" />
+        </linearGradient>
+      </defs>
+      <g filter="url(#journey-cloud-feather)">
+        {CLOUD_LOBES.map((lobe) => (
+          <ellipse key={`feather-${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx + 5} ry={lobe.ry + 4} fill="#d4e6f8" />
+        ))}
+      </g>
+      <path
+        fill="url(#journey-cloud-core)"
+        d="M48 98 C36 74 58 44 96 40 C120 22 162 20 186 36 C214 26 234 52 224 78 C238 96 228 122 202 128 C184 148 132 152 104 136 C70 150 34 128 34 106 C28 100 36 98 48 98 Z"
+      />
+      {CLOUD_LOBES.map((lobe) => (
+        <ellipse key={`${lobe.cx}-${lobe.cy}`} cx={lobe.cx} cy={lobe.cy} rx={lobe.rx} ry={lobe.ry} fill={lobe.fill} />
+      ))}
+      <ellipse cx="112" cy="84" rx="14" ry="9" fill="#8eb4e4" />
+      <ellipse cx="158" cy="88" rx="12" ry="8" fill="#9abbe6" />
+      <ellipse cx="108" cy="52" rx="18" ry="10" fill="url(#journey-cloud-hi)" />
+      <ellipse cx="164" cy="50" rx="16" ry="9" fill="url(#journey-cloud-hi)" />
+      <ellipse cx="78" cy="60" rx="11" ry="7" fill="url(#journey-cloud-hi)" />
+    </svg>
+  );
+}
 
 function BossPennant({ date, className, onClick }: { date: string; className: string; onClick: (event: MouseEvent<HTMLButtonElement>) => void }) {
   return (
@@ -218,7 +247,6 @@ export default function VineMap({
             if (!day) return null;
             const tag = day.loaded === false ? null : primaryTag(day.tags.filter((item) => item !== 'boss'));
             const beyondGate = Boolean(gatePhase) && !gateOpen && day.date > gatePhase.endDate;
-            const buried = cloud ? nodeUnderCloud(at.x, at.y, cloud) : false;
             const showStars = day.state === 'past' || day.state === 'today';
             const anchor = flagAnchor(at.x, width);
             const outward = anchor.side === 'right' ? { left: anchor.offset } : { right: anchor.offset };
@@ -230,10 +258,9 @@ export default function VineMap({
                   left: at.x,
                   top: at.y,
                   transform: 'translate(-50%, -50%)',
-                  zIndex: day.state === 'today' ? 5 : 1,
-                  opacity: buried ? 0 : beyondGate ? 0.35 : 1,
-                  visibility: buried ? 'hidden' : undefined,
-                  pointerEvents: buried || beyondGate ? 'none' : undefined,
+                  zIndex: day.state === 'today' ? 9 : 8,
+                  opacity: beyondGate ? 0.35 : 1,
+                  pointerEvents: beyondGate ? 'none' : undefined,
                 }}
               >
                 {showStars ? (
@@ -306,19 +333,7 @@ export default function VineMap({
                 ['--lock' as string]: `${Math.round(cloud.width * 0.16)}px`,
               }}
             >
-              <div className="journey-cloud-halo" />
-              <div className="journey-cloud-core" />
-              {CLOUD_PUFFS.map((puff) => (
-                <div
-                  key={`${puff.x}-${puff.y}`}
-                  className="journey-cloud-puff"
-                  style={{ left: `${puff.x}%`, top: `${puff.y}%`, width: `${puff.w}%`, height: `${puff.h}%` }}
-                />
-              ))}
-              <div className="journey-cloud-iris" />
-              {CLOUD_SPARKS.map(([x, y], index) => (
-                <i key={`${x}-${y}`} className="journey-cloud-spark" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${index * 0.22}s` }} />
-              ))}
+              <CloudBank />
               <div className="journey-cloud-lockset">
                 <svg className="journey-cloud-chain" viewBox="0 0 520 88" aria-hidden="true">
                   <defs>
@@ -368,10 +383,6 @@ export default function VineMap({
                   event.stopPropagation();
                   onBoss(gateDay);
                 }}
-              />
-              <div
-                className="journey-cloud-puff is-front"
-                style={{ left: cloud.poleX - cloud.left - 36, top: cloud.poleY - 16, width: 84, height: 48 }}
               />
             </div>
           ) : null}

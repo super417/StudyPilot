@@ -24,42 +24,68 @@ export interface CloudGateFrame {
   poleY: number;
 }
 
-/** 效果图上这一段藤干的中心和宽度。云团按 2.9 倍藤干宽来，不铺满屏幕。 */
-const PLATE_VINE_FX = 0.551;
-const PLATE_VINE_FY = 0.6;
-const PLATE_VINE_W = 72;
+/**
+ * 阶段门这一段藤的中心线，效果图像素。
+ * 采样自地图上闸门所在的右侧藤段（约 fy 0.48–0.62），不是整株藤，也不是视口宽度。
+ */
+export const GATE_VINE_PATH = [
+  { x: 841, y: 344 },
+  { x: 838, y: 356 },
+  { x: 772, y: 376 },
+  { x: 704, y: 392 },
+  { x: 805, y: 408 },
+  { x: 838, y: 420 },
+  { x: 751, y: 436 },
+  { x: 718, y: 448 },
+] as const;
+
+/** 中心线向外的余量：盖住藤干厚度，再留一圈薄边。单位是效果图像素。 */
+const GATE_VINE_PAD_X = 58;
+const GATE_VINE_PAD_Y = 26;
 
 /**
- * 局部云团：宽约 2.9 倍藤干且不超过视口 42%，高约 0.55 倍云宽。
- * 云心贴藤段中心，左右各留至少 28% 天空。旗杆落在云团厚实处。
+ * 云层跟这一段藤的包围盒走。
+ * 横向 = 路径 minX..maxX 再加左右余量；纵向同理。宽度随这段藤在画面上的长短变化，不铺满屏幕。
+ * 旗杆落在云团右侧厚实处。
  */
 export function cloudGateFrame(viewW: number, viewH: number): CloudGateFrame {
   const scale = Math.max(viewW / PLATE_W, viewH / PLATE_H);
-  const vine = coverPoint(PLATE_VINE_FX, PLATE_VINE_FY, viewW, viewH);
-  const sky = viewW * 0.28;
-  let width = Math.round(Math.min(2.9 * PLATE_VINE_W * scale, viewW * 0.42, viewW - sky * 2));
-  width = Math.max(96, width);
-  const height = Math.round(width * 0.55);
-  const half = width / 2;
-  const minCenter = sky + half;
-  const maxCenter = viewW - sky - half;
-  const center = minCenter <= maxCenter ? Math.min(maxCenter, Math.max(minCenter, vine.x)) : viewW / 2;
-  const left = Math.round(center - half);
-  const top = Math.round(vine.y - height * 0.62);
+  const offsetX = (PLATE_W * scale - viewW) / 2;
+  const offsetY = (PLATE_H * scale - viewH) / 2;
+  const xs = GATE_VINE_PATH.map((point) => point.x * scale - offsetX);
+  const ys = GATE_VINE_PATH.map((point) => point.y * scale - offsetY);
+  const marginX = GATE_VINE_PAD_X * scale;
+  const marginY = GATE_VINE_PAD_Y * scale;
+  let left = Math.min(...xs) - marginX;
+  let right = Math.max(...xs) + marginX;
+  let top = Math.min(...ys) - marginY;
+  let bottom = Math.max(...ys) + marginY;
+  const sky = Math.min(viewW * 0.06, 48);
+  if (right - left > viewW - sky * 2) {
+    const mid = (left + right) / 2;
+    const half = (viewW - sky * 2) / 2;
+    left = mid - half;
+    right = mid + half;
+  }
+  left = Math.max(sky, left);
+  right = Math.min(viewW - sky, right);
+  top = Math.max(0, top);
+  const width = Math.max(96, Math.round(right - left));
+  const height = Math.max(72, Math.round(bottom - top));
   return {
-    top,
-    left,
+    top: Math.round(top),
+    left: Math.round(left),
     width,
     height,
-    poleX: Math.round(left + width * 0.76),
+    poleX: Math.round(left + width * 0.74),
     poleY: Math.round(height * 0.46),
   };
 }
 
-/** 节点中心落在这块云团里时，日期和星星要藏起来，也不能点。 */
+/** 点是否落在云团厚实核心里。相邻节点仍画在云层上面，这里只描述核心范围。 */
 export function nodeUnderCloud(nodeX: number, nodeY: number, frame: Pick<CloudGateFrame, 'top' | 'left' | 'width' | 'height'>): boolean {
-  const yHit = nodeY >= frame.top - 36 && nodeY <= frame.top + frame.height * 0.8;
-  const xHit = nodeX >= frame.left + frame.width * 0.06 && nodeX <= frame.left + frame.width * 0.98;
+  const yHit = nodeY >= frame.top + frame.height * 0.2 && nodeY <= frame.top + frame.height * 0.78;
+  const xHit = nodeX >= frame.left + frame.width * 0.14 && nodeX <= frame.left + frame.width * 0.86;
   return yHit && xHit;
 }
 
