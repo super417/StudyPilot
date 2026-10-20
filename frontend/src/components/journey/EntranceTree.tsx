@@ -8,7 +8,6 @@ import sky from '@/assets/journey/sky.webp';
 import star from '@/assets/journey/star.webp';
 import sun from '@/assets/journey/sun.webp';
 import tree from '@/assets/journey/tree.webp';
-import wind from '@/assets/journey/wind.webp';
 import wood from '@/assets/journey/wood.webp';
 import { FruitGlyph, StarCrown } from '@/components/journey/glyphs';
 import type { StarColor } from '@/journey/stars';
@@ -157,7 +156,6 @@ export function EntranceTree({
         >
           <span className="journey-sway journey-tree-box relative block">
             <img src={tree} alt="" draggable={false} className="h-full w-full object-contain object-bottom" />
-            <img src={wind} alt="" draggable={false} className="pointer-events-none absolute left-[6%] top-[4%] w-[88%] opacity-90" />
             {CANOPY_LEAVES.map((item) => (
               <img
                 key={item.left}
