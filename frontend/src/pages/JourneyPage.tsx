@@ -285,7 +285,7 @@ function JourneyPage({ onBack, onNavigate }: JourneyPageProps) {
       </header>
       {data?.plan ? (
         <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <button type="button" className="journey-pill pointer-events-auto mx-auto block w-full max-w-lg px-6 py-3" onClick={openRoadmap}>
+          <button type="button" className="journey-glass pointer-events-auto mx-auto block w-full max-w-lg px-8 py-3" onClick={openRoadmap}>
             <span className="block text-2xl font-black tracking-wide">{cta.title}</span>
             <span className="block text-xs font-semibold opacity-90">{cta.subtitle}</span>
           </button>
