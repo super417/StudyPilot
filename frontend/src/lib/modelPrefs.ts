@@ -39,7 +39,7 @@ export interface ModelPrefs {
 /** 推理强度档位（离散四档，含说明）。 */
 export const STRENGTH_OPTIONS: readonly StrengthOption[] = [
   { id: 'low', label: '低', description: '最快响应，适合简单问答与草稿' },
-  { id: 'standard', label: '标准', description: '速度与质量均衡，日常学习推荐' },
+  { id: 'standard', label: '标准', description: '适合日常学习与一般问答' },
   { id: 'high', label: '高', description: '更充分的推理，适合复杂题目讲解' },
   { id: 'deep', label: '深度', description: '最大化推理深度，耗时更长，适合难题攻坚' },
 ];
