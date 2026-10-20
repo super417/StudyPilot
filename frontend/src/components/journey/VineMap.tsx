@@ -158,16 +158,48 @@ export default function VineMap({
                     }}
                   />
                 ) : null}
-                {tag ? (
+                {tag === 'boss' ? (
+                  <button
+                    type="button"
+                    className={`journey-boss-flag absolute top-1/2 z-30 ${anchor.side === 'right' ? 'is-right' : 'is-left'}`}
+                    style={outward}
+                    data-tag="boss"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onBoss(day);
+                    }}
+                  >
+                    <span className="journey-boss-pole" aria-hidden="true" />
+                    <span className="journey-boss-cloth">
+                      <svg viewBox="0 0 112 44" aria-hidden="true" preserveAspectRatio="none">
+                        <defs>
+                          <radialGradient id={`boss-jelly-${day.date}`} cx="38%" cy="48%" r="72%">
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.96" />
+                            <stop offset="48%" stopColor="#8b5cf6" stopOpacity="0.58" />
+                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.12" />
+                          </radialGradient>
+                        </defs>
+                        <path
+                          d="M2 5 H98 L76 22 L98 39 H2 Z"
+                          fill={`url(#boss-jelly-${day.date})`}
+                          stroke="#fff6e4"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
+                        />
+                        <path d="M8 11 Q48 7 90 10" fill="none" stroke="white" strokeOpacity="0.8" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                      <span>{TAG_LABEL[tag]}</span>
+                    </span>
+                  </button>
+                ) : tag ? (
                   <button
                     type="button"
                     className="journey-flag absolute top-1/2 z-30 -translate-y-1/2 px-2.5 py-1 text-xs"
-                    style={tag === 'boss' ? outward : { background: TAG_COLOR[tag], ...outward }}
+                    style={{ background: TAG_COLOR[tag], ...outward }}
                     data-tag={tag}
                     onClick={(event) => {
                       event.stopPropagation();
-                      if (tag === 'boss') onBoss(day);
-                      else onSelect(day);
+                      onSelect(day);
                     }}
                   >
                     {TAG_LABEL[tag]}
