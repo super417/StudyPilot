@@ -105,6 +105,96 @@ def rebuild_bottom(img: np.ndarray) -> np.ndarray:
     return cv2.seamlessClone(patch, out, m, center, cv2.NORMAL_CLONE)
 
 
+# 画死的果实、头像、旧标签旗、金环、提示气泡（x0, y0, x1, y1）。
+# 关卡果实只由 DOM 在槽位上画，这些全部抹掉。
+OBJECTS = [
+    (590, 50, 696, 152),   # 头像
+    (592, 160, 678, 240),  # 头像下彩果
+    (798, 128, 858, 184),  # 右上小绿果
+    (766, 222, 830, 290),  # 绿果
+    (662, 276, 726, 340),  # 中间绿果
+    (758, 318, 818, 380),  # 彩果
+    (528, 222, 622, 352, 'patch'),  # 顺延/懒散旗和旗杆
+    (574, 344, 692, 436),  # 金环、香蕉、棕果
+    (750, 418, 810, 480),  # 彩果
+    (620, 468, 686, 530),  # 灰罐
+    (598, 560, 660, 616),  # 彩果
+    (606, 628, 676, 696),  # 底部灰罐
+    (744, 670, 766, 692),  # 小黄点
+    (342, 120, 572, 210, 'patch'),  # 画死的提示气泡
+]
+
+
+def _ring(img: np.ndarray, box: tuple[int, int, int, int], pad: int) -> np.ndarray:
+    x0, y0, x1, y1 = box
+    outer = img[y0 - pad:y1 + pad, x0 - pad:x1 + pad].astype(np.float32)
+    m = np.ones(outer.shape[:2], bool)
+    m[pad:-pad, pad:-pad] = False
+    return outer[m]
+
+
+def erase_objects(img: np.ndarray) -> np.ndarray:
+    """藤身中间的果实用 Telea 顺着藤的明暗补平；
+    贴着藤边/天空的（旗、气泡）从附近纹路最接近的位置整块借过来再泊松融合，保住藤边。"""
+    soft = np.zeros(img.shape[:2], np.uint8)
+    for item in OBJECTS:
+        if len(item) == 4:
+            x0, y0, x1, y1 = item
+            cv2.ellipse(soft, ((x0 + x1) // 2, (y0 + y1) // 2), ((x1 - x0) // 2 + 4, (y1 - y0) // 2 + 4), 0, 0, 360, 255, -1)
+    # 只用藤色补：附近的天空像素也临时当成未知，补完再把天空原样放回，免得蓝色渗进藤里。
+    b, g, r = [img[:, :, i].astype(int) for i in range(3)]
+    sky = (b > r + 25) & (b >= g - 5) & ~((g > r + 12) & (g > b + 12))
+    near = cv2.dilate(soft, np.ones((61, 61), np.uint8)).astype(bool)
+    hide = soft.copy()
+    hide[near & sky] = 255
+    out = cv2.inpaint(img, hide, 15, cv2.INPAINT_TELEA)
+    keep = near & sky & ~soft.astype(bool)
+    out[keep] = img[keep]
+    return erase_patches(out, [tuple(item[:4]) for item in OBJECTS if len(item) == 5])
+
+
+def erase_patches(img: np.ndarray, boxes: list) -> np.ndarray:
+    out = img.copy()
+    h, w = img.shape[:2]
+    pad = 14
+    done: list[tuple[int, int, int, int]] = []
+    for box in boxes:
+        x0, y0, x1, y1 = box
+        bw, bh = x1 - x0, y1 - y0
+        target = _ring(out, box, pad)
+        best = None
+        for dy in range(-220, 221, 6):
+            for dx in range(-220, 221, 6):
+                if abs(dx) < bw * 0.9 and abs(dy) < bh * 0.9:
+                    continue
+                sx0, sy0 = x0 + dx, y0 + dy
+                # 顶部 70px 是画死的旧状态条，不从那里借
+                if sx0 - pad < 0 or sy0 - pad < 70 or sx0 + bw + pad > w or sy0 + bh + pad > h:
+                    continue
+                src = (sx0, sy0, sx0 + bw, sy0 + bh)
+                hit = False
+                for ox0, oy0, ox1, oy1 in boxes:
+                    if (ox0, oy0, ox1, oy1) in done:
+                        continue
+                    if sx0 < ox1 + 6 and sx0 + bw > ox0 - 6 and sy0 < oy1 + 6 and sy0 + bh > oy0 - 6:
+                        hit = True
+                        break
+                if hit:
+                    continue
+                score = float(np.mean((_ring(out, src, pad) - target) ** 2))
+                if best is None or score < best[0]:
+                    best = (score, sx0, sy0)
+        assert best is not None
+        _, sx0, sy0 = best
+        patch = out[sy0 - pad:sy0 + bh + pad, sx0 - pad:sx0 + bw + pad].copy()
+        m = np.zeros(patch.shape[:2], np.uint8)
+        cv2.ellipse(m, (patch.shape[1] // 2, patch.shape[0] // 2), (patch.shape[1] // 2 - 2, patch.shape[0] // 2 - 2), 0, 0, 360, 255, -1)
+        center = (x0 + bw // 2, y0 + bh // 2)
+        out = cv2.seamlessClone(patch, out, m, center, cv2.NORMAL_CLONE)
+        done.append(box)
+    return out
+
+
 def main() -> None:
     img = rebuild_bottom(cv2.imread(str(SRC)))
     b, g, r = [img[:, :, i].astype(int) for i in range(3)]
@@ -122,6 +212,7 @@ def main() -> None:
     mask = cv2.dilate(mask, np.ones((5, 5), np.uint8), iterations=2)
     out = cv2.inpaint(img, mask, 9, cv2.INPAINT_TELEA)
     out = erase_signs(out, green, mask, sky_clean)
+    out = erase_objects(out)
     # 补过的地方加一点和周围一样的细噪点，免得显得太平。
     noise = np.random.default_rng(7).normal(0, 2.2, img.shape)
     soft = cv2.GaussianBlur(mask, (0, 0), 3)[..., None] / 255.0
