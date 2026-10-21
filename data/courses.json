@@ -3,7 +3,7 @@
     "schema_version": "1.1.0",
     "collected_at": "2026-10-21",
     "collector": "StudyPilot 竞赛版（人工整理 + 平台页面逐条核对）",
-    "disclaimer": "只收录课程元数据（名称、机构、章节标题、链接），不收录正文。课程页地址经核验；章 URL 字段当前均指向所属课程页，不代表章级深链。24 门课中 ai-edu-002 保守维持 partial，待复核证据经用户确认后再决定是否升级；其余按草稿记录为 outline_published。",
+    "disclaimer": "只收录课程元数据（名称、机构、章节标题、链接），不收录正文。24 门课按公开目录记录为 outline_published；章 URL 字段当前均指向所属课程页，不代表独立章页深链。ai-edu-002 升级依据为 2026-10-21 18:55:48 的在线比对，详见 data/verification-log.json#records。",
     "sources": [
       {
         "name": "国家高等教育智慧教育平台",
@@ -21,7 +21,7 @@
     "verification_levels": {
       "outline_published": "平台课程页公开的课程大纲，章、节标题逐条来自该页",
       "textbook_toc": "来自配套教材公开目录，与线上章节可能不完全一致（本次未使用）",
-      "partial": "章或节信息尚待最终复核确认，保守标记",
+      "partial": "仅取得模块级目录或章/节尚未核实完整；本次未使用",
       "pending": "未核实，不得用于演示（本次未使用）"
     },
     "scope": "只收录国家高等教育智慧教育平台、中国大学MOOC（爱课程）、智慧树三个平台的课程页；不含 B 站、慕课网、网易云课堂、睿慕课等，也不收录视频文件本身。",
@@ -76,7 +76,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202CUFE082-1470430193，HTTP 200；页面标题「Python与财经大数据分析基础_中央财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -265,7 +265,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809NJU004-1001571005，HTTP 200；页面标题「用Python玩转数据_南京大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0809NJU004-1001571005",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -469,7 +469,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202HUST26-1002750003，HTTP 200；页面标题「财务报表分析_华中科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/1202HUST26-1002750003",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -674,7 +674,7 @@
           "verified_note": "2026-10-21 实际打开 https://coursehome.zhihuishu.com/courseHome/1000095245，HTTP 200；页面标题「Python在财务中的应用—智慧树网」含课程名。章、节标题逐条取自该页课程大纲（页面「在线教程」栏目加载的公开接口），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -817,7 +817,7 @@
           "verified_note": "2026-10-21 实际打开 https://higher.smartedu.cn/course/690bc13e5345b68214799a55，HTTP 200；页面标题「课程 - 国家高等教育智慧教育平台」含课程名。章、节标题逐条取自该页课程大纲（页面内嵌目录（online-item/section-item）），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -969,7 +969,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/HAICT-1002125013，HTTP 200；页面标题「Excel进阶教程_河南应用技术职业学院_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/HAICT-1002125013",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1109,7 +1109,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202JNU080-1463154168，HTTP 200；页面标题「数据可视化—基于Python的应用_暨南大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/1202JNU080-1463154168",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1264,7 +1264,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0712ZUFE003-1002844001，HTTP 200；页面标题「统计学_浙江财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1448,7 +1448,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1201CUFE031-1207262801，HTTP 200；页面标题「数据挖掘与python实践_中央财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1590,7 +1590,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/2020HUEL06-1462098166，HTTP 200；页面标题「Excel数据分析与应用_河南财经政法大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1764,7 +1764,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809RUC001A-488001，HTTP 200；页面标题「数据库系统概论（基础篇）_中国人民大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0809RUC001A-488001",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -1884,7 +1884,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202UIBE007-1003252013，HTTP 200；页面标题「财务报表分析_对外经济贸易大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2089,7 +2089,7 @@
           "verified_note": "2026-10-21 实际打开 https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821，HTTP 200；页面标题「课程 - 国家高等教育智慧教育平台」含课程名。章、节标题逐条取自该页课程大纲（页面内嵌目录（online-item/section-item）），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2185,11 +2185,11 @@
             "学情分析",
             "教育伦理"
           ],
-          "verified": "partial",
-          "verified_note": "原库为 partial；2026-10-21 的线上复核报告与本地目录抓取均显示 8 章 174 节，草稿与本地抓取的章名、节名差异为 0。等待用户确认后再决定是否升为 outline_published；复核记录见 data/verification-log.json#records。",
+          "verified": "outline_published",
+          "verified_note": "旧库为 4 个模块级目录（节名未逐条核实），现已取得完整目录：2026-10-21 18:55:48 在线访问 HTTP 200，公开页面为 8 章 174 节；线上章名、节名与草稿按顺序逐字比对均为 0 差异，据此升级为 outline_published。本地原始数据比对仅作辅助，详见 data/verification-log.json#records。",
           "source_url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2460,7 +2460,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401SNNU001-1001517001，HTTP 200；页面标题「现代教育技术_陕西师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2677,7 +2677,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401BNU0149-1472319164，HTTP 200；页面标题「教学系统设计_北京师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2824,7 +2824,7 @@
           "verified_note": "2026-10-21 实际打开 https://coursehome.zhihuishu.com/courseHome/1000007253，HTTP 200；页面标题「多媒体课件因“理”而精彩—智慧树网」含课程名。章、节标题逐条取自该页课程大纲（页面「在线教程」栏目加载的公开接口），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -2965,7 +2965,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401CHNU001-1461186179，HTTP 200；页面标题「学习分析技术与方法_淮北师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3093,7 +3093,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401HUST068-1474273175，HTTP 200；页面标题「学习分析技术基础_华中师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0401HUST068-1474273175",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3220,7 +3220,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401ICourse005-1001555013，HTTP 200；页面标题「微课设计与制作_爱课程_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3377,7 +3377,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809HDU036-1472762177，HTTP 200；页面标题「生成式人工智能应用基础_杭州电子科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0809HDU036-1472762177",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3536,7 +3536,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809HDU033-1472762176，HTTP 200；页面标题「AI实战：从零精通DeepSeek_杭州电子科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0809HDU033-1472762176",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3683,7 +3683,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/2024040801-1472851191，HTTP 200；页面标题「AI通识与AIGC赋能应用_无锡职业技术大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/2024040801-1472851191",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
@@ -3834,7 +3834,7 @@
           "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809ZJU397-1472843185，HTTP 200；页面标题「人工智能伦理与安全_浙江大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
           "collected_at": "2026-10-21",
-          "section_link_status": "course_page_only",
+          "section_link_status": "chapter_level_only",
           "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {

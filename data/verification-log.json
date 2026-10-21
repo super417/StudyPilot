@@ -262,7 +262,8 @@
         "chapter_title_differences": 0,
         "section_title_differences": 0,
         "identical_to_draft": true,
-        "evidence_note": "Workbuddy 报告线上复核；Codex 另与本机 .tmp-course/sm 原始目录数据逐字比对。原始抓取留本地，未入仓库；课程等级仍待用户裁定。"
+        "evidence_note": "升级依据为 Workbuddy 于 2026-10-21 18:55:48 的在线比对（HTTP 200）；Codex 与本机原始目录数据的比对仅作辅助，不算第二份独立证据。",
+        "comparison_method": "从公开课程页服务端渲染的 online-item（章）及 section-item（节）取标题，按章序、节序与草稿逐字比对；章名与节名差异数均为 0。"
       }
     },
     {
