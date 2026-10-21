@@ -741,6 +741,11 @@ async def create_preview(
     for key, value in (overrides or {}).items():
         if value is not None:
             fields[key] = value
+    # The saved plan direction is the only source; overrides never re-target it.
+    fields.pop("directionId", None)
+    fields.pop("direction_id", None)
+    if plan.direction_id:
+        fields["directionId"] = plan.direction_id
     if overrides and "goalDate" in overrides and overrides.get("goalDate") is not None:
         _preview_goal(fields, plan)
 
@@ -763,11 +768,15 @@ async def create_preview(
     context_text, snapshot = evidence_time.snapshot_for_prompt(
         chunks, query, render_prompt
     )
+    # Same shortlist as the generation path, scoped by the saved direction. The
+    # preview only advises; URLs still pass the host check alone.
+    candidates = planner_service._target_course_candidates(fields)
     generator = planner_service._resolve_plan_generator(
         session,
         user_id,
         plan_generator,
-        planner_service._target_course_candidates(fields),
+        candidates,
+        soft_course_links=True,
     )
     structure = await planner_service._run_generator(
         generator, fields, used_docs, context_text, instruction

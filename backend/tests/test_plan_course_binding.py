@@ -26,6 +26,69 @@ def _today():
     return datetime.now(timezone.utc).date()
 
 
+# Fixed course fixture: the expectations below must not drift with data/courses.json.
+DIRECTION = "ai-finance"
+PY_URL = "https://www.icourse163.org/course/fin-python"
+EXCEL_URL = "https://www.icourse163.org/course/fin-excel"
+SQL_URL = "https://www.icourse163.org/course/fin-sql"
+
+
+def _finance_course(
+    course_id: str, name: str, skill: str, chapter: str, sections: list[str], url: str
+) -> dict:
+    return {
+        "course_id": course_id,
+        "name": name,
+        "institution": "机构",
+        "provider": "平台",
+        "url": url,
+        "url_verified": True,
+        "skills": [skill],
+        "collected_at": "2026-10-21",
+        "chapters": [{"index": 1, "title": chapter, "sections": sections}],
+    }
+
+
+def _finance_courses() -> dict:
+    """Three verified courses; only the top two are offered to the model."""
+    return {
+        "directions": [
+            {
+                "id": DIRECTION,
+                "name": "AI+财务数据分析",
+                "description": "",
+                "skills": ["Python", "Excel", "SQL"],
+                "courses": [
+                    _finance_course(
+                        "fin-python",
+                        "财务 Python 数据处理",
+                        "Python",
+                        "第1章 财务数据清洗",
+                        ["用 Python 清洗财务数据", "数据清洗练习"],
+                        PY_URL,
+                    ),
+                    _finance_course(
+                        "fin-excel",
+                        "Excel 财务分析",
+                        "Excel",
+                        "第1章 Excel 财务分析",
+                        ["透视表与图表"],
+                        EXCEL_URL,
+                    ),
+                    _finance_course(
+                        "fin-sql",
+                        "SQL 财务查询",
+                        "SQL",
+                        "第1章 SQL 查询",
+                        ["联结与聚合"],
+                        SQL_URL,
+                    ),
+                ],
+            }
+        ]
+    }
+
+
 def _goal(*, direction_id: str | None = None) -> dict:
     payload = {
         "goalName": "AI+财务数据分析入门",
@@ -217,12 +280,24 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.session.commit()
-        self.candidates = direction_service.verified_course_candidates("ai-finance")
-        self.assertTrue(self.candidates, "fixture expects ai-finance courses")
-        self.course_url = self.candidates[0]["url"]
-        self.allowed = frozenset(item["url"] for item in self.candidates)
+        self.courses_patch = patch(
+            "app.services.direction_service.load_courses", return_value=_finance_courses()
+        )
+        self.courses_patch.start()
+        # Expectations come from the ranked shortlist the run actually offers,
+        # never from the whole catalogue (``verified_course_candidates``).
+        self.candidates = planner_service._target_course_candidates(
+            _goal(direction_id=DIRECTION)
+        )
+        self.assertTrue(self.candidates, "fixture expects ranked candidates")
+        self.offered = frozenset(item["url"] for item in self.candidates)
+        self.course_url = PY_URL
+        self.unoffered_url = SQL_URL
+        self.assertIn(self.course_url, self.offered)
+        self.assertNotIn(self.unoffered_url, self.offered)
 
     def tearDown(self) -> None:
+        self.courses_patch.stop()
         self.session.close()
         Base.metadata.drop_all(self.engine)
 
@@ -249,13 +324,19 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         await generate_plan(
-            self.session, self.user.id, _goal(direction_id="ai-finance"), [], generator
+            self.session, self.user.id, _goal(direction_id=DIRECTION), [], generator
         )
         tasks = list(self.session.scalars(select(DailyTask)))
+        by_desc = {task.description: task for task in tasks}
+        # Offered Top-K link is written as-is.
+        self.assertEqual(by_desc["学财务 Python 基础"].resource_url, self.course_url)
+        # Host-allow-listed but not a candidate: URL dropped, task kept.
+        self.assertIn("练习数据清洗", by_desc)
+        self.assertIsNone(by_desc["练习数据清洗"].resource_url)
         urls = [task.resource_url for task in tasks if task.resource_url]
         self.assertIn(self.course_url, urls)
         for url in urls:
-            self.assertIn(url, self.allowed)
+            self.assertIn(url, self.offered)
 
     async def test_invented_url_dropped_task_kept(self) -> None:
         today = _today().isoformat()
@@ -280,7 +361,7 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         await generate_plan(
-            self.session, self.user.id, _goal(direction_id="ai-finance"), [], generator
+            self.session, self.user.id, _goal(direction_id=DIRECTION), [], generator
         )
         tasks = list(self.session.scalars(select(DailyTask)))
         by_desc = {task.description: task for task in tasks}
@@ -374,7 +455,7 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
             await generate_plan(
                 self.session,
                 self.user.id,
-                _goal(direction_id="ai-finance"),
+                _goal(direction_id=DIRECTION),
                 [],
                 None,
             )
@@ -386,8 +467,11 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(messages[2]["role"], "user")
         self.assertIn("平台课程库候选", messages[2]["content"])
         self.assertIn(self.course_url, messages[2]["content"])
+        # The message lists exactly the offered shortlist, not the catalogue.
         for item in self.candidates:
+            self.assertIn(item["url"], messages[2]["content"])
             self.assertNotIn(item["url"], messages[1]["content"])
+        self.assertNotIn(self.unoffered_url, messages[2]["content"])
 
 
 if __name__ == "__main__":

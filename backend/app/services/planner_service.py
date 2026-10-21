@@ -473,7 +473,7 @@ async def _run_generator(
     return result  # type: ignore[return-value]
 
 
-_PLAN_SYSTEM_PROMPT = """你是 StudyPilot 学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
+_PLAN_SYSTEM_PROMPT_HEAD = """你是 StudyPilot 学习规划助手。只输出一个 JSON 对象，不要 Markdown 说明。
 JSON 形状必须为：
 {"phases":[{"name":"阶段名","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD","daily_tasks":[{"task_date":"YYYY-MM-DD","week_label":"W01","description":"任务描述","estimated_minutes":30,"resource_url":"可选，公开学习链接"}]}],"citations":[{"docId":"就绪文档 id","chunkIndex":0}]}
 约束：phases 长度 2～12；按用户写明的学习内容安排，不要改写成别的学科，也不要限定必须是某一类考试。日期合理递增，且不得早于用户给出的今天，不得晚于目标日期。阶段可以并行，不要为了并行而删掉已有历史任务。
@@ -496,9 +496,29 @@ coursera.org、zhihu.com、kaoyan.com、kaoyan365.cn、exam8.com、koolearn.com�
 smartedu.cn、rymooc.com，
 或高校/科研机构域名（edu.cn、ac.cn、mit.edu）。不确定具体课程页时填平台首页；拿不准就省略该
 字段或留空字符串——不要编造链接地址。后端会丢弃不在名单内的链接，编造没有收益。
-若本次另有一条「平台课程库候选」消息，则 resource_url 只能从该消息给出的 url 中原样选择，不得填平台首页。
+"""
+
+# Two wordings for the same sentence. The strict one is the default and keeps
+# generation byte-identical. The soft one is only used by the adjustment preview,
+# where the shortlist is a hint rather than a closed set.
+_COURSE_LINKS_STRICT = (
+    "若本次另有一条「平台课程库候选」消息，则 resource_url 只能从该消息给出的 url 中原样选择，"
+    "不得填平台首页。"
+)
+_COURSE_LINKS_SOFT = (
+    "若本次另有一条「平台课程库候选」消息，填写 resource_url 时优先从该消息给出的 url 中选择，"
+    "不要自造链接；也允许使用其他真实存在的公开平台地址。"
+)
+_PLAN_SYSTEM_PROMPT_TAIL = """
 用户问「推荐课程 / 找资料 / 学习网站」时，在 description 里写清推荐的教材、课程名或平台名，
 resource_url 填对应平台地址即可，不要因为「没有上传资料」而拒绝规划。"""
+
+_PLAN_SYSTEM_PROMPT = (
+    _PLAN_SYSTEM_PROMPT_HEAD + _COURSE_LINKS_STRICT + _PLAN_SYSTEM_PROMPT_TAIL
+)
+_PLAN_SYSTEM_PROMPT_SOFT = (
+    _PLAN_SYSTEM_PROMPT_HEAD + _COURSE_LINKS_SOFT + _PLAN_SYSTEM_PROMPT_TAIL
+)
 
 
 def _direction_id_from_fields(fields: dict[str, object]) -> str | None:
@@ -509,12 +529,25 @@ def _direction_id_from_fields(fields: dict[str, object]) -> str | None:
     return text or None
 
 
-def _course_catalog_message(candidates: list[dict]) -> str:
-    """Separate user message: platform courses, never mixed into retrieval text."""
+_COURSE_CATALOG_HEAD = "以下是平台课程库候选（与资料摘录无关，按检索相关度排序）。"
+_COURSE_CATALOG_ASK_STRICT = (
+    "若填写 daily_tasks.resource_url，必须从下列 url 中原样复制其一；"
+    "禁止自造链接，拿不准就省略 resource_url。"
+)
+_COURSE_CATALOG_ASK_SOFT = (
+    "可参考下列课程；若填写 daily_tasks.resource_url，优先从中选择，不要自造链接。"
+)
+
+
+def _course_catalog_message(candidates: list[dict], *, soft: bool = False) -> str:
+    """Separate user message: platform courses, never mixed into retrieval text.
+
+    ``soft`` is for the adjustment preview, where the shortlist is advice — a
+    link outside it is still allowed as long as it passes the host check.
+    """
     lines = [
-        "以下是平台课程库候选（与资料摘录无关，按检索相关度排序）。"
-        "若填写 daily_tasks.resource_url，必须从下列 url 中原样复制其一；"
-        "禁止自造链接，拿不准就省略 resource_url。",
+        _COURSE_CATALOG_HEAD
+        + (_COURSE_CATALOG_ASK_SOFT if soft else _COURSE_CATALOG_ASK_STRICT)
     ]
     for item in candidates:
         lines.append(
@@ -731,6 +764,8 @@ async def _generate_structure_via_ai_proxy(
     context_text: str,
     instruction: str,
     candidates: list[dict],
+    *,
+    soft_course_links: bool = False,
 ) -> dict:
     """Call the user's configured model via Ai_Proxy credentials + httpx POST.
 
@@ -739,6 +774,10 @@ async def _generate_structure_via_ai_proxy(
     body. ``candidates`` is this run's ranked course shortlist — the model sees
     those links and nothing else from the catalogue. Unusable model output
     raises :class:`PlanGenerationError` — no silent skeleton substitute.
+
+    ``soft_course_links`` relaxes the two "only from this list" wordings for the
+    adjustment preview. Without candidates both prompts stay byte-identical to
+    the generation path.
     """
     try:
         credential = resolve_credential(session, user_id)
@@ -747,8 +786,12 @@ async def _generate_structure_via_ai_proxy(
     except Exception as error:
         raise PlanGenerationError() from error
 
+    soft = bool(soft_course_links and candidates)
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": _PLAN_SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": _PLAN_SYSTEM_PROMPT_SOFT if soft else _PLAN_SYSTEM_PROMPT,
+        },
         {
             "role": "user",
             "content": _build_plan_user_prompt(
@@ -759,7 +802,10 @@ async def _generate_structure_via_ai_proxy(
     # Course catalog is a separate message — never spliced into context_text.
     if candidates:
         messages.append(
-            {"role": "user", "content": _course_catalog_message(candidates)}
+            {
+                "role": "user",
+                "content": _course_catalog_message(candidates, soft=soft),
+            }
         )
 
     payload = {
@@ -794,7 +840,11 @@ async def _generate_structure_via_ai_proxy(
 
 
 def _bound_ai_plan_generator(
-    session: Session, user_id: uuid.UUID, candidates: list[dict]
+    session: Session,
+    user_id: uuid.UUID,
+    candidates: list[dict],
+    *,
+    soft_course_links: bool = False,
 ) -> PlanGenerator:
     """Bind DB session + user + course shortlist into the PlanGenerator signature."""
 
@@ -805,7 +855,14 @@ def _bound_ai_plan_generator(
         instruction: str,
     ) -> dict:
         return await _generate_structure_via_ai_proxy(
-            session, user_id, fields, used_docs, context_text, instruction, candidates
+            session,
+            user_id,
+            fields,
+            used_docs,
+            context_text,
+            instruction,
+            candidates,
+            soft_course_links=soft_course_links,
         )
 
     return _bound
@@ -816,8 +873,12 @@ def _resolve_plan_generator(
     user_id: uuid.UUID,
     plan_generator: PlanGenerator | None,
     candidates: list[dict],
+    *,
+    soft_course_links: bool = False,
 ) -> PlanGenerator:
-    return plan_generator or _bound_ai_plan_generator(session, user_id, candidates)
+    return plan_generator or _bound_ai_plan_generator(
+        session, user_id, candidates, soft_course_links=soft_course_links
+    )
 
 
 @dataclass(frozen=True)
