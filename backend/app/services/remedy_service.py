@@ -850,6 +850,8 @@ def _apply_remedy(session: Session, plan: Plan, row: PlanAdjustment) -> None:
             status="pending",
             carried_from_id=source.id,
             resource_url=source.resource_url,
+            chapter_title=source.chapter_title,
+            section_title=source.section_title,
             estimated_minutes=item["estimatedMinutes"],
         )
         session.add(copy)

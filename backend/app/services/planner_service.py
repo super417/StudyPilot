@@ -528,11 +528,11 @@ def _course_catalog_message(candidates: list[dict]) -> str:
 
 
 def _resolve_task_resource_url(
-    raw: object, allowed_course_urls: frozenset[str] | None
+    raw: object, allowed_course_urls: dict[str, dict] | None
 ) -> str | None:
     """Sanitize, then optionally require membership in this run's course set.
 
-    ``None`` means no direction was selected (sanitize-only). An empty frozenset
+    ``None`` means no direction was selected (sanitize-only). An empty mapping
     means a direction was selected but the task query ranked no course — drop
     every URL.
     """
@@ -544,8 +544,8 @@ def _resolve_task_resource_url(
     return url
 
 
-# Per-task URL gate: description -> allowed URL set (``None`` = no direction).
-CourseUrlScope = Callable[[str], "frozenset[str] | None"]
+# Per-task URL gate: description -> allowed URL and its matched course fragment.
+CourseUrlScope = Callable[[str], "dict[str, dict] | None"]
 
 
 def _target_course_candidates(fields: dict[str, object]) -> list[dict]:
@@ -577,11 +577,15 @@ def _course_url_scope(
         return None
     offered = frozenset(item["url"] for item in candidates if item.get("url"))
 
-    def allowed(description: str) -> frozenset[str]:
+    def allowed(description: str) -> dict[str, dict]:
         ranked = direction_service.rank_courses(
             direction_id, _task_query(description, fields)
         )
-        return offered & frozenset(item["url"] for item in ranked if item.get("url"))
+        return {
+            item["url"]: item
+            for item in ranked
+            if item.get("url") in offered
+        }
 
     return allowed
 
@@ -956,6 +960,8 @@ def _snapshot_plan(session: Session, plan: Plan, reason: str) -> PlanRevision:
                 "description": task.description,
                 "status": task.status,
                 "resourceUrl": task.resource_url,
+                "chapterTitle": task.chapter_title,
+                "sectionTitle": task.section_title,
                 "estimatedMinutes": task.estimated_minutes,
             }
             for task in tasks
@@ -1091,10 +1097,12 @@ def _write_plan_structure(
             if isinstance(task_data, dict):
                 description = str(task_data.get("description", ""))
                 week_label = str(task_data.get("week_label", ""))
+                matched_resources = resource_url_scope(description) if resource_url_scope else None
                 resource_url = _resolve_task_resource_url(
                     task_data.get("resource_url"),
-                    resource_url_scope(description) if resource_url_scope else None,
+                    matched_resources,
                 )
+                resource_match = matched_resources.get(resource_url) if matched_resources and resource_url else None
                 if "estimated_minutes" in task_data or "estimatedMinutes" in task_data:
                     estimated_minutes = evidence_time.parse_estimated_minutes(
                         task_data.get("estimated_minutes", task_data.get("estimatedMinutes"))
@@ -1105,6 +1113,7 @@ def _write_plan_structure(
                 description = str(task_data)
                 week_label = ""
                 resource_url = None
+                resource_match = None
                 estimated_minutes = None
             session.add(
                 DailyTask(
@@ -1115,6 +1124,8 @@ def _write_plan_structure(
                     description=description,
                     status="pending",
                     resource_url=resource_url,
+                    chapter_title=resource_match.get("chapterTitle") if resource_match else None,
+                    section_title=resource_match.get("sectionTitle") if resource_match else None,
                     estimated_minutes=estimated_minutes,
                 )
             )

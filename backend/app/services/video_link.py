@@ -693,6 +693,8 @@ def _strip_marker(session: Session, plan_id: uuid.UUID, marker: str) -> None:
             continue
         task.description = head
         task.resource_url = None
+        task.chapter_title = None
+        task.section_title = None
     session.flush()
 
 
@@ -753,6 +755,8 @@ def merge_into_daily_plan(
             task.description = f"{task.description} {marker}{label}"
             if link:
                 task.resource_url = link
+                task.chapter_title = None
+                task.section_title = None
             touched.add(task.phase_id)
         written.append(task)
     session.flush()

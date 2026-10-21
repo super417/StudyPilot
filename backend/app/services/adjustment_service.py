@@ -149,6 +149,8 @@ def _snapshot_body(session: Session, plan: Plan) -> dict:
                 "description": task.description,
                 "status": task.status,
                 "resourceUrl": task.resource_url,
+                "chapterTitle": task.chapter_title,
+                "sectionTitle": task.section_title,
                 "carriedFromId": str(task.carried_from_id)
                 if task.carried_from_id
                 else None,
@@ -1618,6 +1620,8 @@ def undo_latest(
                     description=task_item["description"],
                     status=task_item["status"],
                     resource_url=task_item.get("resourceUrl"),
+                    chapter_title=task_item.get("chapterTitle"),
+                    section_title=task_item.get("sectionTitle"),
                     estimated_minutes=task_item["estimatedMinutes"]
                     if "estimatedMinutes" in task_item
                     else None,

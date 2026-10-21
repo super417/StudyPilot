@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import re
 from typing import Any
 
 from app.core.data_files import load_courses, load_jobs
@@ -72,6 +73,8 @@ def _course_ref(item: dict) -> dict[str, Any]:
         "url": item.get("url", ""),
         "collectedAt": item.get("collectedAt", ""),
         "section": item.get("section"),
+        "chapterTitle": item.get("chapterTitle"),
+        "sectionTitle": item.get("sectionTitle"),
         "rank": item.get("rank"),
         "score": item.get("score"),
     }
@@ -151,7 +154,7 @@ def _course_fragments(direction: dict) -> list[dict[str, Any]]:
                         len(fragments),
                         chapter_index,
                         chapter_title,
-                        chapter.get("chapter_url"),
+                        chapter.get("url"),
                         section_title,
                         content,
                     )
@@ -169,6 +172,14 @@ def _fragment_url(fragment: dict) -> str:
     if chapter_url:
         return chapter_url
     return str(course.get("url") or "").strip()
+
+
+def _chapter_label(fragment: dict) -> str | None:
+    title = str(fragment.get("chapter_title") or "").strip()
+    index = fragment.get("chapter_index")
+    if title and isinstance(index, int) and not re.match(r"^第\s*[\d一二三四五六七八九十]+\s*章", title):
+        return f"第 {index} 章 {title}"
+    return title or None
 
 
 def rank_courses(
@@ -219,6 +230,8 @@ def rank_courses(
                 "url": _fragment_url(fragment),
                 "collectedAt": course.get("collected_at", ""),
                 "section": fragment.get("section") or None,
+                "chapterTitle": _chapter_label(fragment),
+                "sectionTitle": fragment.get("section") or None,
                 "rank": len(ranked) + 1,
                 "score": round(score, 4),
             }

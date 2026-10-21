@@ -23,6 +23,8 @@ from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.models.base import Base
 from app.models.entities import ApiConfig, DailyTask, Phase, Plan, User
+from app.routers.phases import phase_detail_route
+from app.routers.study import _task_result
 from app.services import direction_service, planner_service
 from app.services.planner_service import confirm_draft_plan, generate_plan, regenerate_plan
 
@@ -330,7 +332,7 @@ class GenerateScopeTests(_DatabaseCase):
     async def test_matched_chapter_url_is_the_top_k_link(self) -> None:
         courses = scope_courses()
         courses["directions"][0]["courses"][0]["chapters"][0][
-            "chapter_url"
+            "url"
         ] = PY_CHAPTER_URL
         fields = goal()
 
@@ -359,6 +361,29 @@ class GenerateScopeTests(_DatabaseCase):
         self.assertEqual(self._tasks()[PY_TASK], PY_CHAPTER_URL)
         self.assertIsNone(self._tasks()["Python 函数定义练习"])
 
+    async def test_task_api_exposes_matched_titles_and_empty_when_unmatched(self) -> None:
+        fields = goal()
+
+        def generator(fields_, used_docs, context_text, instruction):
+            return structure([single_task(PY_TASK, PY_URL)])
+
+        await generate_plan(self.session, self.user.id, fields, [], generator)
+        matched = self.session.scalar(
+            select(DailyTask).where(DailyTask.description == PY_TASK)
+        )
+        self.assertIsNotNone(matched)
+        self.assertEqual(matched.chapter_title, "第1章 Python 基础")
+        self.assertEqual(matched.section_title, "变量与循环")
+        self.assertEqual(_task_result(matched)["sectionTitle"], "变量与循环")
+
+        response = phase_detail_route(str(matched.phase_id), self.user, self.session)
+        phase_tasks = json.loads(response.body)["tasks"]
+        by_description = {item["description"]: item for item in phase_tasks}
+        self.assertEqual(by_description[PY_TASK]["chapterTitle"], "第1章 Python 基础")
+        self.assertEqual(by_description[PY_TASK]["sectionTitle"], "变量与循环")
+        self.assertIsNone(by_description["占位任务 2"]["chapterTitle"])
+        self.assertIsNone(by_description["占位任务 2"]["sectionTitle"])
+
     async def test_rank_returning_empty_offers_nothing_and_writes_no_url(self) -> None:
         fields = goal()
 
@@ -369,13 +394,19 @@ class GenerateScopeTests(_DatabaseCase):
             self.assertEqual(planner_service._target_course_candidates(fields), [])
             scope = planner_service._course_url_scope(fields, [])
             self.assertIsNotNone(scope)
-            self.assertEqual(scope("任意任务描述"), frozenset())
+            self.assertEqual(scope("任意任务描述"), {})
             result = await generate_plan(self.session, self.user.id, fields, [], generator)
 
         self.assertEqual(result.phases, 2)
         tasks = self._tasks()
         self.assertIn(PY_TASK, tasks)
         self.assertTrue(all(url is None for url in tasks.values()))
+        self.assertTrue(
+            all(
+                task.chapter_title is None and task.section_title is None
+                for task in self.session.scalars(select(DailyTask))
+            )
+        )
 
     async def test_model_message_lists_only_ranked_candidates(self) -> None:
         """With ranking empty the catalog message must vanish, not fall back."""

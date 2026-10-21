@@ -284,6 +284,8 @@ def settle_overdue_tasks(
                 status="pending",
                 carried_from_id=task.id,
                 resource_url=task.resource_url,
+                chapter_title=task.chapter_title,
+                section_title=task.section_title,
                 estimated_minutes=task.estimated_minutes,
             )
         )

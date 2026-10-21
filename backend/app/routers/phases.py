@@ -136,6 +136,8 @@ def phase_detail_route(
                     "estimatedMinutes": task.estimated_minutes,
                     "phaseId": str(task.phase_id),
                     "resourceUrl": task.resource_url,
+                    "chapterTitle": task.chapter_title,
+                    "sectionTitle": task.section_title,
                 }
                 for task in tasks
             ],

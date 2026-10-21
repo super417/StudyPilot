@@ -191,7 +191,7 @@ class ChapterUrlFallbackTests(unittest.TestCase):
                     "index": 1,
                     "title": "第1章 Python 基础",
                     "sections": ["变量与循环", "函数定义"],
-                    **({"chapter_url": chapter_url} if chapter_url is not None else {}),
+                    **({"url": chapter_url} if chapter_url is not None else {}),
                 }
             ],
         )
@@ -228,13 +228,13 @@ class ChapterUrlFallbackTests(unittest.TestCase):
                     "index": 1,
                     "title": "第1章 Python 基础",
                     "sections": ["变量与循环"],
-                    "chapter_url": self.CHAPTER_URL,
+                    "url": self.CHAPTER_URL,
                 },
                 {
                     "index": 2,
                     "title": "第2章 数据处理",
                     "sections": ["缺失值处理"],
-                    "chapter_url": second_url,
+                    "url": second_url,
                 },
             ],
         )
@@ -242,7 +242,20 @@ class ChapterUrlFallbackTests(unittest.TestCase):
             "one", "缺失值处理", courses_data=_one_course_direction(course)
         )
         self.assertEqual(ranked[0]["section"], "缺失值处理")
+        self.assertEqual(ranked[0]["chapterTitle"], "第2章 数据处理")
+        self.assertEqual(ranked[0]["sectionTitle"], "缺失值处理")
         self.assertEqual(ranked[0]["url"], second_url)
+
+    def test_chapter_title_without_number_gets_display_index(self) -> None:
+        course = _course(
+            "c-python",
+            name="Python 数据分析",
+            chapters=[{"index": 3, "title": "数据清洗", "sections": ["3.2 缺失值处理"]}],
+        )
+        ranked = direction_service.rank_courses(
+            "one", "缺失值处理", courses_data=_one_course_direction(course)
+        )
+        self.assertEqual(ranked[0]["chapterTitle"], "第 3 章 数据清洗")
 
     def test_unverified_chapter_url_falls_back_to_course_url(self) -> None:
         for bad in ("https://evil.example/lesson/1", "javascript:alert(1)", "", None):

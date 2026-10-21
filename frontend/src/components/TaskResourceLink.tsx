@@ -9,6 +9,7 @@ import type { DailyTask } from '@/mocks/types';
  */
 function TaskResourceLink({ task }: { task: DailyTask }) {
   if (!task.resourceUrl) return null;
+  const location = [task.chapterTitle?.trim(), task.sectionTitle?.trim()].filter(Boolean).join(' · ');
 
   return (
     <div className="mt-1">
@@ -22,6 +23,7 @@ function TaskResourceLink({ task }: { task: DailyTask }) {
         <ExternalLink size={12} aria-hidden="true" />
         打开学习资源
       </a>
+      {location && <span className="ml-2 text-xs text-slate-600">{location}</span>}
     </div>
   );
 }

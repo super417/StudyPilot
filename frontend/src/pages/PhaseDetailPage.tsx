@@ -1,9 +1,9 @@
 /**
  * Roadmap 阶段全屏详情。
- * 左：勾选任务模块；右：所选任务的学习路线 + 视频，各自独立小卡片。
+ * 左：勾选任务模块；右：所选任务的学习路线与课程资源，各自独立小卡片。
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clapperboard, Map, Play } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, Map } from 'lucide-react';
 import { ApiError } from '@/lib/httpClient';
 import { fetchPhaseDetail, type PhaseDetailResponse } from '@/lib/phasesApi';
 import type { DailyTask } from '@/mocks/types';
@@ -25,13 +25,16 @@ function taskSummary(description: string, max = 48): string {
   return `${body.slice(0, max)}…`;
 }
 
-function LearningModuleCard({
+export function LearningModuleCard({
   task,
   index,
 }: {
   task: DailyTask;
   index: number;
 }) {
+  const resourceLocation = [task.chapterTitle?.trim(), task.sectionTitle?.trim()]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <article className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -62,21 +65,26 @@ function LearningModuleCard({
 
       <div className="rounded-xl bg-white p-3 ring-1 ring-slate-100">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-brandDark">
-          <Clapperboard className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-          视频教学
+          <BookOpen className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+          课程资源
         </div>
         {task.resourceUrl ? (
-          <a
-            href={task.resourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-100"
-          >
-            <Play className="h-3.5 w-3.5" aria-hidden="true" />
-            打开对应视频 / 课程
-          </a>
+          <div>
+            <a
+              href={task.resourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-100"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              打开学习资源
+            </a>
+            {resourceLocation && (
+              <span className="ml-2 text-xs text-slate-600">{resourceLocation}</span>
+            )}
+          </div>
         ) : (
-          <p className="text-xs text-slate-400">该任务暂未关联视频教学链接</p>
+          <p className="text-xs text-slate-400">该任务暂未关联学习资源</p>
         )}
       </div>
     </article>
@@ -207,7 +215,7 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
                   </span>
                 </div>
                 <p className="mb-4 text-xs text-slate-400">
-                  勾选左侧任务，右侧显示对应学习路线与视频；点「完成」标记打卡状态。
+                  勾选左侧任务，右侧显示对应学习路线与课程资源；点「完成」标记打卡状态。
                 </p>
                 {detail.tasks.length === 0 ? (
                   <p className="text-sm text-slate-400">该阶段还没有每日任务</p>
@@ -277,11 +285,11 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
               <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
                 <h2 className="mb-1 text-base font-semibold text-brandDark">学习计划</h2>
                 <p className="mb-4 text-xs text-slate-400">
-                  已选 {selectedTasks.length} 个模块 · 每项独立展示路线与视频
+                  已选 {selectedTasks.length} 个模块 · 每项独立展示路线与课程资源
                 </p>
                 {selectedTasks.length === 0 ? (
                   <p className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
-                    请在左侧勾选任务，查看具体学习路线与视频教学
+                    请在左侧勾选任务，查看具体学习路线与课程资源
                   </p>
                 ) : (
                   <div className="space-y-4">

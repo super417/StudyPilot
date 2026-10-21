@@ -77,6 +77,9 @@ export interface DailyTask {
   status: DailyTaskStatus;
   /** 该任务的公开学习链接（后端已做域名白名单校验）；无则 null */
   resourceUrl?: string | null;
+  /** 检索命中的课程章与节；历史任务可能为空 */
+  chapterTitle?: string | null;
+  sectionTitle?: string | null;
 }
 
 /** 打卡记录（对应 Check_Ins 表） */

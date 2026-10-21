@@ -87,6 +87,8 @@ def _task_result(task: DailyTask) -> dict:
         "status": task.status,
         "dueCarried": task.status == "carried" or task.carried_from_id is not None,
         "resourceUrl": task.resource_url,
+        "chapterTitle": task.chapter_title,
+        "sectionTitle": task.section_title,
         "estimatedMinutes": task.estimated_minutes,
     }
 
