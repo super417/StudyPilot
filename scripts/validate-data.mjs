@@ -46,6 +46,38 @@ if (courses) {
     err('courses.json 缺少 directions 数组');
   }
 
+  // meta.section_link_policy（可选）：说明章级链接怎么继承。
+  // 只查形状，不判断链接深度——「章 URL 等于课程 URL」是合法的继承写法。
+  // 三平台的探测证据放在 verification-log.json 的 blocked 里，不在这里要求。
+  if (courses.meta?.section_link_policy !== undefined) {
+    const policy = courses.meta.section_link_policy;
+    if (typeof policy !== 'object' || policy === null || Array.isArray(policy)) {
+      err('courses.json meta.section_link_policy 不是对象');
+    } else {
+      if (typeof policy.inherit !== 'string' || !policy.inherit.trim()) {
+        err('meta.section_link_policy 缺少 inherit 说明');
+      }
+      // 其余键可选：出现时只查类型，不要求存在。
+      if (policy.probes !== undefined) {
+        if (!Array.isArray(policy.probes)) {
+          err('meta.section_link_policy.probes 不是数组');
+        } else {
+          policy.probes.forEach((text, i) => {
+            if (typeof text !== 'string' || !text.trim()) {
+              err(`meta.section_link_policy.probes[${i}] 不是非空字符串`);
+            }
+          });
+        }
+      }
+      if (
+        policy.no_guessing !== undefined &&
+        (typeof policy.no_guessing !== 'string' || !policy.no_guessing.trim())
+      ) {
+        err('meta.section_link_policy.no_guessing 不是非空字符串');
+      }
+    }
+  }
+
   const dirIds = new Set();
   const courseIds = new Set();
 
@@ -78,6 +110,18 @@ if (courses) {
       }
       if (!c.url_verified) warn(`${where} url 未核实`);
 
+      // 章级链接可得性（可选字段）：只查类型与自洽，不评价链接是否「打通」。
+      if (c.section_link_status !== undefined) {
+        if (typeof c.section_link_status !== 'string' || !c.section_link_status.trim()) {
+          err(`${where} section_link_status 必须是非空字符串`);
+        }
+        if (typeof c.section_link_note !== 'string' || !c.section_link_note.trim()) {
+          err(`${where} section_link_status 存在时必须有非空 section_link_note`);
+        }
+      } else if (c.section_link_note !== undefined) {
+        warn(`${where} 有 section_link_note 但没有 section_link_status`);
+      }
+
       for (const sk of c.skills ?? []) skillPool.add(sk);
       if (!c.skills?.length) warn(`${where} 没有技能标签，差距分析无法匹配`);
 
@@ -89,6 +133,35 @@ if (courses) {
         // 节级为空是合法的（只拿到模块级），但路线无法精确到节，要提醒。
         if (ch.sections?.length === 0) {
           warn(`${chWhere}「${ch.title}」没有节级内容，路线无法精确到节`);
+        }
+
+        // 章的链接元数据（可选字段）：只查类型与自洽，不评价链接是否「打通」。
+        if (ch.url_verified !== undefined && typeof ch.url_verified !== 'boolean') {
+          err(`${chWhere} url_verified 必须是布尔值`);
+        }
+        if (ch.note !== undefined && typeof ch.note !== 'string') {
+          err(`${chWhere} note 必须是字符串`);
+        }
+        if (ch.url_verified === true && !ch.url) {
+          err(`${chWhere} url_verified=true 但缺少 url`);
+        }
+      }
+    }
+  }
+
+  // meta.retired（可选）：已剔除条目。id 不回收复用，故不得再出现在 courses 里。
+  if (courses.meta?.retired !== undefined) {
+    if (!Array.isArray(courses.meta.retired)) {
+      err('courses.json meta.retired 不是数组');
+    } else {
+      for (const r of courses.meta.retired) {
+        if (!r?.course_id) {
+          err('meta.retired 条目缺少 course_id');
+          continue;
+        }
+        if (!r.reason) err(`meta.retired 条目 ${r.course_id} 缺少 reason`);
+        if (courseIds.has(r.course_id)) {
+          err(`已剔除的 ${r.course_id} 仍出现在 courses 里`);
         }
       }
     }

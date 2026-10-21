@@ -274,6 +274,36 @@ class ChapterUrlFallbackTests(unittest.TestCase):
             self.COURSE_URL,
         )
 
+    def test_legacy_chapter_url_field_is_never_read(self) -> None:
+        """course.url / chapters[].url / chapters[].chapter_url are all different.
+
+        Only ``chapters[].url`` may answer. The legacy value is a valid,
+        allow-listed URL, so reading it by mistake would change the result.
+        """
+        legacy_url = "https://www.icourse163.org/course/PY-1#/legacy-chapter-url"
+        course = _course(
+            "c-python",
+            name="Python 脚本入门",
+            url=self.COURSE_URL,
+            chapters=[
+                {
+                    "index": 1,
+                    "title": "第1章 Python 基础",
+                    "sections": ["变量与循环"],
+                    "url": self.CHAPTER_URL,
+                    "chapter_url": legacy_url,
+                }
+            ],
+        )
+        ranked = direction_service.rank_courses(
+            "one", "变量与循环", courses_data=_one_course_direction(course)
+        )
+        self.assertEqual(len(ranked), 1)
+        self.assertEqual(ranked[0]["section"], "变量与循环")
+        self.assertEqual(ranked[0]["url"], self.CHAPTER_URL)
+        self.assertNotEqual(ranked[0]["url"], legacy_url)
+        self.assertNotEqual(ranked[0]["url"], self.COURSE_URL)
+
 
 class RankCoursesTests(unittest.TestCase):
     def test_ranking_is_capped_by_k_courses(self) -> None:
