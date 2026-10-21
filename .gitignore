@@ -23,6 +23,7 @@ backend/_v13*_raw/
 /_*.json
 /_*.txt
 /_*.diff
+.tmp-course/
 **/.pytest_cache/
 **/.hypothesis/
 

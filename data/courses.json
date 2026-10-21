@@ -1,22 +1,42 @@
 {
   "meta": {
-    "schema_version": "1.0.0",
-    "collected_at": "2026-10-13",
-    "collector": "StudyPilot 竞赛版（人工整理）",
-    "disclaimer": "只收录课程元数据（名称、机构、章节标题、链接），不收录任何正文内容。章节信息整理自课程公开大纲或配套教材目录。verified 字段说明该条目章节信息的可靠度，请勿把 partial / pending 当作已核实。",
+    "schema_version": "1.1.0",
+    "collected_at": "2026-10-21",
+    "collector": "StudyPilot 竞赛版（人工整理 + 平台页面逐条核对）",
+    "disclaimer": "只收录课程元数据（名称、机构、章节标题、链接），不收录正文。课程页地址经核验；章 URL 字段当前均指向所属课程页，不代表章级深链。24 门课中 ai-edu-002 保守维持 partial，待复核证据经用户确认后再决定是否升级；其余按草稿记录为 outline_published。",
     "sources": [
-      { "name": "国家高等教育智慧教育平台", "url": "https://higher.smartedu.cn/" },
-      { "name": "中国大学MOOC（爱课程）", "url": "https://www.icourse163.org/" },
-      { "name": "智慧树", "url": "https://www.zhihuishu.com/" }
+      {
+        "name": "国家高等教育智慧教育平台",
+        "url": "https://higher.smartedu.cn/"
+      },
+      {
+        "name": "中国大学MOOC（爱课程）",
+        "url": "https://www.icourse163.org/"
+      },
+      {
+        "name": "智慧树",
+        "url": "https://www.zhihuishu.com/"
+      }
     ],
     "verification_levels": {
-      "outline_published": "平台公开的课程大纲，章节标题逐条可查",
-      "textbook_toc": "来自该课程配套教材的公开目录，与线上章节可能不完全一致",
-      "partial": "只拿到模块级标题，未拿到节级",
-      "pending": "未核实，不得用于演示"
+      "outline_published": "平台课程页公开的课程大纲，章、节标题逐条来自该页",
+      "textbook_toc": "来自配套教材公开目录，与线上章节可能不完全一致（本次未使用）",
+      "partial": "章或节信息尚待最终复核确认，保守标记",
+      "pending": "未核实，不得用于演示（本次未使用）"
+    },
+    "scope": "只收录国家高等教育智慧教育平台、中国大学MOOC（爱课程）、智慧树三个平台的课程页；不含 B 站、慕课网、网易云课堂、睿慕课等，也不收录视频文件本身。",
+    "retired": [
+      {
+        "course_id": "ai-fin-005",
+        "name": "大数据财务分析（微课版）",
+        "provider": "rymooc",
+        "reason": "来源不在本次限定的三个平台内，已剔除；该 id 不回收复用。"
+      }
+    ],
+    "section_link_policy": {
+      "inherit": "命中节时优先使用所属章的 url；章 url 缺失则回退课程 url。当前章 url 均等同课程页地址；节级链接探测与限制见 data/verification-log.json#blocked。"
     }
   },
-
   "directions": [
     {
       "id": "ai-finance",
@@ -34,83 +54,226 @@
         "报表分析"
       ],
       "courses": [
-{
+        {
           "course_id": "ai-fin-001",
           "name": "Python与财经大数据分析基础",
           "institution": "中央财经大学",
           "provider": "中国大学MOOC（爱课程）",
           "instructor": "王彦超、马云飙、林东杰、彭嘉续、段丙蕾",
-          "url": "https://online.cufe.edu.cn/17/17zcMOOC/zgdxMOOC/3004.shtml",
+          "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
           "url_verified": true,
           "hours": null,
           "level": "入门",
           "prereq": [],
-          "skills": ["Python", "pandas", "数据清洗", "统计分析"],
-          "verified": "textbook_toc",
-          "verified_note": "章节来自配套教材《财经大数据分析——以Python为工具》公开目录；线上课程章节划分可能不同，演示前应在平台页面核对。",
-          "source_url": "https://jwc.cufe.edu.cn/info/1115/5038.htm",
-          "collected_at": "2026-10-13",
+          "skills": [
+            "Python",
+            "pandas",
+            "数据清洗",
+            "统计分析",
+            "财务分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202CUFE082-1470430193，HTTP 200；页面标题「Python与财经大数据分析基础_中央财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
               "index": 1,
-              "title": "数据创建",
+              "title": "第1章 概述",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "1.1 数据分析模块介绍",
-                "1.2 DataFrame简介",
-                "1.3 DataFrame数据创建",
-                "1.4 基于本地存储的数据创建",
-                "1.5 实操练习题"
+                "1.1节 新技术的发展与应用",
+                "1.2节 新技术与会计学融合发展",
+                "1.3节 会计智能化趋势与对策"
               ]
             },
             {
               "index": 2,
-              "title": "数据查看",
+              "title": "第2章 Python基础",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "2.1 DataFrame数据属性",
-                "2.2 DataFrame数据查看",
-                "2.3 实操练习题"
+                "2.1节 Python安装与环境配置",
+                "2.2节 Python数据类型",
+                "2.3节 Python常用语句",
+                "2.4节 Python函数",
+                "2.5节 Python模块介绍"
               ]
             },
             {
               "index": 3,
-              "title": "数据清洗",
+              "title": "第3章 数据创建",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "3.1 数据标签重命名",
-                "3.2 缺失值处理",
-                "3.3 异常值处理",
-                "3.4 数据去重",
-                "3.5 数据替换",
-                "3.6 数据标准化",
-                "3.7 实操练习题"
+                "数据创建"
               ]
             },
             {
               "index": 4,
-              "title": "应用：股权性质信息整理——数据转置",
-              "sections": ["4.1 T转置", "4.2 行列互换", "4.3 数据透视"]
+              "title": "第4章 数据查看",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据查看"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第5章 数据清洗",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据清洗"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第6章 数据转置",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据转置"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第7章 数据筛选",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1节 数据索引概述",
+                "7.2节 DataFrame的标签索引",
+                "7.3节 DataFrame的位置索引",
+                "7.4节 DataFrame的布尔索引",
+                "7.5节 DataFrame的索引设定"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第8章 数据合并",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1节 数据合并概述",
+                "8.2节 concat函数",
+                "8.3节 append函数",
+                "8.4节 merge函数",
+                "8.5节 join函数"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第9章 数据分组",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1节 数据分组概述",
+                "9.2节 groupby语法",
+                "9.3节 数据聚合与计算",
+                "9.4节 数据排序与排名",
+                "9.5节 数据分箱"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "第10章 统计基础",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "10.1节 描述性统计",
+                "10.2节 推断统计",
+                "10.3节 回归分析",
+                "10.4节 数据统计案例"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "第11章 时间序列",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "11.1节 时间序列简介",
+                "11.2节 时间序列处理",
+                "11.3节 时间序列基本性质"
+              ]
+            },
+            {
+              "index": 12,
+              "title": "第12章 可视化基础",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "12.1 可视化基础"
+              ]
+            },
+            {
+              "index": 13,
+              "title": "第13章 静态网页爬虫",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "13.1 静态网页网络爬虫"
+              ]
+            },
+            {
+              "index": 14,
+              "title": "第14章 机器学习之sklearn",
+              "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "14.1 机器学习之sklearn"
+              ]
             }
           ]
         },
         {
           "course_id": "ai-fin-002",
-          "name": "用Python玩转数据（Data Processing Using Python）",
+          "name": "用Python玩转数据",
           "institution": "南京大学",
           "provider": "中国大学MOOC（爱课程）",
           "instructor": "张莉",
-          "url": "https://www.icourse163.org/course/NJU-1001571005",
+          "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
           "url_verified": true,
           "hours": null,
           "level": "入门到进阶",
           "prereq": [],
-          "skills": ["Python", "pandas", "numpy", "数据可视化", "统计分析", "网络爬虫"],
+          "skills": [
+            "Python",
+            "pandas",
+            "数据可视化",
+            "统计分析"
+          ],
           "verified": "outline_published",
-          "verified_note": "2026-10-19 于 icourse163.org 打开课程页（标题「用Python玩转数据_南京大学_中国大学MOOC(慕课)」，讲师张莉），课程介绍称「5个学习模块和1个项目实战模块」；章节标题取自该课程当前学期（termId 1488129443）的公开课程大纲（免登录可访问），并与国家高等教育智慧教育平台同课程页 https://higher.smartedu.cn/course/agc3/69b56a1ff74ce762ce3526f5?type=training 的大纲逐条核对一致。原记录开课机构「南京财经大学」有误，已更正为南京大学；原第1、3、4、5章标题与平台不一致，已按平台更正。英文版另见 https://www.icourse163.org/course/NJU-1465357163（本条以中文版为准）。第八周「项目实践」模块未收录为章。",
-          "source_url": "https://www.icourse163.org/course/NJU-1001571005",
-          "collected_at": "2026-10-19",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809NJU004-1001571005，HTTP 200；页面标题「用Python玩转数据_南京大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
               "index": 1,
-              "title": "Python基础",
+              "title": "MODULE 01: Python基础之第一周 走近Python",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "1.1 Python简介",
                 "1.2 第一个Python程序",
@@ -118,19 +281,76 @@
                 "1.4 Python数据类型",
                 "1.5 Python基本运算",
                 "1.6 Python的函数、模块和包",
+                "补充视频：Python环境搭建"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "MODULE 01: Python基础之第二周 Python面面观",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
                 "2.1 条件",
                 "2.2 range函数",
                 "2.3 循环",
                 "2.4 循环中的break，continue和else",
                 "2.5 自定义函数",
                 "2.6 递归",
-                "2.7 变量作用域"
+                "2.7 变量作用域",
+                "拓展视频1：Python常用标准库函数",
+                "拓展视频2：异常",
+                "第二周 控制结构和函数编程练习（8题）"
               ]
             },
-            { "index": 2, "title": "数据获取与表示", "sections": ["3.1 本地数据获取", "3.2 网络数据获取", "3.3 序列", "3.4 字符串", "3.5 列表", "3.6 元组"] },
             {
               "index": 3,
-              "title": "强大的数据结构和Python扩展库",
+              "title": "第二周 Python面面观单元测试",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "控制结构和函数编程题"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "MODULE 02: 数据获取与表示之第三周 数据获取与表示",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 本地数据获取",
+                "3.2 网络数据获取",
+                "3.3 序列",
+                "3.4 字符串",
+                "3.5 列表",
+                "3.6 元组",
+                "拓展视频1：正则表达式简介",
+                "拓展视频2：输入输出&函数式编程入门",
+                "拓展视频3：可变可迭代对象修改问题解释",
+                "拓展视频4：动态网页数据爬取小例",
+                "进阶：爬虫小项目（3项）",
+                "补充资料：序列运算、操作、函数和方法简介",
+                "第三周 数据获取与表示基础编程练习（3题）"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第三周 数据获取与表示单元测试",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据表示编程题"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "MODULE 03: 第四周 强大的数据结构和Python扩展库",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "4.1 为什么需要字典",
                 "4.2 字典的使用",
@@ -138,28 +358,59 @@
                 "4.4 扩展库SciPy",
                 "4.5 ndarray",
                 "4.6 变长字典Series",
-                "4.7 DataFrame"
+                "4.7 DataFrame",
+                "第4周拓展视频1：字典和集合编程示例介绍",
+                "第4周拓展视频2：NumPy常见应用选讲"
               ]
             },
             {
-              "index": 4,
-              "title": "Python数据统计与挖掘",
+              "index": 7,
+              "title": "第四周 强大的数据结构和Python扩展库单元测验",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "字典相关编程题"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "MODULE 04: Python数据统计与挖掘之第五周 Python便捷数据获取与预处理",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "5.1 便捷数据获取",
                 "5.2 Python绘图基础",
                 "5.3 数据探索与预处理之数据清洗",
                 "5.4 数据预处理之数据变换",
                 "5.5 数据预处理之数据规约",
+                "拓展：财经数据接口TuShare研究和数据处理分析小项目",
+                "数据集获取：数据预处理常用数据集titanic数据集获取"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "MODULE 04: Python数据统计与挖掘之第六周 Python数据统计挖掘与应用",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
                 "6.1 数据探索之基本数据特征分析",
                 "6.2 基于pandas的数据统计与分析",
                 "6.3 聚类分析",
                 "6.4 Python的理工类应用",
-                "6.5 Python的人文社科类应用"
+                "6.5 Python的人文社科类应用",
+                "第6周拓展视频1：基于pandas的男女电影评分差异分析",
+                "第6周拓展视频2：基于随机森林模型的红酒品质分析"
               ]
             },
             {
-              "index": 5,
-              "title": "面向对象和图形用户界面",
+              "index": 10,
+              "title": "MODULE 05: 面向对象和图形用户界面",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "7.1 GUI与面向对象",
                 "7.2 抽象",
@@ -168,7 +419,235 @@
                 "7.5 GUI常用组件",
                 "7.6 布局管理",
                 "7.7 其他GUI库",
-                "7.8 综合应用"
+                "7.8 综合应用",
+                "财经数据GUI编程项目",
+                "面向对象编程小练习"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "第八周 项目实践",
+              "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目实践说明",
+                "参考项目1—线性回归分析入门之波士顿房价预测",
+                "参考项目2—新浪动态新闻标题热点挖掘",
+                "参考项目3—文档相似性比较",
+                "（新增）参考项目4—评论情感分析",
+                "（新增）参考项目5—基于Pytorch的图像识别（难）",
+                "第八周项目实践提交",
+                "第2周OJ编程题讲解视频",
+                "第2章OJ编程题讲解视频",
+                "第3周OJ编程题讲解视频",
+                "第3周OJ编程题讲解视频",
+                "第4周OJ编程题讲解视频",
+                "第4周OJ编程题讲解视频"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-003",
+          "name": "财务报表分析",
+          "institution": "华中科技大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "郭炜",
+          "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [
+            "ai-fin-001"
+          ],
+          "skills": [
+            "财务分析",
+            "报表分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202HUST26-1002750003，HTTP 200；页面标题「财务报表分析_华中科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "概述",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 财务报表分析的起源和发展",
+                "1.2.1 财务报表分析的内容--财务报告构成",
+                "1.2.2 财务报表分析的内容--财务报表分析的使用人",
+                "单元测验1 概述"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "财务报表分析方法（1）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1.1 财务报表分析方法--水平分析法",
+                "2.1.2 财务报表分析方法--结构百分比法",
+                "2.1.3 财务报表分析方法--趋势分析和项目质量分析法",
+                "2.1.4 财务报表分析方法--因素分析法",
+                "2.2.1 财务比率分析--短期偿债能力分析",
+                "2.2.2 财务比率分析--长期偿债能力分析",
+                "2.2.3 财务比率分析--营运能力分析",
+                "2.2.4 财务比率分析--盈利能力分析",
+                "2.2.5 财务比率分析--市场价值比率分析",
+                "课堂讨论1  《流浪地球》的最大受益股是谁？中国电影vs.北京文化",
+                "单元测试2  财务比率分析"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "财务报表分析方法（2）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.3 杜邦财务分析",
+                "2.4 财务报表分析的局限性",
+                "课堂讨论2  东方园林2017年年度报告分析",
+                "单元测试3 财务报表分析的局限性"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "资产负债表分析（1）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 资产负债表概述",
+                "3.2.1 流动资产分析--货币资金",
+                "3.2.2 流动资产分析--应收票据",
+                "3.2.3 流动资产分析--应收账款",
+                "3.2.4 流动资产分析--预付账款",
+                "3.2.5 流动资产分析--存货",
+                "单元测试4 流动资产分析"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "资产负债表分析（2）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.3.1 非流动资产--长期股权投资",
+                "3.3.2 非流动资产--投资性房地产",
+                "3.3.3 非流动资产--固定资产",
+                "3.3.4 非流动资产--无形资产",
+                "3.3.5 非流动资产--开发支出",
+                "3.3.6 非流动资产--长期待摊费用",
+                "单元测试5 非流动资产分析"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "资产负债表分析（3）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.4.1 流动负债--短期借款",
+                "3.4.2 流动负债--应付账款",
+                "3.4.3 流动负债--预收款项",
+                "3.4.4 流动负债--应交税费",
+                "课堂讨论3  远望谷2017年年度报告分析",
+                "单元测试6 流动负债分析"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "资产负债表分析（4）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.5.1 非流动负债--长期借款",
+                "3.5.2 非流动负债--预计负债",
+                "3.5.3 非流动负债--或有负债",
+                "3.6 股东权益分析",
+                "3.7 资产负债表的整体分析",
+                "课堂讨论4  康美药业财务问题分析",
+                "单元测试7 资产负债表的整体分析"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "利润表分析（1）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 利润表简介",
+                "4.2.1 营业收入分析（1）",
+                "4.2.2 营业收入分析（2）",
+                "4.3.1 成本费用分析（1）",
+                "4.3.2 成本费用分析（2）",
+                "课堂讨论5  小天鹅2017年年度报告分析",
+                "单元测验8 成本费用分析"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "利润表分析（2）",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.4 营业外收支分析",
+                "4.5 所得税分析",
+                "4.6 企业利润质量恶化的主要表现",
+                "4.7 利润质量分析",
+                "单元测验9 利润质量分析"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "现金流量表分析",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 现金流量表简介",
+                "5.2 经营活动现金流入分析",
+                "5.3 经营活动现金流出分析",
+                "5.4 投资活动现金流入分析",
+                "5.5 投资活动现金流出分析",
+                "5.6 筹资活动现金流量分析",
+                "5.7 现金流量表质量分析",
+                "单元测验10 现金流量表质量分析"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "合并财务报表及其他重要信息",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 合并财务报表",
+                "6.2 其他重要信息"
+              ]
+            },
+            {
+              "index": 12,
+              "title": "综合案例分析",
+              "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 综合案例分析1",
+                "7.2 综合案例分析2"
               ]
             }
           ]
@@ -184,16 +663,37 @@
           "hours": 51,
           "level": "入门到进阶",
           "prereq": [],
-          "skills": ["Python", "pandas", "数据清洗", "数据可视化", "财务分析"],
+          "skills": [
+            "Python",
+            "pandas",
+            "数据清洗",
+            "数据可视化",
+            "财务分析"
+          ],
           "verified": "outline_published",
-          "verified_note": "2026-10-19 于 zhihuishu.com 打开课程主页（标题「Python在财务中的应用—智慧树网」，浙江经贸职业技术学院，总学时51），课程介绍称「9大项目35项任务」；章、节标题取自该页「在线教程」栏目（页面自身加载的公开接口，免登录可见），9章及各节标题逐条核对。原记录9个模块名为检索摘要的简写，与平台不一致，已全部按平台原文更正，并补入节级标题；hours 按页面「总学时51.0」填写。",
+          "verified_note": "2026-10-21 实际打开 https://coursehome.zhihuishu.com/courseHome/1000095245，HTTP 200；页面标题「Python在财务中的应用—智慧树网」含课程名。章、节标题逐条取自该页课程大纲（页面「在线教程」栏目加载的公开接口），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
-          "collected_at": "2026-10-19",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
-            { "index": 1, "title": "财务人员为什么选择Python？", "sections": ["1.1 初识Python，走进python财务世界", "1.2 了解Python学习模式，走进编程世界"] },
+            {
+              "index": 1,
+              "title": "财务人员为什么选择Python？",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 初识Python，走进python财务世界",
+                "1.2 了解Python学习模式，走进编程世界"
+              ]
+            },
             {
               "index": 2,
               "title": "搭建Python语法基础",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "2.1 利用输入、输出和注释，实现人机平等对话",
                 "2.2 利用变量和数据类型，装载财务数据",
@@ -204,6 +704,9 @@
             {
               "index": 3,
               "title": "搭建Python进阶语法体系",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "3.1 利用条件分支，掌握合理判断逻辑",
                 "3.2 利用while和for in，理清循环业务逻辑",
@@ -215,6 +718,9 @@
             {
               "index": 4,
               "title": "利用pandas，进行数据处理与分析",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "4.1 利用DataFrame，完成表格基本操作",
                 "4.2 利用pandas读写文件，获取不同数据源",
@@ -223,10 +729,24 @@
                 "4.5 利用数据透视，挖掘数据价值"
               ]
             },
-            { "index": 5, "title": "采集与清洗数据，搭建分析基础", "sections": ["5.1 数据接口采集数据，准备分析原材料", "5.2 网络爬虫爬取数据，获取开放数据", "5.3 清洗“脏乱差”数据，科学求实保质量"] },
+            {
+              "index": 5,
+              "title": "采集与清洗数据，搭建分析基础",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 数据接口采集数据，准备分析原材料",
+                "5.2 网络爬虫爬取数据，获取开放数据",
+                "5.3 清洗“脏乱差”数据，科学求实保质量"
+              ]
+            },
             {
               "index": 6,
               "title": "利用第三方绘图库，实现数据可视化",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "6.1 matplotlib初级应用，实现数据可视化",
                 "6.2 matplotlib绘图进阶，多样组合可视化",
@@ -237,6 +757,9 @@
             {
               "index": 7,
               "title": "利用Python，创建财务会计模型",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "7.1 利用自定义函数，创新薪酬计算模型",
                 "7.2 利用pandas和matplotlib，实现薪酬可视化分析",
@@ -249,6 +772,9 @@
             {
               "index": 8,
               "title": "利用Python，创建管理会计应用模型",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "8.1 利用自定义函数，计算货币时间价值",
                 "8.2 利用pandas，创建项目投资决策模型",
@@ -260,83 +786,168 @@
                 "8.8 利用文件处理模块，批量制作销售订单"
               ]
             },
-            { "index": 9, "title": "Python 综合应用，挖掘数据价值", "sections": ["9.1 利用python数据分析，做好财务数据分析决策", "9.2 利用python数据分析，做好行业综合分析与决策"] }
+            {
+              "index": 9,
+              "title": "Python 综合应用，挖掘数据价值",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 利用python数据分析，做好财务数据分析决策",
+                "9.2 利用python数据分析，做好行业综合分析与决策"
+              ]
+            }
           ]
         },
-{
-          "course_id": "ai-fin-005",
-          "name": "大数据财务分析（微课版）",
-          "institution": null,
-          "provider": "rymooc",
-          "instructor": null,
-          "url": "https://www.rymooc.com/course/show/1097",
-          "url_verified": true,
-          "hours": null,
-          "level": "进阶",
-          "prereq": ["ai-fin-001"],
-          "skills": ["数据清洗", "数据可视化", "财务分析", "报表分析"],
-          "verified": "outline_published",
-          "verified_note": "十个项目的项目名来自平台课程页。项目下的节级内容未获取。",
-          "source_url": "https://www.rymooc.com/course/show/1097",
-          "collected_at": "2026-10-13",
-          "chapters": [
-            { "index": 1, "title": "认识大数据财务分析", "sections": [] },
-            { "index": 2, "title": "数据采集", "sections": [] },
-            { "index": 3, "title": "数据清洗与集成", "sections": [] },
-            { "index": 4, "title": "数据可视化", "sections": [] },
-            { "index": 5, "title": "企业基础财报分析", "sections": [] },
-            { "index": 6, "title": "财务能力分析", "sections": [] },
-            { "index": 7, "title": "费用分析", "sections": [] },
-            { "index": 8, "title": "销售分析与预测", "sections": [] },
-            { "index": 9, "title": "资金分析与预测", "sections": [] },
-            { "index": 10, "title": "撰写财务分析报告", "sections": [] }
-          ]
-        },
-{
+        {
           "course_id": "ai-fin-006",
           "name": "数据库系统原理",
-          "institution": null,
+          "institution": "山东财经大学",
           "provider": "国家高等教育智慧教育平台",
-          "instructor": null,
+          "instructor": "张抗抗、陈才贤、耿长欣",
           "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
           "url_verified": true,
           "hours": null,
           "level": "入门到进阶",
           "prereq": [],
-          "skills": ["SQL", "数据库"],
+          "skills": [
+            "SQL"
+          ],
           "verified": "outline_published",
-          "verified_note": "第三章节级标题来自平台课程页。其余章只到章级。本项目只用到第三章（SQL），其余章不排进路线。",
+          "verified_note": "2026-10-21 实际打开 https://higher.smartedu.cn/course/690bc13e5345b68214799a55，HTTP 200；页面标题「课程 - 国家高等教育智慧教育平台」含课程名。章、节标题逐条取自该页课程大纲（页面内嵌目录（online-item/section-item）），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
-          "collected_at": "2026-10-13",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
-            { "index": 1, "title": "绪论", "sections": [] },
-            { "index": 2, "title": "关系数据库", "sections": [] },
+            {
+              "index": 1,
+              "title": "绪论",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 数据库系统概述",
+                "1.2 数据管理技术的产生和发展",
+                "1.3 数据模型",
+                "1.4 数据库系统的结构",
+                "1.5 数据库系统的组成"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "关系数据库",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 关系数据结构及形式化定义",
+                "2.2 关系操作和关系的完整性约束",
+                "2.3 关系代数（一）",
+                "2.4 关系代数（二）"
+              ]
+            },
             {
               "index": 3,
-              "title": "关系数据库标准语言 SQL",
+              "title": "关系数据库标准语言SQL",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "3.1 SQL 概述",
+                "3.1 SQL概述",
                 "3.2 数据定义",
                 "3.3 索引的建立和管理",
                 "3.4 数据查询（概述）",
-                "3.5 单表查询：基本单表查询",
-                "3.6 单表查询：复合条件、排序和分组",
-                "3.7 连接查询",
-                "3.8 嵌套查询（一）",
-                "3.9 嵌套查询（二）",
-                "3.10 集合查询和基于派生表的查询",
+                "3.5 数据查询（单表查询：基本单表查询）",
+                "3.6 数据查询（单表查询：复合条件、排序和分组）",
+                "3.7 数据查询（连接查询）",
+                "3.8 数据查询（嵌套查询-1）",
+                "3.9 数据查询（嵌套查询-2）",
+                "3.10 数据查询（集合查询和基于派生表的查询）",
                 "3.11 数据更新",
                 "3.12 空值的处理",
                 "3.13 视图（一）",
                 "3.14 视图（二）"
               ]
             },
-            { "index": 4, "title": "数据库安全性", "sections": [] },
-            { "index": 5, "title": "数据库完整性", "sections": [] },
-            { "index": 6, "title": "关系数据理论", "sections": [] },
-            { "index": 7, "title": "数据库设计", "sections": [] },
-            { "index": 8, "title": "数据库恢复技术", "sections": [] },
-            { "index": 9, "title": "并发控制", "sections": [] }
+            {
+              "index": 4,
+              "title": "数据库安全性",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 数据库安全性概述",
+                "4.2 数据库安全性控制（上）",
+                "4.3 数据库安全性控制（下）",
+                "4.4 其它安全性控制机制"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "数据库完整性",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 实体完整性和参照完整性",
+                "5.2 用户定义的完整性和约束命名",
+                "5.3 触发器"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "关系数据理论",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 规范化问题的提出",
+                "6.2 关系规范化（一）",
+                "6.3 关系规范化（二）",
+                "6.4 关系规范化（三）"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "数据库设计",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 数据库设计概述",
+                "7.2 需求分析",
+                "7.3 概念结构设计",
+                "7.4 逻辑结构设计",
+                "7.5 物理结构设计和数据库维护与实施"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "数据库恢复技术",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 事务、故障和数据库恢复概述",
+                "8.2 恢复的实现技术",
+                "8.3 恢复策略",
+                "8.4 其它恢复技术"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "并发控制",
+              "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 并发控制概述",
+                "9.2 封锁协议",
+                "9.3 事务的并发调度",
+                "9.4 多粒度封锁"
+              ]
+            }
           ]
         },
         {
@@ -344,21 +955,29 @@
           "name": "Excel进阶教程",
           "institution": "河南应用技术职业学院",
           "provider": "中国大学MOOC（爱课程）",
-          "instructor": "张青、左莉、张丹丹、吴华芹、米楠、崔琳、马丽艳、张振平",
+          "instructor": "张青",
           "url": "https://www.icourse163.org/course/HAICT-1002125013",
           "url_verified": true,
           "hours": null,
           "level": "入门",
           "prereq": [],
-          "skills": ["Excel", "数据可视化"],
+          "skills": [
+            "Excel",
+            "数据可视化"
+          ],
           "verified": "outline_published",
-          "verified_note": "2026-10-19 于 icourse163.org 打开课程页（标题「Excel进阶教程_河南应用技术职业学院_中国大学MOOC(慕课)」，页面标注「获得国家精品在线开放课程认定的课程」；往期学期页 ?tid=1207033277 的教师值班表列出全部8位教师）。章节标题取自最近一期完整学期（termId 1476783486）的公开课程大纲（免登录可访问），逐条核对；当前学期（termId 1488373464）目前仅发布项目一，项目一内容一致。平台实为6个项目，原记录只有4章且节标题为概括写法，已按平台更正章标题、补入项目五/六，节级只收录案例/知识讲次（仅统一了编号后的空格/连接符格式），未收录作业、测验与素材。",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/HAICT-1002125013，HTTP 200；页面标题「Excel进阶教程_河南应用技术职业学院_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://www.icourse163.org/course/HAICT-1002125013",
-          "collected_at": "2026-10-19",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
               "index": 1,
               "title": "基础篇 项目一 Excel基础知识",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "案例1-1 Excel2016简介",
                 "案例1-2 数据输入",
@@ -373,41 +992,51 @@
             {
               "index": 2,
               "title": "基础篇 项目二 数据处理",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "案例2-1 数据区域转换",
                 "案例2-2 排序",
                 "案例2-3 筛选",
                 "案例2-4 分类汇总和合并计算",
                 "案例2-5 图表",
-                "案例2-6 图表模板生成与应用",
+                "案例2- 6图表模板生成与应用",
                 "案例2-7 迷你图",
                 "案例2-8 数据透视表",
                 "案例2-9 数据透视图",
-                "案例2-10 综合应用"
+                "案例2-10综合应用"
               ]
             },
             {
               "index": 3,
               "title": "进阶篇 项目三 公式与函数",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "公式基础知识1-概念、特点、运算符",
                 "公式基础知识2-单元格的引用",
-                "案例3-1 公式及常用函数的使用",
-                "案例3-2 利用函数进行跨工作表计算",
-                "案例3-3 名称和数据验证的应用",
-                "案例3-4 函数的高级应用",
+                "案例3-1公式及常用函数的使用",
+                "案例3-2利用函数进行跨工作表计算",
+                "案例3-3名称和数据验证的应用",
+                "案例3-4函数的高级应用",
                 "案例3-5 常用逻辑函数",
-                "案例3-6 常用查找与引用函数",
-                "案例3-7 常用日期和时间函数",
-                "案例3-8 常用的文本类函数",
+                "案例3-6常用查找与引用函数",
+                "案例3-7-常用日期和时间函数",
+                "案例3-8-常用的文本类函数",
                 "案例-条件格式中使用函数",
                 "案例-数据验证中使用函数",
-                "案例-函数在图表中的应用-动态显示成绩总分最大值柱形图"
+                "案例-函数在图表中的应用-动态显示成绩总分最大值柱形图",
+                "第三单元案例及课后练习素材"
               ]
             },
             {
               "index": 4,
               "title": "进阶篇 项目四 VBA与宏",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "案例4-1 VBA与宏的基础知识",
                 "案例4-2 界面设计与控件的使用",
@@ -427,11 +1056,14 @@
             {
               "index": 5,
               "title": "进阶篇 项目五 分析与预测",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "案例5-1 单变量求解",
                 "案例5-2 单变量模拟运算",
                 "案例5-3 双变量模拟运算",
-                "案例5-4 方案管理器",
+                "案例 5-4 方案管理器",
                 "案例5-5 规划求解",
                 "案例5-6 分析工具库"
               ]
@@ -439,6 +1071,9 @@
             {
               "index": 6,
               "title": "进阶篇 项目六 动态图表",
+              "url": "https://www.icourse163.org/course/HAICT-1002125013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
                 "动态图表1-列表框",
                 "动态图表2-数据验证",
@@ -451,8 +1086,971 @@
               ]
             }
           ]
+        },
+        {
+          "course_id": "ai-fin-008",
+          "name": "数据可视化—基于Python的应用",
+          "institution": "暨南大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "王斌会",
+          "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [
+            "ai-fin-002"
+          ],
+          "skills": [
+            "数据可视化",
+            "统计分析",
+            "Python"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202JNU080-1463154168，HTTP 200；页面标题「数据可视化—基于Python的应用_暨南大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "数据分析软件介绍",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第1章 思维导图",
+                "1.1  数据分析软件简介",
+                "1.2  Python语言介绍",
+                "1.3  Python数据分析平台",
+                "1.4  Python编程入门"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "数据的收集与整理",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第2章 思维导图",
+                "2.1  数据的类型",
+                "2.2  数据的收集",
+                "2.3  数据的管理"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "Python数据分析编程基础",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第3章 思维导图",
+                "3.1  Python编程运算",
+                "3.2  数值分析库numpy",
+                "3.3  数据分析库pandas"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "数据的探索分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第4章 思维导图",
+                "4.1  数据的描述分析",
+                "4.2  数据的统计绘图",
+                "4.3  数据的分组分析"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "数据的直观分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第5章 思维导图",
+                "5.1  特殊统计图的绘制",
+                "5.2  seaborn统计绘图",
+                "5.3  ggplot绘图系统",
+                "5.4  pyecharts动态绘图"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "数据的统计分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第6章 思维导图",
+                "6.1  随机变量及其分布图",
+                "6.2  统计量及其抽样分布图",
+                "6.3  基本统计推断方法"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "数据的模型分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第7章 思维导图",
+                "7.1  线性相关分析模型",
+                "7.2  线性回归分析模型",
+                "7.3  模型的可视化分析"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "数据的预测分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第8章 思维导图",
+                "8.1  动态数列的基本分析",
+                "8.2  动态数列的预测分析",
+                "8.3  时间序列数据的可视化分析"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "数据的决策分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第9章 思维导图",
+                "9.1  确定性决策分析",
+                "9.2  不确定性决策分析",
+                "9.3  概率型风险分析"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "数据的在线分析及可视化",
+              "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第10章 思维导图",
+                "10.1  Tushare数据的可视化分析",
+                "10.2  新浪财经数据的可视化分析",
+                "10.3  中商情报数据的可视化分析"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-009",
+          "name": "统计学",
+          "institution": "浙江财经大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "李金昌、洪兴建、周银香、刘波、项莹、李时兴、朱宗元、陈雄强、陈玉娟",
+          "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": [
+            "统计分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0712ZUFE003-1002844001，HTTP 200；页面标题「统计学_浙江财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第一章统计学的基本问题",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节 统计学的产生与发展",
+                "第二节 统计数据类型与研究方法",
+                "第三节 统计学的基本概念",
+                "单元测验（第一章）"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第二章统计数据的收集、整理与显示",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节统计数据的收集方式",
+                "第二节统计数据的收集方法",
+                "第三节统计调查方案设计",
+                "第四节统计数据的整理",
+                "第五节统计数据的显示",
+                "第六节统计调查案例",
+                "单元测试（第二章）"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第三章变量分布特征的描述",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节算术平均数",
+                "第二节调和平均数与几何平均数",
+                "第三节位置平均数",
+                "第四节平均差和标准差",
+                "第五节变异系数与是非标志",
+                "第六节偏度与峰度",
+                "单元测试（第三章）"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第四章抽样估计",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节抽样分布",
+                "第二节抽样误差",
+                "第三节区间估计"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第五章假设检验",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节假设检验的原理和步骤",
+                "第二节单个总体均值的检验",
+                "第三节两个总体均值差的检验",
+                "第四节成数的假设检验",
+                "第五节方差的假设检验",
+                "第六节假设检验的两类错误与检验功效"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第六章方差分析",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节方差分析的含义与基本思路",
+                "第二节单因素方差分析",
+                "第三节双因素方差分析"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第七章相关回归分析",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节相关关系的含义与测度",
+                "第二节回归分析的基本问题",
+                "第三节一元线性回归模型的构建",
+                "第四节一元线性回归模型的评价与检验",
+                "第五节等级相关系数",
+                "第六节多元线性回归模型"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第八章时间序列分析",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节时间序列的基本问题",
+                "第二节时间序列的水平分析",
+                "第三节时间序列的速度分析",
+                "第四节长期趋势的测定",
+                "第五节季节变动的测定"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第九章统计指数分析",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节统计指数的基本问题",
+                "第二节综合指数的编制与应用",
+                "第三节平均数指数的编制与应用",
+                "第四节平均指标指数的编制与应用",
+                "第五节统计指数体系与因素分析",
+                "第六节平均指标指数因素分析",
+                "统计指数分析"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "第十章综合评价",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "第一节综合评价基本问题",
+                "第二节评价指标的预处理",
+                "第三节综合评价指标的赋权方法",
+                "第四节综合评价合成方法"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "第十一章统计学基本问题与统计思想解读（拓展学习）",
+              "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题1：统计学三要素",
+                "专题2：为什么说统计学既是科学也是艺术",
+                "专题3：如何看待统计模型",
+                "专题4：统计综合评价的三个问题",
+                "专题5：一则哲学故事所蕴含的统计思想",
+                "专题6：大数据分析与小数据研究"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-010",
+          "name": "数据挖掘与python实践",
+          "institution": "中央财经大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "李爱华、孟凡、宿洁、贾传亮、井帅",
+          "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [
+            "ai-fin-001"
+          ],
+          "skills": [
+            "Python",
+            "数据清洗",
+            "统计分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1201CUFE031-1207262801，HTTP 200；页面标题「数据挖掘与python实践_中央财经大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "导言",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1数据挖据的产生、定义和流程",
+                "1.2数据挖掘的方法",
+                "1.3数据挖掘的应用",
+                "1.4python介绍"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "认识数据",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1数据对象与属性类型",
+                "2.2数据的基本统计描述",
+                "2.3数据可视化",
+                "2.4数据的相似性与相异性度量",
+                "2.5python操作：认识数据（一）",
+                "2.6python操作：认识数据（二）"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "数据预处理",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1数据预处理的基本思想和数据规范化",
+                "3.2数据离散化",
+                "3.3数据清洗",
+                "3.4特征提取与特征选择"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "关联规则挖掘",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1引言",
+                "4.2频繁模式与关联规则",
+                "4.3频繁项集的典型挖掘方法",
+                "4.4关联规则的生成方法",
+                "4.5关联规则的其他类型",
+                "4.6关联规则的兴趣度的其他度量",
+                "4.7python操作：关联规则挖掘"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "分类",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1分类的概念",
+                "5.2决策树分类",
+                "5.3朴素贝叶斯分类",
+                "5.4k近邻分类",
+                "5.5分类性能的度量方法",
+                "5.6python操作：分类（一）",
+                "5.7python操作：分类（二）"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "数值预测",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1数值预测概念",
+                "6.2回归方法",
+                "6.3 回归树与模型树",
+                "6.4K近邻数值预测和预测误差的度量",
+                "6.5python操作：数值预测"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "聚类分析",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1概述",
+                "7.2相似度度量方法",
+                "7.3 k均值聚类法",
+                "7.4 层次聚类方法",
+                "7.5 DBSCAN方法",
+                "7.6 聚类效果衡量方法",
+                "7.7python操作：聚类分析（一）",
+                "7.8python操作：聚类分析（二）"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "复杂数据的挖掘",
+              "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1挖掘复杂的数据类型-序列与网络",
+                "8.2挖掘复杂的数据类型-其他类型"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-011",
+          "name": "Excel数据分析与应用",
+          "institution": "河南财经政法大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "张桂香、郭清溥、张格、刘钟涛、刘明利",
+          "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [
+            "ai-fin-007"
+          ],
+          "skills": [
+            "Excel",
+            "数据可视化",
+            "财务分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/2020HUEL06-1462098166，HTTP 200；页面标题「Excel数据分析与应用_河南财经政法大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第一章 Excel基础知识",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 Excel中的基本元素",
+                "1.2 Excel 的工作界面",
+                "1.3 工作表操作",
+                "1.4 数据区域的选择和处理",
+                "1.5 单元格的基本操作",
+                "1.6 Excel文件操作",
+                "1.7 工作表的打印设置"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第二章 数据输入的格式设置",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 数据输入",
+                "2.2 数据验证",
+                "2.3 数据填充",
+                "2.4 案例：制作学生信息表"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第三章 公式与函数应用",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 公式及运算符",
+                "3.2 函数及其使用",
+                "3.3 单元格地址的引用",
+                "3.4 九九乘法表的制作",
+                "3.5 基本函数",
+                "3.6 排序与分类汇总",
+                "3.7 制作学生信息表",
+                "3.9 单元格区域命名",
+                "3.10 货物出库单的制作",
+                "3.11 特殊情况下公式的录入",
+                "3.12 Sumproduct函数讲解",
+                "3.13 Subtotal函数讲解",
+                "3.14 Lookup函数讲解",
+                "3.15 Choose函数讲解",
+                "3.16 Vlookup函数讲解（1）",
+                "3.17 Vlookup函数讲解（2）",
+                "3.18 Match和Index函数讲解",
+                "3. 19 Offset 函数讲解",
+                "函数综合案例讲解"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第四章 数据分析基础",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 数据筛选",
+                "4.2 高级筛选",
+                "4.3 条件格式设置",
+                "4.4 图形或公式条件格式设置",
+                "4.5 数据透视表",
+                "4.6 数据透视表美化",
+                "4.7 多表数据源数据透视表",
+                "4.8 数据透视表统计人数和切片器",
+                "4.9 认识合并计算",
+                "4.10 有选择的合并计算",
+                "4.11 合并计算的使用",
+                "4.12 单变量模拟运算",
+                "4.13 双变量模拟运算",
+                "4.14 单变量求解",
+                "4.15 认识PowerQuery功能",
+                "4.16 用PowerQuery数据合并透视",
+                "4.17 用PowerQuery数据追加透视",
+                "4.18 PowerQuery进行费用核算"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第五章 规划求解",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 规划求解概述",
+                "5.2 规划求解的组成",
+                "5.3 规划求解问题的步骤",
+                "5.4 求解取料问题",
+                "5.5 求解任务分配问题"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第六章 数据可视化",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 图表基础",
+                "6.2 柱形图",
+                "6.3 股价图分析股价行情",
+                "6.4 条形图对比选票",
+                "6.5 背景饼图",
+                "6.6 创建自动缩放图表",
+                "6.7 自动标识图表中的最大值和最小值"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第七章 财务应用实例",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 填制原始凭证",
+                "7.2 填制记账凭证",
+                "7.3 打印记账凭证",
+                "7.4 汇总记账凭证"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第八章 销售数据分析",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 销售数据分析"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第九章 VBA及其应用",
+              "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 VBA开发环境",
+                "9.2 VBA编程基础",
+                "9.3 一个VBA编程例题",
+                "9.4 案例：库存查询",
+                "9.5 案例：统计报名结果"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-012",
+          "name": "数据库系统概论（基础篇）",
+          "institution": "中国人民大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "王珊、杜小勇、陈红、卢卫、焦敏",
+          "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": [
+            "SQL"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809RUC001A-488001，HTTP 200；页面标题「数据库系统概论（基础篇）_中国人民大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0809RUC001A-488001",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "绪论",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据库发展概述",
+                "数据库的四个基本概念",
+                "数据管理技术的产生和发展",
+                "数据建模与数据模型",
+                "层次模型与网状模型",
+                "关系模型",
+                "新的数据模型",
+                "数据库系统的三级模式结构",
+                "数据库系统的组成",
+                "数据库系统的体系结构"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "关系模型",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "关系模型的数据结构及形式化定义",
+                "关系操作与关系约束",
+                "关系代数",
+                "关系演算",
+                "关系模型总结",
+                "习题讲解"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "关系数据库查询语言SQL",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "SQL概述",
+                "数据定义",
+                "数据查询",
+                "数据更新",
+                "空值的处理",
+                "视图",
+                "SQL查询 习题讲解"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "实验软件及平台介绍",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "金仓数据库安装与使用",
+                "数据库在线实验平台介绍"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "数据库安全性",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据库安全性概述",
+                "数据库安全性控制",
+                "视图机制",
+                "审计（Audit）",
+                "数据加密",
+                "其他安全性保护",
+                "小结",
+                "习题讲解",
+                "实验1 安全性控制"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "数据库完整性",
+              "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "数据库完整性概述和实体完整性",
+                "参照完整性",
+                "用户定义的完整性",
+                "完整性约束命名字句和域中的完整性限制",
+                "触发器",
+                "小结",
+                "习题讲解",
+                "实验2 完整性控制"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-fin-013",
+          "name": "财务报表分析",
+          "institution": "对外经济贸易大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "张新民、钱爱民",
+          "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [],
+          "skills": [
+            "报表分析",
+            "财务分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/1202UIBE007-1003252013，HTTP 200；页面标题「财务报表分析_对外经济贸易大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第一章 财务报表分析概论",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 引言",
+                "1.2 财务报表分析的概念、主体和目的"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第二章 资产负债表概述",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 企业财务报告概述&2.2资产的概念",
+                "2.3 资产项目的分类与质量分析",
+                "2.4 负债的概念",
+                "2.5 负债与所有者权益项目的分类与质量分析"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第三章 利润表和现金流量表概述",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 利润表概述",
+                "3.2 现金流量表概述"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第四章 企业经营活动与财务报表的关系",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 企业基本经营活动与财务报表的关系",
+                "4.2 企业经营活动与合并财务报表的关系"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第五章 企业报表战略分析（1）：资源配置战略",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 企业战略类型",
+                "5.2 经营（主导）型企业",
+                "5.3 投资（主导）型企业",
+                "5.4 经营与投资并重型企业"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第六章 企业战略分析（2）：资本引入战略",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 从权益的视角看资产负债表",
+                "6.2 企业发展状况分析",
+                "6.3 从资产负债表看战略结构",
+                "6.4 资产负债表战略分析",
+                "6.5 企业权益分配",
+                "6.6 资产负债表左右两侧的关系"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第七章 企业资产质量分析",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 营运资金管理",
+                "7.2 流动比率",
+                "7.3 营运资金其他方面分析",
+                "7.4 非需求性融资",
+                "7.5 货币资金质量分析",
+                "7.6 商业债权质量分析",
+                "7.7 以存货为核心的上下游关系管理",
+                "7.8 其他应收款质量分析",
+                "7.9 存货质量分析",
+                "7.10 流动资产质量分析",
+                "7.11 无形资产质量分析",
+                "7.12 企业财务指标"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第八章 利润质量分析",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 对利润表的分析",
+                "8.2 母公司净利润、合并净利润及归属于母公司所有者的净利润",
+                "8.3 业务结构对企业的战略支撑",
+                "8.4 企业业务结构",
+                "8.5 对费用的分析",
+                "8.6 对投资收益和营业外收入的分析"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第九章 现金流量质量分析",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 对现金流量表的分析",
+                "9.2 对现金流的分析",
+                "9.3 财务比率分析的运用"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "第十章 企业风险分析",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "10.1 公司股权结构巨变、治理环境变化以及核心管理人员变更的风险",
+                "10.2 贷款集权与分权的管理失控风险",
+                "10.3 并购不当产生的风险-商誉",
+                "10.4 惯性依赖-三个脱节的风险"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "第十一章 企业前景分析",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "11.1 从报表看企业",
+                "11.2 案例分析"
+              ]
+            },
+            {
+              "index": 12,
+              "title": "第十二章 报表分析的新方法、新维度、新视角",
+              "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "12.1 传统财务评价指标的局限性（1）",
+                "12.2 传统财务评价指标的局限性（2）",
+                "12.3 报表分析的新方法：项目质量分析法（1）",
+                "12.4 报表分析的新方法：项目质量分析法（2）",
+                "12.5 报表分析的新维度：质量维度",
+                "12.6 报表分析的新视角：战略视角"
+              ]
+            }
+          ]
         }
-]
+      ]
     },
     {
       "id": "ai-education",
@@ -469,137 +2067,740 @@
         "课件制作"
       ],
       "courses": [
-{
+        {
           "course_id": "ai-edu-001",
           "name": "人工智能教育应用",
-          "institution": null,
+          "institution": "华南师范大学",
           "provider": "国家高等教育智慧教育平台",
-          "instructor": null,
+          "instructor": "胡小勇",
           "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
           "url_verified": true,
           "hours": null,
           "level": "入门",
           "prereq": [],
-          "skills": ["AI教育应用", "智能学伴", "教学设计", "教育数据采集", "教育伦理"],
+          "skills": [
+            "AI教育应用",
+            "智能学伴",
+            "教学设计",
+            "教育数据采集",
+            "教育伦理"
+          ],
           "verified": "outline_published",
-          "verified_note": "模块与活动编号来自平台课程页。含两次作业与各模块测验。",
+          "verified_note": "2026-10-21 实际打开 https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821，HTTP 200；页面标题「课程 - 国家高等教育智慧教育平台」含课程名。章、节标题逐条取自该页课程大纲（页面内嵌目录（online-item/section-item）），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
-          "collected_at": "2026-10-13",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
-              "index": 0,
-              "title": "课程准备篇：走进人工智能教育应用",
-              "sections": ["活动0.1 这门课程学什么", "活动0.2 如何学习这门课程"]
-            },
-            {
               "index": 1,
-              "title": "人工智能与教育",
+              "title": "课程准备篇：走进人工智能教育应用",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "1.1 了解 AI 的发展阶段",
-                "1.2 认识 AI 的关键技术",
-                "1.3 理解 AI 教育应用的内涵",
-                "1.4 了解 AI 教育应用的前沿",
-                "模块一测验"
+                "活动0.1 这门课程学什么",
+                "活动0.2 如何学习这门课程"
               ]
             },
             {
               "index": 2,
-              "title": "人工智能教育应用环境",
+              "title": "模块一：人工智能与教育",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "2.1 了解智能学习环境",
-                "2.2 感知 AI 教育应用场景",
-                "模块二测验"
+                "活动1.1 了解AI的发展阶段",
+                "活动1.2 认识AI的关键技术",
+                "活动1.3 理解AI教育应用的内涵",
+                "活动1.4 了解AI教育应用的前沿"
               ]
             },
             {
               "index": 3,
-              "title": "人工智能的学习应用",
+              "title": "模块二：人工智能教育应用环境",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "3.1 了解智能学习助理",
-                "3.2 认识通用型智能学习工具",
-                "3.3 掌握学科智能学习工具",
-                "模块三测验",
-                "作业一：智能学习工具应用分析"
+                "活动2.1 了解智能学习环境",
+                "活动2.2 感知AI教育应用场景"
               ]
             },
             {
               "index": 4,
-              "title": "人工智能的教学应用",
+              "title": "模块三：人工智能的学习应用",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "4.1 认识智能教师助理",
-                "4.2 掌握智能教学助手",
-                "4.3 分析智能教学应用案例",
-                "作业二：基于课堂的学科智能教学设计方案",
-                "模块四测验"
+                "活动3.1 了解智能学习助理",
+                "活动3.2 认识通用型智能学习工具",
+                "活动3.3 掌握学科智能学习工具",
+                "作业一：智能学习工具应用分析"
               ]
             },
             {
               "index": 5,
-              "title": "人工智能教育评估与管理",
+              "title": "模块四：人工智能的教学应用",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "5.1 认识 AI 支持的教育数据采集与分析",
-                "5.2 探索教育智能决策",
-                "5.3 AI 教育应用的隐私、伦理问题",
-                "5.4 展望智能教育的发展",
-                "模块五测验"
+                "活动4.1 认识智能教师助理",
+                "活动4.2 掌握智能教学助手",
+                "活动4.3 分析智能教学应用案例",
+                "作业二：基于课堂的学科智能教学设计方案"
               ]
             },
             {
               "index": 6,
-              "title": "课程总结篇",
-              "sections": []
+              "title": "模块五：人工智能教育评估与管理",
+              "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动5.1 认识AI支持的教育数据采集与分析",
+                "活动5.2 探索教育智能决策",
+                "活动5.3 AI教育应用的隐私、伦理问题",
+                "活动5.4 展望智能教育的发展"
+              ]
             }
           ]
         },
-{
+        {
           "course_id": "ai-edu-002",
           "name": "人工智能时代的教育",
-          "institution": null,
+          "institution": "丽水学院",
           "provider": "国家高等教育智慧教育平台",
-          "instructor": null,
+          "instructor": "潘巧明、卓么措、张艳超、沈伟华",
           "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
           "url_verified": true,
           "hours": null,
           "level": "入门到进阶",
           "prereq": [],
-          "skills": ["AI教育应用", "教学设计", "学情分析", "教育伦理"],
+          "skills": [
+            "AI教育应用",
+            "教学设计",
+            "学情分析",
+            "教育伦理"
+          ],
           "verified": "partial",
-          "verified_note": "章标题可查；节级编号（如 1.1–1.25）来自平台页面片段，未逐条核对节名。演示前应逐章核对。",
+          "verified_note": "原库为 partial；2026-10-21 的线上复核报告与本地目录抓取均显示 8 章 174 节，草稿与本地抓取的章名、节名差异为 0。等待用户确认后再决定是否升为 outline_published；复核记录见 data/verification-log.json#records。",
           "source_url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
-          "collected_at": "2026-10-13",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
             {
               "index": 1,
               "title": "人工智能概述",
-              "sections": ["机器学习", "深度学习", "自然语言理解", "模式识别"]
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 人工智能",
+                "1.2 人工智能技术",
+                "1.3 人工智能对社会的影响",
+                "1.4 人工智能",
+                "1.5 人工智能的发展历程",
+                "1.6 弱人工智能",
+                "1.7 强人工智能",
+                "1.8 超人工智能",
+                "1.9 人工智能分类",
+                "1.10 人工智能技术",
+                "1.11 人工智能硬件系统",
+                "1.12 人工智能软件系统",
+                "1.13 人工智能数据",
+                "1.14 机器学习",
+                "1.15 深度学习",
+                "1.16 自然语言理解",
+                "1.17 模式识别技术",
+                "1.18 人工智能应用",
+                "1.19 机器视频技术与视频分析技术",
+                "1.20 人工智能在家庭中的应用",
+                "1.21 人工智能在医疗行业的应用",
+                "1.22 人工智能在交通出行的应用",
+                "1.23 人工智能在娱乐生活的应用",
+                "1.24 人工智能时代的教育",
+                "1.25 技术与教育发展阶段"
+              ]
             },
             {
               "index": 2,
               "title": "人工智能时代的教育",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "情境学习理论",
-                "类脑智能",
-                "精准教学",
-                "泛在学习",
-                "教育评价",
-                "政策文件"
+                "2.1 技术与教育发展概述",
+                "2.2 人工智能时代的教育特征",
+                "2.3 人工智能时代的教育变革",
+                "2.4 情境学习理论视角下的智能教育",
+                "2.5 神经科学理论视角下的智能教育",
+                "2.6 类脑智能理论视角下的智能教育",
+                "2.7 复杂系统理论视角下的智能教育",
+                "2.8 智能教育典型特征",
+                "2.9 深度融合的精准教学",
+                "2.10 无处不在的泛在学习",
+                "2.11 精准高效的学校管理",
+                "2.12 科学准确的教育评价",
+                "2.13 智能教育改革相关的政策文件",
+                "2.14 人工智能引发的教育变革",
+                "2.15 人工智能时代的教育微观价值",
+                "2.16 人工智能时代的教育宏观价值"
               ]
             },
             {
               "index": 3,
               "title": "人工智能时代的学校",
-              "sections": ["智慧校园", "智慧教室", "智慧实验室", "智慧图书馆"]
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 人工智能时代的学校定位",
+                "3.2 人工智能时代的学校内涵",
+                "3.3 人工智能时代的教育环境",
+                "3.4 数字经济社会发展对人才的新要求",
+                "3.5 学校人才培养目标",
+                "3.6 人工智能时代的学校发展路径",
+                "3.7 人工智能时代的学校存亡",
+                "3.8 人工智能时代的学校特征",
+                "3.9 人工智能时代的学校形态",
+                "3.10 智慧校园",
+                "3.11 智慧教室",
+                "3.12 智慧实验室",
+                "3.13 智慧图书馆"
+              ]
             },
             {
               "index": 4,
               "title": "人工智能时代的教师",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
-                "教师定位",
-                "智能素养",
-                "角色危机与转型",
-                "教师专业发展",
-                "师德师风建设",
-                "学生学习特点"
+                "4.1 人工智能时代的教师定位",
+                "4.2 人工智能时代的教师智能素养",
+                "4.3 人工智能时代的教学",
+                "4.4 元宇宙校园",
+                "4.5 人工智能时代教师的角色危机",
+                "4.6 人工智能时代的教师角色转型",
+                "4.7 人工智能时代的教师角色定位",
+                "4.8 人工智能时代的教师素养",
+                "4.9 人工智能时代教学迎来的机遇",
+                "4.10 人工智能时代教学面临的挑战",
+                "4.11 人工智能与教师专业发展的关系",
+                "4.12 人工智能进入教学后的师生关系",
+                "4.13 教学虚拟世界与现实世界的关系",
+                "4.14 精准教学的内涵与特征",
+                "4.15 精准教学的主要环节",
+                "4.16 人工智能时代的师德师风建设",
+                "4.17 人工智能时代的学生学习特点",
+                "4.18 高阶认知能力",
+                "4.19 个性化学习能力"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "人工智能时代的学生",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 人工智能时代的学生定位",
+                "5.2 人工智能时代的学生智能素养",
+                "5.3 人工智能时代的学习",
+                "5.4 跨学科学习能力",
+                "5.5 反向社会化能力",
+                "5.6 人工智能时代的学生学习方式",
+                "5.7 反思性学习",
+                "5.8 熏陶式学习",
+                "5.9 个性化学习",
+                "5.10 协作学习",
+                "5.11 人工智能时代的学习途径",
+                "5.12 信息获取多元化",
+                "5.13 任务处理同步化",
+                "5.14 内容处理形象化",
+                "5.15 沟通交流协作化",
+                "5.16 阅读方式数字化",
+                "5.17 虚拟现实融合化",
+                "5.18 适时学习常态化",
+                "5.19 人工智能时代的学生素养",
+                "5.20 知识素养",
+                "5.21 技术素养",
+                "5.22 数据素养",
+                "5.23 思维素养",
+                "5.24 伦理素养",
+                "5.25 人工智能时代的学生学习工具",
+                "5.26 基于电子屏幕的阅读学习",
+                "5.27 基于互联网的协作学习",
+                "5.28 基于教育数据的反思学习",
+                "5.29 基于移动终端的泛在学习",
+                "5.30 基于自主适应的个性化学习",
+                "5.31 基于虚拟学校的终身学习"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "人工智能时代的工具",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 智能时代的新型教学共同体",
+                "6.2 人工智能时代的教学工具",
+                "6.3 人工智能时代的学习工具",
+                "6.4 人工智能时代的管理工具",
+                "6.5 人工智能时代的教育工具特征",
+                "6.6 人工智能时代的教育工具应用",
+                "6.7 教育管理智能化",
+                "6.8 人机协同化",
+                "6.9 网络泛在化",
+                "6.10 工具应用个性化",
+                "6.11 教育工具赋能学习",
+                "6.12 教育工具赋能教学",
+                "6.13 教育工具赋能管理",
+                "6.14 人工智能时代的教育工具",
+                "6.15 智能学情分析工具",
+                "6.16 智能教学设计工具",
+                "6.17 智能教学评价工具",
+                "6.18 智能作业评阅工具",
+                "6.19 智能阅读学习工具",
+                "6.20 智能协作学习工具",
+                "6.21 泛在学习工具",
+                "6.22 自适应学习工具",
+                "6.23 终身学习工具",
+                "6.24 反思学习工具",
+                "6.25 人工智能时代的管理工具",
+                "6.26 区域管理工具",
+                "6.27 学校管理工具"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "人工智能时代的教育评估",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 人工智能时代的教育数据采集",
+                "7.2 人工智能时代的教育数据挖掘",
+                "7.3 人工智能时代的教育数据决策",
+                "7.4 人工智能时代的教育精准评价",
+                "7.5 班级管理工具",
+                "7.6 教育大数据",
+                "7.7 教育数据采集内容",
+                "7.8 教育数据采集方式",
+                "7.9 教育数据采集手段",
+                "7.10 教育数据采集规范",
+                "7.11 教育数据挖掘",
+                "7.12 教育数据挖掘的三个步骤",
+                "7.13 教育数据挖掘的四个处理阶段",
+                "7.14 教育数据挖掘的应用：个性化学习服务",
+                "7.15 教育数据挖掘的应用：学习效果预测",
+                "7.16 教育数据挖掘的应用：学习行为研究",
+                "7.17 基于数据的教学决策",
+                "7.18 基于数据的教学决策阶段",
+                "7.19 人工智能时代的评价",
+                "7.20 人工智能时代精准评价框架",
+                "7.21 智能时代精准评价机制的构成要素",
+                "7.22 人工智能时代的教育发展趋势"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "人工智能教育展望",
+              "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 人工智能时代教育发展的机遇与挑战",
+                "8.2 人工智能时代的教育伦理",
+                "8.3 人工智能时代的教育发展趋势",
+                "8.4 精准教学成为可能",
+                "8.5 泛在学习成为趋势",
+                "8.6 智能管理成为主流",
+                "8.7 数据评价成为常态",
+                "8.8 智能教研成为现实",
+                "8.9 配套政策制定问题",
+                "8.10 教育公平包容问题",
+                "8.11 智能素养提升问题",
+                "8.12 数据平台构建问题",
+                "8.13 智能教育研究问题",
+                "8.14 数据隐私安全问题",
+                "8.15 培养计算思维能力",
+                "8.16 消除智能数字鸿沟",
+                "8.17 构建智能教育生态系统",
+                "8.18 技术赋能智能教育",
+                "8.19 重视智能教育伦理",
+                "8.20 ChatGPT与未来教育",
+                "8.21 “文心一言”与未来教育"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-003",
+          "name": "现代教育技术",
+          "institution": "陕西师范大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "傅钢善",
+          "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": [
+            "课件制作",
+            "教学设计",
+            "AI教育应用"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401SNNU001-1001517001，HTTP 200；页面标题「现代教育技术_陕西师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "绪论",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "绪论1 学习现代教育技术的缘由",
+                "绪论2 现代教育技术的基本内容",
+                "绪论3 现代教育技术的学习方法",
+                "绪论4 课程学习中常见问题汇总"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第1单元 现代教育技术概论",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题1.1 信息技术与教育变革",
+                "专题1.2 现代教育技术的内涵与发展",
+                "专题1.3 现代教育技术的时代意义"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第2单元 现代教育技术理论基础",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题2.1 学习理论",
+                "专题2.2 教学理论",
+                "专题2.3 传播理论",
+                "专题2.4 系统理论",
+                "专题2.5 理论研究新进展"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第3单元 信息时代的教师和学习者",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题3 章节导言",
+                "专题3.1 信息时代的教师",
+                "专题3.2 信息时代的学习者"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第4单元 教学媒体与信息化教学环境",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题4.1 教学媒体概述",
+                "专题4.2 新型教学媒体",
+                "专题4.3 信息化教学环境"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第5单元 信息化教学资源获取与加工",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题5.1 信息化教学资源的概述",
+                "专题5.2 信息化教学资源的获取与存储",
+                "专题5.3 信息化教学资源的处理",
+                "第5单元 拓展学习资源之资源加工类",
+                "第5单元 拓展学习资源之资源获取类"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第6单元 多媒体课件设计、制作与评价",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题6.1 基于多媒体教学环境的教学组织",
+                "专题6.2 多媒体课件的分类",
+                "专题6.3 多媒体课件的设计",
+                "专题6.4 多媒体课件的制作",
+                "专题6.5 多媒体课件的评价"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第6单元 往日作业赏析",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "多媒体课件设计资源链接"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第7单元 信息化教学设计",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题7导言 信息化教学设计的价值观",
+                "专题7.1 信息化教学设计概述",
+                "专题7.2 目标导向的信息化教学设计",
+                "专题7.3 问题导向的信息化教学设计",
+                "专题7.4 任务驱动的信息化教学设计",
+                "专题7.5 翻转课堂的信息化教学设计",
+                "第7单元 往日作业赏析"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "第8单元 信息化教与学的评价",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题8.1 信息化教学评价概述",
+                "专题8.2 信息化教的评价",
+                "专题8.3 信息化学的评价",
+                "专题8.4 信息化教学评价的发展趋势"
+              ]
+            },
+            {
+              "index": 11,
+              "title": "第9单元 信息技术与课程融合",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题9.1 信息技术与课程融合概述",
+                "专题9.2 基于融合理念的基本学习模式",
+                "专题9.3 信息技术与课程融合新途径"
+              ]
+            },
+            {
+              "index": 12,
+              "title": "第10单元 网络课程及教学应用",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题10.1 网络课程概述",
+                "专题10.2 网络课程教学支持平台",
+                "专题10.3 混合学习型网络课程及其教学应用"
+              ]
+            },
+            {
+              "index": 13,
+              "title": "第11单元 教育信息化与信息化教学",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题11.1 教育信息化概述",
+                "专题11.2 信息化教学概述",
+                "专题11.3 信息化课程建设（微课）",
+                "专题11.4 信息化课程建设（MOOC）"
+              ]
+            },
+            {
+              "index": 14,
+              "title": "第12单元 信息时代教师专业能力发展",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "专题12.1 信息时代教师专业能力概述",
+                "专题12.2 信息时代教师专业能力发展的基本途径",
+                "专题12.3 信息时代的教学反思"
+              ]
+            },
+            {
+              "index": 15,
+              "title": "第13单元 人工智能拓展学习",
+              "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "初识人工智能",
+                "人工智能对教与学的影响",
+                "人工智能支持教与学的应用",
+                "清华北大Deepseek系列"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-004",
+          "name": "教学系统设计",
+          "institution": "北京师范大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "王辞晓",
+          "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [
+            "ai-edu-003"
+          ],
+          "skills": [
+            "教学设计"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401BNU0149-1472319164，HTTP 200；页面标题「教学系统设计_北京师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "教学设计概述",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 教学设计的内涵",
+                "1.2 教学设计的历史发展",
+                "1.3 教学设计的性质与应用层次",
+                "1.4 教学设计的一般过程"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "教学设计的基本原理",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 教学设计的方法论：系统方法",
+                "2.2 教学设计的学习科学与教学论基础",
+                "2.3 教学设计的传播学理论基础",
+                "2.4 教学设计的五项基本原则"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "学习需求分析",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 学习需求分析的内涵",
+                "3.2 学习需求分析的结果：教学目标",
+                "3.3 学习需求分析的类型与方法",
+                "3.4 学习需求分析的一般过程"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "学习内容分析",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 学习内容分析的内涵",
+                "4.2 学习结果分类",
+                "4.3 学习内容分析的方法",
+                "4.4 学习内容分析的主要环节"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "学习者与环境分析",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 学习者分析的内涵与方法",
+                "5.2 环境分析的内涵与方法"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "学习目标阐明",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 学习目标的内涵与应用",
+                "6.2 学习目标的类型演变",
+                "6.3 学习目标的表述原则"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "教学策略制定",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 教学策略的内涵与特点",
+                "7.2 教学策略的主要内容",
+                "7.3 教学策略的常见类型"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "教学资源选择",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 教学资源的选择与开发",
+                "8.2 数字化教学资源的类型"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "测评工具编制",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 测评工具的内涵与作用",
+                "9.2 测评工具的多种类型",
+                "9.3 测评工具的质量评估"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "教学设计评价",
+              "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "10.1 评价的对象和类型",
+                "10.2 形成性评价",
+                "10.3 总结性评价",
+                "10.4 证实性评价"
               ]
             }
           ]
@@ -615,22 +2816,45 @@
           "hours": 18,
           "level": "入门",
           "prereq": [],
-          "skills": ["课件制作", "教学设计"],
+          "skills": [
+            "课件制作",
+            "教学设计"
+          ],
           "verified": "outline_published",
-          "verified_note": "2026-10-19 于 zhihuishu.com 打开课程主页（标题「多媒体课件因“理”而精彩—智慧树网」，延安大学，学时18，2026秋冬学期运行中），章、节、小节标题取自该页「在线教程」栏目（页面自身加载的公开接口，免登录可见），7章及各小节标题逐条核对一致。课程以多媒体课件的教学设计、开发、素材处理、演示型课件制作、微课设计开发与课件教学法为主线，非单纯办公软件排版课。国家高等教育智慧教育平台同课页 https://higher.smartedu.cn/course/68003a82b836e5522a755723 指向该智慧树课程；中国大学MOOC 另有同名课程页 https://www.icourse163.org/course/YADX-1450045176（仅2020年开过一期，章节划分略不同），本条以智慧树当前版本为准。sections 收录小节（x.y.z）标题。",
+          "verified_note": "2026-10-21 实际打开 https://coursehome.zhihuishu.com/courseHome/1000007253，HTTP 200；页面标题「多媒体课件因“理”而精彩—智慧树网」含课程名。章、节标题逐条取自该页课程大纲（页面「在线教程」栏目加载的公开接口），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
           "source_url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
-          "collected_at": "2026-10-19",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
           "chapters": [
-            { "index": 1, "title": "绪论", "sections": ["1.1.1 你能从本课程中学到什么，我们怎么教", "1.2.1 推荐几个学习方法"] },
+            {
+              "index": 1,
+              "title": "绪论",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 学什么和怎么教",
+                "1.1.1 你能从本课程中学到什么，我们怎么教",
+                "1.2 如何学",
+                "1.2.1 推荐几个学习方法"
+              ]
+            },
             {
               "index": 2,
               "title": "多媒体课件基本理论",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
+                "2.1 求善——学习理论依据",
                 "2.1.1 从学习谈起",
                 "2.1.2 学习的经验塔",
                 "2.1.3 多媒体认知学习理论",
+                "2.2 求真——多媒体课件",
                 "2.2.1 什么是多媒体课件",
                 "2.2.2 多媒体课件的种类",
+                "2.3 求美——美学理论依据",
                 "2.3.1 美图与美文",
                 "2.3.2 美声与交互"
               ]
@@ -638,54 +2862,1093 @@
             {
               "index": 3,
               "title": "多媒体课件设计与开发",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
+                "3.1 纸上谈兵——设计多媒体课件",
                 "3.1.1 教学设计的基本原理",
                 "3.1.2 教学设计的要素和流程",
                 "3.1.3 教学设计与多媒体课件教学设计的关系",
                 "3.1.4 多媒体课件分析",
                 "3.1.5 多媒体课件设计",
-                "3.2.1 多媒体课件的原型开发与测试",
+                "3.2 沙盘演练——开发多媒体课件",
                 "3.2.2 多媒体课件教学评价"
               ]
             },
             {
               "index": 4,
               "title": "多媒体课件素材处理技术",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
+                "4.1 有图有真相",
                 "4.1.1 图像素材开发软件简介（Photoshop）",
                 "4.1.2 图像素材处理的常用技术",
+                "4.2 有声才有色",
                 "4.2.1 音频素材开发软件简介（Audition）",
                 "4.2.2 音频素材处理的常用技术",
+                "4.3 他山之石",
                 "4.3.1 搜索引擎的使用"
               ]
             },
             {
               "index": 5,
               "title": "演示型课件制作技术",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
+                "5.1 模板",
                 "5.1.1 Powerpoint模板的创建",
+                "5.2 动画",
                 "5.2.1 Powerpoint动画技术",
+                "5.3 集成",
                 "5.3.1 Powerpoint素材集成技术",
+                "5.4 放映",
                 "5.4.1 Powerpoint放映技术",
+                "5.5 进阶",
                 "5.5.1 PPT制作进阶"
               ]
             },
             {
               "index": 6,
               "title": "微课的设计与开发",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
               "sections": [
+                "6.1 我们不一样——了解微课",
                 "6.1.1 微课的缘起",
                 "6.1.2 微课的概念",
                 "6.1.3 丰富多样的微课",
+                "6.2 微课之道——微课的实践",
                 "6.2.1 设计微课",
                 "6.2.2 开发微课",
                 "6.2.3 高级制作技术"
               ]
             },
-            { "index": 7, "title": "多媒体课件教学法", "sections": ["7.1.1 雨课堂教学法", "7.1.2 雨课堂教学案例演示", "7.2.1 微课教学法——慕课", "7.2.2 微课教学法——翻转课堂"] }
+            {
+              "index": 7,
+              "title": "多媒体课件教学法",
+              "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 雨课堂教学",
+                "7.1.1 雨课堂教学法",
+                "7.1.2 雨课堂教学案例演示",
+                "7.2 微课教学",
+                "7.2.1 微课教学法——慕课",
+                "7.2.2 微课教学法——翻转课堂"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-006",
+          "name": "学习分析技术与方法",
+          "institution": "淮北师范大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "张琪、张坤颖、童名文、詹泽慧、黄志南、马志强、李晓岩、江波、龙陶陶、姚璜",
+          "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [],
+          "skills": [
+            "教育数据采集",
+            "学情分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401CHNU001-1461186179，HTTP 200；页面标题「学习分析技术与方法_淮北师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第一章 学习准备",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 学习指南",
+                "1.2 学习分析初体验"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第二章 学习分析概念与特征",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.0 本章导学",
+                "2.1 学习分析产生的背景",
+                "2.2 学习分析的概念",
+                "2.3 学习分析模型"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第三章 学习分析支撑教与学变革",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.0 章节导学",
+                "3.1 学习分析的应用场景",
+                "3.2 数据，信息与知识",
+                "3.3 从信息论视角看大数据",
+                "3.4 从数据中探究价值",
+                "3.5 数据驱动教学",
+                "3.6 学习分析促进学习的机制"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第四章 数据挖掘与建模",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.0 章节导学",
+                "4.1 自适应学习系统技术导论",
+                "4.2 自适应学习系统",
+                "4.3 教育数据挖掘绪论",
+                "4.4 学习行为建模",
+                "4.5 学习者知识状态建模",
+                "4.6 学习者认知建模",
+                "4.7 学习者情感模型",
+                "4.8 多模态学习者模型",
+                "4.9 学习路径规划",
+                "4.10 学习内容生成技术",
+                "作业一"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第五章 数据分析技术",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.0 章节导学",
+                "5.1 滞后序列分析",
+                "5.2 行为模式分析",
+                "5.3 经验取样法",
+                "5.4 认知网络分析",
+                "5.5 可视化分析",
+                "5.6 学习投入分析",
+                "5.7 定性比较分析",
+                "5.8 社会网络分析",
+                "5.9 基于眼动技术的学习分析",
+                "5.10 基于功能性近红外光谱技术的学习分析",
+                "5.11 有序网络分析",
+                "作业二"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第六章 学习分析实践与趋势",
+              "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 学情数据类型",
+                "6.2 学情数据分析",
+                "6.3 学习分析工具",
+                "6.4 学习分析工具的设计流程",
+                "6.5 从“国家智慧教育平台”看学习分析的设计",
+                "6.6 多模态学习分析",
+                "6.7 从学习分析技术到学习分析学",
+                "6.8 基于智能体的会话分析",
+                "6.9 从科学发现到学习发现：AI4Science 驱动学习分析范式重构"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-007",
+          "name": "学习分析技术基础",
+          "institution": "华中师范大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "张思、吴林静、魏艳涛、刘博文",
+          "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [
+            "ai-edu-006"
+          ],
+          "skills": [
+            "教育数据采集",
+            "学情分析",
+            "统计分析"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401HUST068-1474273175，HTTP 200；页面标题「学习分析技术基础_华中师范大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "导论",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "背景介绍",
+                "课程概述",
+                "资料阅读"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "统计分析",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 有调节的中介模型",
+                "2.2 线性回归与结构方程模型",
+                "2.3 案例分析"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "社会网络分析",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 社会网络分析概念与基本理论",
+                "3.2 社会网络分类与分析指标",
+                "3.3 社会网络分析的三个层面",
+                "3.4 社会网络分析的基本操作",
+                "3.5 社会网络分析案例"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "内容分析",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 内容分析法概述",
+                "4.2 内容分析的一致性检验",
+                "4.3 论文案例"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "生成式人工智能的应用",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 生成式人工智能应用概述",
+                "5.2 生成式人工智能应用-论文介绍",
+                "5.3 API申请",
+                "5.4 Pycharm、Anaconda操作"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "隐马尔可夫链的应用",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 隐马尔可夫模型原理",
+                "6.2 求观测序列出现的概率",
+                "6.3 求解参数",
+                "6.4 求状态序列",
+                "6.5 论文案例"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "行为序列分析",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 行为序列分析法基本内容",
+                "7.2 行为序列分析的数学原理",
+                "7.3 论文案例"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "认知网络分析",
+              "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 民族志与量化研究",
+                "8.2 量化民族志与ENA",
+                "8.3 ENA分析步骤",
+                "8.4 ONA概念与原理",
+                "8.5 ENA案例分析"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-008",
+          "name": "微课设计与制作",
+          "institution": "爱课程",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "杨上影、郑小军、林雯、熊冬春、兰瑞乐",
+          "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": [
+            "课件制作",
+            "教学设计"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0401ICourse005-1001555013，HTTP 200；页面标题「微课设计与制作_爱课程_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "学习准备篇",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动0.1 走进课程",
+                "活动0.2 开启学习之旅",
+                "活动0.3 优秀学员作品展示(第二学期)",
+                "活动0.4 优秀学员作品展示(第三学期)",
+                "活动0.5 优秀学员作品展示(第四学期)",
+                "活动0.6 优秀学员作品展示(第五学期)",
+                "活动0.7 优秀学员作品展示(第六学期)",
+                "活动0.8 优秀学员作品展示(第七学期)",
+                "活动0.9 优秀学员作品展示(第八学期)",
+                "活动10 优秀学员作品展示(第九学期)",
+                "活动11 优秀学员作品展示（第十学期）",
+                "活动12 作业学员作品展示（第十一学期）",
+                "活动13 作业学员作品展示（第十二学期）",
+                "活动14 作业学员作品展示（第十三学期）",
+                "活动15 作业学员作品展示（第十三学期）",
+                "活动16 优秀学员作品展示（第十四学期）",
+                "活动17 优秀学员作品展示（第十五学期）",
+                "活动18 优秀学员作品展示（第十六学期）",
+                "活动19 优秀学员作品展示（第十七学期）",
+                "活动20 优秀学员作品展示（第十八学期）",
+                "活动21 优秀作业讨论"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "微课概述",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动1.1 新媒体、新教育",
+                "活动1.2 微课初体验-南宁市锦华小学案例集",
+                "活动1.3 微课初体验-优秀微课案例集",
+                "活动1.4 微课特征与发展",
+                "活动1.5 微课设计、创作误区与应用",
+                "活动1.6 广西中职教师优秀微课作品展",
+                "活动1.7 贵阳市花溪区微课一等奖获奖案例",
+                "活动1.8 秦皇岛旅游类精品资源库微课案例"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "微课制作模式与技术准备",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动2.1 微课制作流程与方式",
+                "活动2.2 录屏类微课制作准备",
+                "活动2.3 拍摄类微课制作准备",
+                "活动2.4 常用工具的介绍",
+                "活动2.5 晒晒你的准备"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "微课选题与设计",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动3.1 微课选题",
+                "活动3.2 微课教学设计",
+                "活动3.3 微课框架搭建与相关脚本编写",
+                "活动3.4 企业微课设计案例分享",
+                "活动3.5 教育行业微课设计案例分享",
+                "活动3.6 往期学员优秀设计选登"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "PPT设计与制作进阶",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动4.1 PPT可视化原理",
+                "活动4.2 PPT可视化方法与要素",
+                "活动4.3 PPT课件基础制作",
+                "活动4.4 让你的PPT更出彩",
+                "活动4.5 PPT制作高效工具",
+                "活动4.6 PPT型微课制作案例"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "微课录制与后期处理",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动5.1 Camtasia Studio介绍",
+                "活动5.2 后期编辑功能介绍",
+                "活动5.3 后期制作相关技巧",
+                "活动5.4 输出与后期同期声字幕制作",
+                "活动5.5 案例制作讲解",
+                "活动5.6 剪辑师-推荐初级用户使用"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "创新型微课制作工具(扩展周)",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动6.1 动画型微课制作工具介绍",
+                "活动6.2 手机拍摄剪辑工具介绍",
+                "活动6.3 交互式微课制作工具介绍",
+                "活动6.4 手绘类微课制作工具介绍",
+                "活动6.5 互动电影微课制作工具-优芽"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "手机H5型微课制作(扩展周)",
+              "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "活动7.1 H5移动微课概述",
+                "活动7.2 H5移动微课制作",
+                "活动7.3 课程心得、建议与结课问卷"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-009",
+          "name": "生成式人工智能应用基础",
+          "institution": "杭州电子科技大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "林菲、鲍小忠、顾晓玲、王浩、赵健、陈洁、李竹、刘汪洋、刘细涓",
+          "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [],
+          "skills": [
+            "提示词工程",
+            "AI教育应用",
+            "课件制作"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809HDU036-1472762177，HTTP 200；页面标题「生成式人工智能应用基础_杭州电子科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第1章 生成式人工智能概述",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 什么是生成式人工智能",
+                "1.2 AIGC的常用工具",
+                "1.3 AIGC应用案例",
+                "1.4 AIGC的产业生态",
+                "1.5 局限与挑战"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第2章 生成式人工智能常用工具",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 文本生成工具及应用",
+                "2.2 图像生成工具及应用",
+                "2.3 视频生成工具及应用",
+                "2.4 音频生成工具及应用",
+                "2.5 人工智能内容生成检测工具及应用"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第3章 提示词工程及其技巧",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 提示词和提示词工程的基本概念",
+                "3.2 提示词工程的创作流程",
+                "3.3 提示词的战略思想",
+                "3.4 提示词的战术技巧",
+                "3.5 提示词的调优方法和案例分析",
+                "3.6 提示词工程局限、误区和展望"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第4章 智能体技术及其应用",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 智能体的基本概念",
+                "1.2 智能体的关键技术原理",
+                "1.3 智能问答助手的设计与构建",
+                "1.4 论文搜索助手的设计与构建",
+                "1.5 论文播客助手的设计与构建"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第5章 AIGC赋能学习与研究",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 AI辅助阅读",
+                "5.2音视频速读",
+                "5.3 知识通俗讲解",
+                "5.4 文章高效解读",
+                "5.5 论文高效解读",
+                "5.6 试题辅导",
+                "5.7 科技文献阅读与分析",
+                "5.8 课题设计与实验优化",
+                "5.9 代码生成与优化"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第6章 AIGC赋能办公与管理",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 办公文档自动化处理",
+                "6.2 图表数据可视化制作",
+                "6.3 PPT演示文稿与报告生成",
+                "6.4 海报创意设计",
+                "6.5 思维导图与流程图制作",
+                "6.6 智能会议管理",
+                "6.7 数据分析与决策支持"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第7章 AIGC赋能教学创新",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 基于学情分析的教案设计",
+                "7.2 互动教学课件开发",
+                "7.3 基于数字人技术的教学微视频开发",
+                "7.4 多维度数据分析的课程评价报告生成"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第8章 AIGC赋能设计与创意",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 语义分割的艺术",
+                "8.2 AI设计的视觉革命",
+                "8.3 人物修图的高科技",
+                "8.4 二维形象的三维蜕变",
+                "8.5 AI室内设计应用"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第9章 AIGC赋能产业发展",
+              "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 AIGC赋能非遗文化产业创新",
+                "9.2 AIGC赋能电子信息产业升级",
+                "9.3 AIGC赋能软件行业智能化发展",
+                "9.4 AIGC助力媒体智能创作新范式",
+                "9.5 AIGC赋能金融行业高质量发展"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-010",
+          "name": "AI实战：从零精通DeepSeek",
+          "institution": "杭州电子科技大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "余宙",
+          "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门到进阶",
+          "prereq": [
+            "ai-edu-009"
+          ],
+          "skills": [
+            "提示词工程",
+            "智能学伴",
+            "AI教育应用"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809HDU033-1472762176，HTTP 200；页面标题「AI实战：从零精通DeepSeek_杭州电子科技大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第1讲 AI与DeepSeek初探",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 智能路径的初步探索",
+                "1.2 智能实现路径的再思考",
+                "1.3 深度学习的三大核心要素",
+                "1.4 深度学习的演进与变革",
+                "1.5 大语言模型发展历程概览",
+                "1.6 大模型技术的未来趋势展望",
+                "1.7 DeepSeek 的核心技术创新",
+                "1.8 总结与展望"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第2讲 DeepSeek典型应用",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 提示词设计的核心原则",
+                "2.2 实用提示词案例解析",
+                "2.3 高级提示词技巧",
+                "2.4 图像生成技术演进史",
+                "2.5 主流图像生成模型纵览",
+                "2.6 AI绘图工具实战演练",
+                "2.7 视频生成技术概览与工具介绍",
+                "2.8 AI视频生成全流程实操",
+                "2.9 音乐生成模型原理与实战",
+                "2.10 AI学习助手：DeepSeek的智能辅助实践"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第3讲 DeepSeek开发实践",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 代码生成的发展史",
+                "3.2 使用DeepSeek生成代码",
+                "3.3 AI模型代码生成能力的评估",
+                "3.4 软件测试基本知识"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第4讲 DeepSeek驱动的智能体",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 大模型智能体简介",
+                "4.2 大模型智能体的两种实现范式",
+                "4.3 大模型智能体案例实操 —— 案例一：实现AI搜索引擎",
+                "4.4 大模型智能体案例实操 —— 案例二：实现私有知识库智能体",
+                "4.5 大模型智能体案例实操 —— 案例三：实现多智能体工作流",
+                "4.6 大模型智能体目前局限性"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第5讲 AI伦理与安全",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 人工智能是一把双刃剑",
+                "5.2 人工智能的安全问题",
+                "5.3 人工智能浪潮下的安全问题反思",
+                "5.4 人工智能安全治理政策",
+                "5.5 人工智能安全治理技术",
+                "5.6 总结与展望"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第6讲 AI艺术创意工坊",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 课程导入与感知框架",
+                "6.2 AI感知技术进展",
+                "6.3 AIGC技术解析及应用优势",
+                "6.4 AIGC在不同领域的创新应用",
+                "6.5 AI技术应用与就业市场变化",
+                "6.6 AI时代核心竞争力转变与模型协同",
+                "5.7 AI生成原理与沟通方法论",
+                "5.8 AI提示词工程方法论"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第7讲 AI企业实战工坊",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 DeepSeek洞察以及MindSpore框架介绍",
+                "7.2 DeepSeek-Janus-Pro模型介绍",
+                "7.3 香橙派部署实操",
+                "7.4 启智社区OpenI环境准备安装",
+                "7.5 JanusPro模型脚本讲解执行"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第8讲 AI未来展望及成果汇报",
+              "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1 应届生求职的三个不变",
+                "8.2 AI时代带来的本质变革",
+                "8.3 理解“校园竞争”与“社会竞争”的差异"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-011",
+          "name": "AI通识与AIGC赋能应用",
+          "institution": "无锡职业技术大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "史荧中",
+          "url": "https://www.icourse163.org/course/2024040801-1472851191",
+          "url_verified": true,
+          "hours": null,
+          "level": "入门",
+          "prereq": [],
+          "skills": [
+            "提示词工程",
+            "智能学伴",
+            "AI教育应用"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/2024040801-1472851191，HTTP 200；页面标题「AI通识与AIGC赋能应用_无锡职业技术大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/2024040801-1472851191",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "项目1  初识人工智能",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "任务1.1 人工智能发展简史与能力分类",
+                "任务1.2 判别式AIvs生成式AI：对比与协作",
+                "任务1.3 案例剖析：从猜你喜欢到AI绘画",
+                "任务1.4 人工智能的伦理与法律边界"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "项目2 具身智能中的判别式AI",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "任务2.1 来访检测与身份要素识别",
+                "任务2.2 嘈杂前台的语音唤醒、识别与播报",
+                "任务2.3 来访意图理解与知识检索",
+                "*任务2.4 迎宾机器人系统集成"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "项目3 AIGC与创作工具准备",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目3 AIGC与创作工具准备",
+                "任务3.1 AIGC发展趋势报告撰写",
+                "任务3.2 AIGC工具选型试用",
+                "任务3.3 AIGC创作作品集生成",
+                "任务3.4 提示词工程五原则七要素",
+                "任务3.5角色扮演四层境界",
+                "*任务3.6 DeepSeek本地部署",
+                "*任务3.7 DeepSeek私域知识库集成"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "项目4 个性化学习助手文本生成",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目4 个性化学习助手文本生成",
+                "任务4.1 课程学习计划定制",
+                "任务4.2 课程关键知识点提炼",
+                "任务4.3 模拟考试试题生成",
+                "任务4.4 薄弱环节个性化备考",
+                "任务4.5 问题求解与思维链训练",
+                "任务4.6 汇报PPT典型案例整理"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "项目5 校园活动图像视频创作",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目5 校园活动图像视频创作",
+                "任务5.1 赛事宣传海报制作",
+                "任务5.2 十大歌手风采图片生成",
+                "任务5.3 歌手风采展示视频制作",
+                "任务5.4 赛后回顾文本生视频",
+                "任务5.5 赛事回顾视频剪辑",
+                "任务5.6 数字人赛事解说制作",
+                "任务5.7 数字分身动作口型适配"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "项目6 校园饮品店运营支持",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目6 校园饮品店运营支持",
+                "任务6.1 品牌定位与市场分析",
+                "任务6.2 产品与品牌命名",
+                "任务6.3 品牌形象与IP设计",
+                "任务6.4 果茶文案与SEO优化",
+                "任务6.5 广告文案与社媒推广",
+                "任务6.6 社媒互动模块化创作",
+                "任务6.7 3D商品与吉祥物设计",
+                "*任务6.8智能互动推荐系统开发"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "项目7 创新大赛创意与项目优化",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目7 创新大赛创意与项目优化",
+                "任务7.1 创意灵感激发与筛选",
+                "任务7.2 创新赛题凝练与优化",
+                "任务7.3 创业计划书框架构建",
+                "任务7.4 数据可视化与故事呈现",
+                "任务7.5 PPT叙事逻辑优化",
+                "任务7.6 流程图与甘特图生成",
+                "任务7.7 路演产品3D模型制作"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "项目8 智能体创意应用开发",
+              "url": "https://www.icourse163.org/course/2024040801-1472851191",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "项目8 智能体创意应用开发",
+                "任务8.1 夸夸机器人制作",
+                "任务8.2 校园百事通智能体开发",
+                "任务8.3 数据分析问答智能体开发",
+                "任务8.4 语音一键转脑图创意实施",
+                "任务8.5 旅游攻略组件开发",
+                "任务8.6 翻译无忧应用开发"
+              ]
+            }
+          ]
+        },
+        {
+          "course_id": "ai-edu-012",
+          "name": "人工智能伦理与安全",
+          "institution": "浙江大学",
+          "provider": "中国大学MOOC（爱课程）",
+          "instructor": "杨子祺、白惠仁、任奎",
+          "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+          "url_verified": true,
+          "hours": null,
+          "level": "进阶",
+          "prereq": [],
+          "skills": [
+            "教育伦理",
+            "AI教育应用"
+          ],
+          "verified": "outline_published",
+          "verified_note": "2026-10-21 实际打开 https://www.icourse163.org/course/0809ZJU397-1472843185，HTTP 200；页面标题「人工智能伦理与安全_浙江大学_中国大学MOOC(慕课)」含课程名。章、节标题逐条取自该页课程大纲（平台 outLineStructureDtos 结构化大纲），未按学科常识补全；已剔除纯测验/作业/考试条目。节级独立链接平台未提供，见 chapter.note。",
+          "source_url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+          "collected_at": "2026-10-21",
+          "section_link_status": "course_page_only",
+          "section_link_note": "当前只提供课程页地址，章名与节名用于进入课程页后的定位；无独立章页或节页深链。平台级探测见 data/verification-log.json#blocked。",
+          "chapters": [
+            {
+              "index": 1,
+              "title": "第一讲 人工智能伦理与安全概述",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "1.1 硅基“生命”的觉醒：从计算机的低语到ChatGPT的呐喊",
+                "1.2 AI的双刃剑：天使还是魔鬼？",
+                "1.3 AI安全的“红绿灯”：从技术伦理到合规监管的落地之路"
+              ]
+            },
+            {
+              "index": 2,
+              "title": "第二讲 人工智能伦理原则",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "2.1 AI需要怎样的道德坐标系？——人工智能伦理概述",
+                "2.2 AI应遵循哪些伦理原则？——原则主义的治理框架"
+              ]
+            },
+            {
+              "index": 3,
+              "title": "第三讲 人工智能价值观",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "3.1 AI被赋予的“价值观”：是谁在塑造AI的价值准则？"
+              ]
+            },
+            {
+              "index": 4,
+              "title": "第四讲 人工智能隐私保护",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "4.1 人工智能如何泄露你的秘密？——数据隐私风险揭秘！",
+                "4.2 人工智能也能守口如瓶？——数据隐私保护的秘籍！"
+              ]
+            },
+            {
+              "index": 5,
+              "title": "第五讲 人工智能公平性",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "5.1 人工智能也有偏见？——揭开AI公平面具的技术真相",
+                "5.2 人工智能正义手册：破解AI公平性的达芬奇密码"
+              ]
+            },
+            {
+              "index": 6,
+              "title": "第六讲 人工智能伦理道德",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "6.1 AI如何做道德决策？——道德技术的构造",
+                "6.2 AI犯错谁来担责？——人机协同的责任归附"
+              ]
+            },
+            {
+              "index": 7,
+              "title": "第七讲 人工智能安全问题概述",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "7.1 AI世界的安全边界：如何为数字巨兽打造牢不可破的护城河？"
+              ]
+            },
+            {
+              "index": 8,
+              "title": "第八讲 人工智能对抗样本攻击与防御",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "8.1  如何欺骗人工智能模型？——对抗攻击原理解密",
+                "8.2 识破“伪装者”：对抗防御三十六计"
+              ]
+            },
+            {
+              "index": 9,
+              "title": "第九讲 人工智能数据投毒和后门攻击与防御",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "9.1 当AI“吃”了毒数据：训练集里的特洛伊木马",
+                "9.2 AI白蚁防治：清除模型巢穴中的蛀虫"
+              ]
+            },
+            {
+              "index": 10,
+              "title": "第十讲 人工智能模型窃取攻击与防御",
+              "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+              "url_verified": true,
+              "note": "章级地址即课程页（该章目录在页面内展开，平台无独立章锚点）",
+              "sections": [
+                "10.1 AI黑客的“盗火行动”：当智能模型成为潜在战场",
+                "10.2 人工智能模型保卫战：与窃取者的 “猫鼠游戏”"
+              ]
+            }
           ]
         }
-]
+      ]
     }
   ]
 }

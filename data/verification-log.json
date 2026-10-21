@@ -1,0 +1,541 @@
+{
+  "meta": {
+    "schema_version": "1.1.0",
+    "note": "课程 URL 逐条核验记录与平台级受阻探测；blocked 是既有探测摘要，原始请求日志未入库。"
+  },
+  "records": [
+    {
+      "url": "https://www.icourse163.org/course/1202CUFE082-1470430193",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 374,
+      "page_title": "Python与财经大数据分析基础_中央财经大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-001",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 14,
+        "sections_live": 37,
+        "chapters_draft": 14,
+        "sections_draft": 37,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0809NJU004-1001571005",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 338,
+      "page_title": "用Python玩转数据_南京大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-002",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 11,
+        "sections_live": 79,
+        "chapters_draft": 11,
+        "sections_draft": 79,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/1202HUST26-1002750003",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 336,
+      "page_title": "财务报表分析_华中科技大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-003",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 12,
+        "sections_live": 70,
+        "chapters_draft": 12,
+        "sections_draft": 70,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://coursehome.zhihuishu.com/courseHome/1000095245",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 752,
+      "page_title": "Python在财务中的应用—智慧树网",
+      "course_id": "ai-fin-004",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": ""
+    },
+    {
+      "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a55",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 930,
+      "page_title": "课程 - 国家高等教育智慧教育平台",
+      "course_id": "ai-fin-006",
+      "name_match": true,
+      "match_basis": "page_body",
+      "note": "页面标题为通用模板（「课程 - 国家高等教育智慧教育平台」），课程名在正文命中"
+    },
+    {
+      "url": "https://www.icourse163.org/course/HAICT-1002125013",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 352,
+      "page_title": "Excel进阶教程_河南应用技术职业学院_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-007",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 6,
+        "sections_live": 59,
+        "chapters_draft": 6,
+        "sections_draft": 59,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/1202JNU080-1463154168",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 310,
+      "page_title": "数据可视化—基于Python的应用_暨南大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-008",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 10,
+        "sections_live": 42,
+        "chapters_draft": 10,
+        "sections_draft": 42,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0712ZUFE003-1002844001",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 340,
+      "page_title": "统计学_浙江财经大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-009",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 11,
+        "sections_live": 58,
+        "chapters_draft": 11,
+        "sections_draft": 58,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/1201CUFE031-1207262801",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 436,
+      "page_title": "数据挖掘与python实践_中央财经大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-010",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 8,
+        "sections_live": 43,
+        "chapters_draft": 8,
+        "sections_draft": 43,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/2020HUEL06-1462098166",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 319,
+      "page_title": "Excel数据分析与应用_河南财经政法大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-011",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 9,
+        "sections_live": 70,
+        "chapters_draft": 9,
+        "sections_draft": 70,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0809RUC001A-488001",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 333,
+      "page_title": "数据库系统概论（基础篇）_中国人民大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-012",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 6,
+        "sections_live": 42,
+        "chapters_draft": 6,
+        "sections_draft": 42,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/1202UIBE007-1003252013",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 369,
+      "page_title": "财务报表分析_对外经济贸易大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-013",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 12,
+        "sections_live": 53,
+        "chapters_draft": 12,
+        "sections_draft": 53,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://higher.smartedu.cn/course/69a9f2cf95df98bb2796e821",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 547,
+      "page_title": "课程 - 国家高等教育智慧教育平台",
+      "course_id": "ai-edu-001",
+      "name_match": true,
+      "match_basis": "page_body",
+      "note": "页面标题为通用模板（「课程 - 国家高等教育智慧教育平台」），课程名在正文命中"
+    },
+    {
+      "url": "https://higher.smartedu.cn/course/6a29d26e86debac74e1c79c6",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 2252,
+      "page_title": "课程 - 国家高等教育智慧教育平台",
+      "course_id": "ai-edu-002",
+      "name_match": true,
+      "match_basis": "page_body",
+      "note": "页面标题为通用模板（「课程 - 国家高等教育智慧教育平台」），课程名在正文命中",
+      "outline_recheck": {
+        "parse_path": "server-rendered online-item / section-item",
+        "checked_at": "2026-10-21 18:55:48 Asia/Shanghai",
+        "reported_http_status": 200,
+        "chapters_live": 8,
+        "sections_live": 174,
+        "chapters_draft": 8,
+        "sections_draft": 174,
+        "chapter_title_differences": 0,
+        "section_title_differences": 0,
+        "identical_to_draft": true,
+        "evidence_note": "Workbuddy 报告线上复核；Codex 另与本机 .tmp-course/sm 原始目录数据逐字比对。原始抓取留本地，未入仓库；课程等级仍待用户裁定。"
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0401SNNU001-1001517001",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 385,
+      "page_title": "现代教育技术_陕西师范大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-003",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 15,
+        "sections_live": 57,
+        "chapters_draft": 15,
+        "sections_draft": 57,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0401BNU0149-1472319164",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 325,
+      "page_title": "教学系统设计_北京师范大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-004",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 10,
+        "sections_live": 33,
+        "chapters_draft": 10,
+        "sections_draft": 33,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://coursehome.zhihuishu.com/courseHome/1000007253",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 529,
+      "page_title": "多媒体课件因“理”而精彩—智慧树网",
+      "course_id": "ai-edu-005",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": ""
+    },
+    {
+      "url": "https://www.icourse163.org/course/0401CHNU001-1461186179",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 318,
+      "page_title": "学习分析技术与方法_淮北师范大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-006",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLine(html)",
+        "chapters_live": 6,
+        "sections_live": 47,
+        "chapters_draft": 6,
+        "sections_draft": 47,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0401HUST068-1474273175",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 376,
+      "page_title": "学习分析技术基础_华中师范大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-007",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 8,
+        "sections_live": 31,
+        "chapters_draft": 8,
+        "sections_draft": 31,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0401ICourse005-1001555013",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 343,
+      "page_title": "微课设计与制作_爱课程_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-008",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 8,
+        "sections_live": 60,
+        "chapters_draft": 8,
+        "sections_draft": 60,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0809HDU036-1472762177",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 371,
+      "page_title": "生成式人工智能应用基础_杭州电子科技大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-009",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 9,
+        "sections_live": 51,
+        "chapters_draft": 9,
+        "sections_draft": 51,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0809HDU033-1472762176",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 527,
+      "page_title": "AI实战：从零精通DeepSeek_杭州电子科技大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-010",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 8,
+        "sections_live": 50,
+        "chapters_draft": 8,
+        "sections_draft": 50,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/2024040801-1472851191",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 393,
+      "page_title": "AI通识与AIGC赋能应用_无锡职业技术大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-011",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 8,
+        "sections_live": 55,
+        "chapters_draft": 8,
+        "sections_draft": 55,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://www.icourse163.org/course/0809ZJU397-1472843185",
+      "kind": "course_page",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 309,
+      "page_title": "人工智能伦理与安全_浙江大学_中国大学MOOC(慕课)",
+      "course_id": "ai-edu-012",
+      "name_match": true,
+      "match_basis": "page_title",
+      "note": "",
+      "outline_recheck": {
+        "parse_path": "outLineStructureDtos",
+        "chapters_live": 10,
+        "sections_live": 19,
+        "chapters_draft": 10,
+        "sections_draft": 19,
+        "identical_to_draft": true
+      }
+    },
+    {
+      "url": "https://coursehome.zhihuishu.com/home/communication/content/1000095245/444404/26?ft=",
+      "kind": "catalog_api",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 710,
+      "page_title": "智慧树「在线教程」目录片段（HTML 片段，非课程页）",
+      "course_id": "ai-fin-004",
+      "name_match": true,
+      "match_basis": "chapter_title_in_catalog",
+      "note": "章节标题抽取所用接口；片段内不含课程名，以首章标题命中作为比对依据"
+    },
+    {
+      "url": "https://coursehome.zhihuishu.com/home/communication/content/1000007253/471384/26?ft=",
+      "kind": "catalog_api",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 649,
+      "page_title": "智慧树「在线教程」目录片段（HTML 片段，非课程页）",
+      "course_id": "ai-edu-005",
+      "name_match": true,
+      "match_basis": "chapter_title_in_catalog",
+      "note": "章节标题抽取所用接口；片段内不含课程名，以首章标题命中作为比对依据"
+    },
+    {
+      "url": "https://www.icourse163.org/course/1202CUFE082-1470430194",
+      "kind": "counter_example",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 334,
+      "page_title": "税收筹划_中央财经大学_中国大学MOOC(慕课)",
+      "course_id": "ai-fin-001",
+      "name_match": false,
+      "match_basis": "none",
+      "note": "中国大学MOOC 真课 id 末位 +1；伪造地址，仅证明 200≠命中，不写入课程数据"
+    },
+    {
+      "url": "https://higher.smartedu.cn/course/690bc13e5345b68214799a56",
+      "kind": "counter_example",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 691,
+      "page_title": "课程 - 国家高等教育智慧教育平台",
+      "course_id": "ai-fin-006",
+      "name_match": false,
+      "match_basis": "none",
+      "note": "国家高等教育智慧教育平台 真课 id 末位 +1；伪造地址，仅证明 200≠命中，不写入课程数据"
+    },
+    {
+      "url": "https://coursehome.zhihuishu.com/courseHome/1000095246",
+      "kind": "counter_example",
+      "status": 200,
+      "checked_at": "2026-10-21",
+      "elapsed_ms": 522,
+      "page_title": "市场营销—智慧树网",
+      "course_id": "ai-edu-005",
+      "name_match": false,
+      "match_basis": "none",
+      "note": "智慧树 真课 id 末位 +1；伪造地址，仅证明 200≠命中，不写入课程数据"
+    }
+  ],
+  "blocked": [
+    {
+      "platform": "中国大学MOOC（爱课程）",
+      "outcome": "未取得可公开核验的节级地址",
+      "observation": "未登录访问 /learn/{code}?tid={termId} 会跳回课程页；getMocTermDto 未登录调用返回系统异常，无 csrfKey 的 RPC 请求返回非法跨域请求。",
+      "evidence_level": "既有探测摘要，原始请求日志未入库"
+    },
+    {
+      "platform": "国家高等教育智慧教育平台",
+      "outcome": "未取得可公开核验的节级地址",
+      "observation": "目录内嵌在课程页 HTML，目录条目没有 href；去学习入口跳转原平台并要求登录。",
+      "evidence_level": "既有探测摘要，原始请求日志未入库"
+    },
+    {
+      "platform": "智慧树",
+      "outcome": "未取得可公开核验的节级地址",
+      "observation": "coursehome 目录条目没有 href；study.zhihuishu.com 学习页本机请求超时且需要登录，无法核验节级地址。",
+      "evidence_level": "既有探测摘要，原始请求日志未入库"
+    }
+  ]
+}
