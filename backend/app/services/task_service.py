@@ -10,11 +10,17 @@ no leakage and no write.
 from datetime import date
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
-from app.models.entities import DailyTask, Phase, Plan, PracticeQuestion
+from app.models.entities import (
+    DailyTask,
+    MasteryEvidence,
+    Phase,
+    Plan,
+    PracticeQuestion,
+)
 
 VALID_STATUSES = ("pending", "done")
 
@@ -24,7 +30,8 @@ def task_is_protected(task: DailyTask, today: date) -> bool:
 
     A pending task dated today or later can still be replaced. Callers that
     rewrite a plan must leave protected rows and their ids untouched.
-    Answered practice links are handled separately via ``answered_practice_task_ids``.
+    Practice that already produced a record is handled separately via
+    ``protected_practice_task_ids``.
     """
     return task.status in ("done", "carried") or task.task_date < today
 
@@ -43,6 +50,38 @@ def answered_practice_task_ids(session: Session, plan_id: uuid.UUID) -> set[uuid
             DailyTask.plan_id == plan_id,
             PracticeQuestion.status.in_(("correct", "wrong")),
             PracticeQuestion.source_task_id.is_not(None),
+        )
+    )
+    return {task_id for task_id in rows if task_id is not None}
+
+
+def protected_practice_task_ids(
+    session: Session, plan_id: uuid.UUID, user_id: uuid.UUID
+) -> set[uuid.UUID]:
+    """Task ids on this plan whose practice work must survive a plan rewrite.
+
+    Union of questions the user already answered (``correct``/``wrong``) and
+    questions that produced ``MasteryEvidence``. Grading writes evidence but
+    leaves the question ``pending``, so status alone missed it and the rebuild
+    deleted the task and the phase the evidence points at. Scoped to this plan
+    and its owner; one task with several evidence rows is listed once.
+    """
+    rows = session.scalars(
+        select(PracticeQuestion.source_task_id)
+        .join(DailyTask, DailyTask.id == PracticeQuestion.source_task_id)
+        .join(Plan, Plan.id == DailyTask.plan_id)
+        .outerjoin(
+            MasteryEvidence, MasteryEvidence.question_id == PracticeQuestion.id
+        )
+        .where(
+            DailyTask.plan_id == plan_id,
+            Plan.user_id == user_id,
+            PracticeQuestion.user_id == user_id,
+            PracticeQuestion.source_task_id.is_not(None),
+            or_(
+                PracticeQuestion.status.in_(("correct", "wrong")),
+                MasteryEvidence.id.is_not(None),
+            ),
         )
     )
     return {task_id for task_id in rows if task_id is not None}

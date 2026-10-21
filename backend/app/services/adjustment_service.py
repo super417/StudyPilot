@@ -277,7 +277,9 @@ def _build_diff(session: Session, plan: Plan, today: date, apply_phases: list[di
     current = list(
         session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
     )
-    answered_ids = task_service.answered_practice_task_ids(session, plan.id)
+    answered_ids = task_service.protected_practice_task_ids(
+        session, plan.id, plan.user_id
+    )
 
     def _kept(task: DailyTask) -> bool:
         return task_service.task_is_protected(task, today) or task.id in answered_ids
@@ -469,7 +471,9 @@ def _kept_future_and_minutes(
     current = list(
         session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
     )
-    answered_ids = task_service.answered_practice_task_ids(session, plan.id)
+    answered_ids = task_service.protected_practice_task_ids(
+        session, plan.id, plan.user_id
+    )
     dated: list[tuple[date, int | None]] = []
     protected_future: list[date] = []
     for task in current:
@@ -1354,13 +1358,15 @@ def confirm_adjustment(
     after = _snapshot_body(session, plan)
     answered_ids = {
         str(task_id)
-        for task_id in task_service.answered_practice_task_ids(session, plan.id)
+        for task_id in task_service.protected_practice_task_ids(
+            session, plan.id, plan.user_id
+        )
     }
     removed_ids = [
         item["id"]
         for item in (row.diff or {}).get("removedOrReplaced") or []
     ]
-    # Keep answered-linked tasks even if they were somehow listed; never record them removed.
+    # Keep protected tasks even if they were somehow listed; never record them removed.
     removed_ids = [task_id for task_id in removed_ids if task_id not in answered_ids]
     created_ids = [
         item["id"] for item in after["dailyTasks"] if item["id"] not in before_ids

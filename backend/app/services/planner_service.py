@@ -1082,8 +1082,11 @@ def _write_plan_structure(
     """Replace replaceable phases and daily tasks with ``phases_data``.
 
     Done, carried, and past-dated tasks stay, with their ids and phase rows.
-    Pending tasks on today or later are deleted and rewritten. ``reason`` set
-    means archive the current rows first; the first generate passes ``None``.
+    So do tasks whose practice already produced a record (answered, or graded
+    evidence): their phase id is what mastery evidence points at. Pending
+    tasks on today or later without such a record are deleted and rewritten.
+    ``reason`` set means archive the current rows first; the first generate
+    passes ``None``.
     ``exact=True`` skips date anchoring and gap-filling so callers write the
     same structure the user already previewed. ``resource_url_scope`` decides
     each task's allowed course URLs; ``None`` keeps the sanitize-only rule.
@@ -1094,11 +1097,13 @@ def _write_plan_structure(
     existing = list(
         session.scalars(select(DailyTask).where(DailyTask.plan_id == plan.id))
     )
-    answered_ids = task_service.answered_practice_task_ids(session, plan.id)
+    practice_ids = task_service.protected_practice_task_ids(
+        session, plan.id, plan.user_id
+    )
     protected_ids = [
         task.id
         for task in existing
-        if task_service.task_is_protected(task, today) or task.id in answered_ids
+        if task_service.task_is_protected(task, today) or task.id in practice_ids
     ]
     kept_phase_ids = {
         task.phase_id
