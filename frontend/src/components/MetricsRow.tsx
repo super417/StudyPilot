@@ -23,7 +23,7 @@ interface MetricItem {
  */
 function MetricsRow({ metrics }: MetricsRowProps) {
   const items: MetricItem[] = [
-    { value: String(metrics.remainingDays), suffix: '天到初试', label: '剩余天数' },
+    { value: String(metrics.remainingDays), suffix: '天', label: '剩余天数' },
     { value: String(metrics.totalMinutes), suffix: '分钟已打卡', label: '累计投入' },
     { value: String(metrics.streakDays), suffix: '连续天数', label: '打卡坚持' },
     {

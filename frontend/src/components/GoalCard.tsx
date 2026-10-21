@@ -81,7 +81,7 @@ function GoalCard({ plan, today }: GoalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-4">
             <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">
-              LEARNING CYCLE · postgrad-2028
+              LEARNING CYCLE
             </span>
             <span className="shrink-0 rounded-full bg-brandLight px-3 py-1 text-xs font-medium text-brandDark">
               第 {dayNumber} 天
