@@ -33,11 +33,11 @@ class AssistantNameMigrationTests(unittest.TestCase):
             config.set_main_option("script_location", str(backend / "alembic"))
             config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
             try:
-                command.upgrade(config, "head")
+                command.upgrade(config, "c8d9e0f1a2b3")
                 self._assert_column(database, True)
-                command.downgrade(config, "-1")
+                command.downgrade(config, "b7c8d9e0f1a2")
                 self._assert_column(database, False)
-                command.upgrade(config, "head")
+                command.upgrade(config, "c8d9e0f1a2b3")
                 self._assert_column(database, True)
             finally:
                 get_settings.cache_clear()
