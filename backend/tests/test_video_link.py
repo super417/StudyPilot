@@ -396,6 +396,73 @@ class VideoLinkTests(unittest.TestCase):
         self.assertEqual(tasks[0].description.count("按《高数基础》"), 1)
         self.assertIn(today.isoformat(), again)
 
+    def test_video_link_replacement_clears_course_location(self) -> None:
+        today = local_today()
+        user = User(username=f"u-{os.urandom(3).hex()}", password_hash="x" * 8)
+        self.session.add(user)
+        self.session.flush()
+        plan = Plan(
+            user_id=user.id,
+            goal_name="数据清洗",
+            start_date=today,
+            goal_date=today + timedelta(days=2),
+            current_level="基础",
+            daily_minutes=40,
+            total_phases=2,
+        )
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(
+            plan_id=plan.id,
+            phase_index=1,
+            name="基础",
+            start_date=today,
+            end_date=today + timedelta(days=2),
+            is_current=True,
+        )
+        self.session.add(phase)
+        self.session.flush()
+        task = DailyTask(
+            plan_id=plan.id,
+            phase_id=phase.id,
+            task_date=today,
+            week_label="W01",
+            description="原任务",
+            status="pending",
+            resource_url="https://www.icourse163.org/course/example",
+            chapter_title="第 3 章 数据清洗",
+            section_title="3.2 缺失值处理",
+        )
+        self.session.add(task)
+        self.session.commit()
+        material = {
+            "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+            "title": "数据清洗视频",
+            "source": "课程作者",
+            "summary": "",
+            "body": "",
+            "sections": [
+                {
+                    "label": "P1 缺失值",
+                    "url": "https://www.bilibili.com/video/BV1mr4y1K7Lb",
+                    "duration": 600,
+                }
+            ],
+        }
+
+        merge_into_daily_plan(self.session, user.id, material, today)
+        self.session.refresh(task)
+        self.assertEqual(task.resource_url, material["url"])
+        self.assertIsNone(task.chapter_title)
+        self.assertIsNone(task.section_title)
+
+        video_link._strip_marker(self.session, plan.id, "按《数据清洗视频》学：")
+        self.session.refresh(task)
+        self.assertEqual(task.description, "原任务")
+        self.assertIsNone(task.resource_url)
+        self.assertIsNone(task.chapter_title)
+        self.assertIsNone(task.section_title)
+
     def test_merge_does_not_rewrite_done_carried_or_past_tasks(self) -> None:
         today = local_today()
         user = User(username=f"u-{os.urandom(3).hex()}", password_hash="x" * 8)
