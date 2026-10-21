@@ -223,6 +223,8 @@ class DailyTask(Base):
     # host-whitelisted addresses are ever written here — see
     # ``services/resource_links.py``. ``NULL`` means the task has no resource.
     resource_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    chapter_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    section_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     estimated_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
