@@ -512,14 +512,16 @@ def _direction_id_from_fields(fields: dict[str, object]) -> str | None:
 def _course_catalog_message(candidates: list[dict]) -> str:
     """Separate user message: platform courses, never mixed into retrieval text."""
     lines = [
-        "以下是平台课程库候选（与资料摘录无关）。"
+        "以下是平台课程库候选（与资料摘录无关，按检索相关度排序）。"
         "若填写 daily_tasks.resource_url，必须从下列 url 中原样复制其一；"
         "禁止自造链接，拿不准就省略 resource_url。",
     ]
     for item in candidates:
         lines.append(
-            f"- course_id={item.get('courseId', '')} | "
+            f"- 排名 {item.get('rank')} | "
+            f"course_id={item.get('courseId', '')} | "
             f"name={item.get('name', '')} | "
+            f"section={item.get('section') or '整门课'} | "
             f"url={item.get('url', '')}"
         )
     return "\n".join(lines)
@@ -531,7 +533,8 @@ def _resolve_task_resource_url(
     """Sanitize, then optionally require membership in this run's course set.
 
     ``None`` means no direction was selected (sanitize-only). An empty frozenset
-    means a direction was selected but has no verified courses — drop every URL.
+    means a direction was selected but the task query ranked no course — drop
+    every URL.
     """
     url = resource_links.sanitize_resource_url(raw)
     if url is None:
@@ -541,14 +544,46 @@ def _resolve_task_resource_url(
     return url
 
 
-def _allowed_course_urls_for_fields(
-    fields: dict[str, object],
-) -> frozenset[str] | None:
-    """``None`` when no direction; otherwise the candidate set (may be empty)."""
+# Per-task URL gate: description -> allowed URL set (``None`` = no direction).
+CourseUrlScope = Callable[[str], "frozenset[str] | None"]
+
+
+def _target_course_candidates(fields: dict[str, object]) -> list[dict]:
+    """Top-K ranked courses for this goal profile. Empty when no direction."""
+    direction_id = _direction_id_from_fields(fields)
+    if not direction_id:
+        return []
+    return direction_service.rank_courses(direction_id, _retrieval_query(fields))
+
+
+def _task_query(description: str, fields: dict[str, object]) -> str:
+    """A task's own description plus the goal context that scopes it."""
+    return f"{str(description).strip()}\n{_retrieval_query(fields)}"
+
+
+def _course_url_scope(
+    fields: dict[str, object], candidates: list[dict]
+) -> CourseUrlScope | None:
+    """Build the per-task URL gate for one generation run.
+
+    ``None`` when no direction was selected: links then only go through the host
+    check. Otherwise a task's URL must be both one of the courses offered to the
+    model and a hit of that task's own query — membership in ``courses.json``
+    alone is not enough. A direction whose ranking came back empty yields an
+    empty set, never ``None``.
+    """
     direction_id = _direction_id_from_fields(fields)
     if not direction_id:
         return None
-    return direction_service.allowed_course_urls(direction_id)
+    offered = frozenset(item["url"] for item in candidates if item.get("url"))
+
+    def allowed(description: str) -> frozenset[str]:
+        ranked = direction_service.rank_courses(
+            direction_id, _task_query(description, fields)
+        )
+        return offered & frozenset(item["url"] for item in ranked if item.get("url"))
+
+    return allowed
 
 
 def _build_plan_user_prompt(
@@ -691,13 +726,15 @@ async def _generate_structure_via_ai_proxy(
     used_docs: list[str],
     context_text: str,
     instruction: str,
+    candidates: list[dict],
 ) -> dict:
     """Call the user's configured model via Ai_Proxy credentials + httpx POST.
 
     Does not change Ai_Proxy's SSE helpers; reuses ``resolve_credential`` /
     ``build_outbound_headers`` so the API key never enters the business JSON
-    body. Unusable model output raises :class:`PlanGenerationError` — no
-    silent skeleton substitute.
+    body. ``candidates`` is this run's ranked course shortlist — the model sees
+    those links and nothing else from the catalogue. Unusable model output
+    raises :class:`PlanGenerationError` — no silent skeleton substitute.
     """
     try:
         credential = resolve_credential(session, user_id)
@@ -716,9 +753,6 @@ async def _generate_structure_via_ai_proxy(
         },
     ]
     # Course catalog is a separate message — never spliced into context_text.
-    candidates = direction_service.verified_course_candidates(
-        _direction_id_from_fields(fields)
-    )
     if candidates:
         messages.append(
             {"role": "user", "content": _course_catalog_message(candidates)}
@@ -756,9 +790,9 @@ async def _generate_structure_via_ai_proxy(
 
 
 def _bound_ai_plan_generator(
-    session: Session, user_id: uuid.UUID
+    session: Session, user_id: uuid.UUID, candidates: list[dict]
 ) -> PlanGenerator:
-    """Bind DB session + user into the injectable PlanGenerator signature."""
+    """Bind DB session + user + course shortlist into the PlanGenerator signature."""
 
     async def _bound(
         fields: dict[str, object],
@@ -767,7 +801,7 @@ def _bound_ai_plan_generator(
         instruction: str,
     ) -> dict:
         return await _generate_structure_via_ai_proxy(
-            session, user_id, fields, used_docs, context_text, instruction
+            session, user_id, fields, used_docs, context_text, instruction, candidates
         )
 
     return _bound
@@ -777,8 +811,9 @@ def _resolve_plan_generator(
     session: Session,
     user_id: uuid.UUID,
     plan_generator: PlanGenerator | None,
+    candidates: list[dict],
 ) -> PlanGenerator:
-    return plan_generator or _bound_ai_plan_generator(session, user_id)
+    return plan_generator or _bound_ai_plan_generator(session, user_id, candidates)
 
 
 @dataclass(frozen=True)
@@ -975,7 +1010,7 @@ def _write_plan_structure(
     reason: str | None = None,
     *,
     exact: bool = False,
-    allowed_course_urls: frozenset[str] | None = None,
+    resource_url_scope: CourseUrlScope | None = None,
 ) -> None:
     """Replace replaceable phases and daily tasks with ``phases_data``.
 
@@ -983,7 +1018,9 @@ def _write_plan_structure(
     Pending tasks on today or later are deleted and rewritten. ``reason`` set
     means archive the current rows first; the first generate passes ``None``.
     ``exact=True`` skips date anchoring and gap-filling so callers write the
-    same structure the user already previewed. Callers own the commit.
+    same structure the user already previewed. ``resource_url_scope`` decides
+    each task's allowed course URLs; ``None`` keeps the sanitize-only rule.
+    Callers own the commit.
     """
     if reason:
         _snapshot_plan(session, plan, reason)
@@ -1055,7 +1092,8 @@ def _write_plan_structure(
                 description = str(task_data.get("description", ""))
                 week_label = str(task_data.get("week_label", ""))
                 resource_url = _resolve_task_resource_url(
-                    task_data.get("resource_url"), allowed_course_urls
+                    task_data.get("resource_url"),
+                    resource_url_scope(description) if resource_url_scope else None,
                 )
                 if "estimated_minutes" in task_data or "estimatedMinutes" in task_data:
                     estimated_minutes = evidence_time.parse_estimated_minutes(
@@ -1120,10 +1158,13 @@ async def generate_plan(
         session, user_id, used_docs, _retrieval_query(fields)
     )
 
-    generator = _resolve_plan_generator(session, user_id, plan_generator)
+    candidates = _target_course_candidates(fields)
+    generator = _resolve_plan_generator(session, user_id, plan_generator, candidates)
     structure = await _run_generator(generator, fields, used_docs, context_text, "")
     phases_data = _validate_structure(structure)
-    return _persist_plan(session, user_id, fields, phases_data, used_docs, skipped_docs)
+    return _persist_plan(
+        session, user_id, fields, phases_data, used_docs, skipped_docs, candidates
+    )
 
 
 def _persist_plan(
@@ -1133,7 +1174,9 @@ def _persist_plan(
     phases_data: list[dict],
     used_docs: list[str],
     skipped_docs: list[str],
+    candidates: list[dict],
 ) -> GeneratedPlan:
+    """Write one plan. ``candidates`` is the shortlist the model was offered."""
     today = _today_local()
     if missing_fields(fields):
         raise PlanGenerationError("学习目标还不完整，没有写入规划")
@@ -1150,6 +1193,7 @@ def _persist_plan(
         daily_minutes=daily_minutes,
         total_phases=len(phases_data),
         completion_criterion=criterion,
+        direction_id=_direction_id_from_fields(fields),
     )
     session.add(plan)
     session.flush()  # assign plan.id before wiring phases/tasks
@@ -1160,7 +1204,7 @@ def _persist_plan(
         phases_data,
         today,
         reason=None,
-        allowed_course_urls=_allowed_course_urls_for_fields(fields),
+        resource_url_scope=_course_url_scope(fields, candidates),
     )
 
     try:
@@ -1193,7 +1237,8 @@ async def compose_unpersisted(
     context_text = document_service.retrieve_document_chunks(
         session, user_id, used_docs, _retrieval_query(fields)
     )
-    generator = _resolve_plan_generator(session, user_id, plan_generator)
+    candidates = _target_course_candidates(fields)
+    generator = _resolve_plan_generator(session, user_id, plan_generator, candidates)
     structure = await _run_generator(
         generator, fields, used_docs, context_text, instruction
     )
@@ -1210,7 +1255,15 @@ def confirm_draft_plan(
 ) -> GeneratedPlan:
     """Persist a preview the user already accepted."""
     phases_data = _validate_structure(structure)
-    return _persist_plan(session, user_id, fields, phases_data, used_docs, [])
+    return _persist_plan(
+        session,
+        user_id,
+        fields,
+        phases_data,
+        used_docs,
+        [],
+        _target_course_candidates(fields),
+    )
 
 
 def _owned_plan(
@@ -1333,6 +1386,10 @@ async def regenerate_plan(
         "dailyMinutes": plan.daily_minutes,
         "completionCriterion": plan.completion_criterion,
     }
+    # A stored direction keeps constraining the course shortlist and the task
+    # URLs. Plans written before the column existed stay direction-less.
+    if plan.direction_id:
+        fields["directionId"] = plan.direction_id
     for key, value in (overrides or {}).items():
         if value is not None:
             fields[key] = value
@@ -1344,7 +1401,8 @@ async def regenerate_plan(
         session, user_id, used_docs, _retrieval_query(fields)
     )
 
-    generator = _resolve_plan_generator(session, user_id, plan_generator)
+    candidates = _target_course_candidates(fields)
+    generator = _resolve_plan_generator(session, user_id, plan_generator, candidates)
     structure = await _run_generator(
         generator, fields, used_docs, context_text, instruction
     )
@@ -1355,6 +1413,7 @@ async def regenerate_plan(
     plan.goal_date = _coerce_date(fields.get("goalDate"), plan.goal_date)
     plan.current_level = str(fields.get("currentLevel", plan.current_level))
     plan.daily_minutes = int(fields.get("dailyMinutes", plan.daily_minutes))
+    plan.direction_id = _direction_id_from_fields(fields)
     if "completionCriterion" in (overrides or {}):
         supplied = (overrides or {}).get("completionCriterion")
         plan.completion_criterion = str(supplied).strip() if isinstance(supplied, str) else None
@@ -1366,7 +1425,7 @@ async def regenerate_plan(
         phases_data,
         today,
         reason="regenerate",
-        allowed_course_urls=_allowed_course_urls_for_fields(fields),
+        resource_url_scope=_course_url_scope(fields, candidates),
     )
 
     try:

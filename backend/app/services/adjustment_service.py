@@ -762,7 +762,10 @@ async def create_preview(
         chunks, query, render_prompt
     )
     generator = planner_service._resolve_plan_generator(
-        session, user_id, plan_generator
+        session,
+        user_id,
+        plan_generator,
+        planner_service._target_course_candidates(fields),
     )
     structure = await planner_service._run_generator(
         generator, fields, used_docs, context_text, instruction

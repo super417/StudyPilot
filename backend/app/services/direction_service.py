@@ -6,6 +6,17 @@ from collections import Counter
 from typing import Any
 
 from app.core.data_files import load_courses, load_jobs
+from app.services import resource_links, retrieval
+
+# Ranked fragments kept per query. Every direction holds at least three verified
+# courses, so K stays below the catalogue size: a plan is never offered the
+# whole library. Callers may pass their own ``k`` for tests.
+COURSE_CANDIDATE_K = 2
+
+# A course covers a skill only when every query bigram appears in its fragment.
+# Partial overlap is not coverage: 技能丙 shares the 技能 bigram with 技能甲 but
+# no course teaches it, and reporting that as a match would invent one.
+SKILL_QUERY_MIN_COVERAGE = 1.0
 
 
 class DirectionNotFoundError(ValueError):
@@ -47,15 +58,168 @@ def _job_dict(job: dict) -> dict[str, Any]:
     }
 
 
-def _course_ref(course: dict) -> dict[str, Any]:
+def _course_ref(item: dict) -> dict[str, Any]:
+    """Project one ranked course hit into the response shape.
+
+    ``section``, ``rank``, and ``score`` are appended fields; the first six keys
+    keep the meaning they had before retrieval ranking was introduced.
+    """
     return {
-        "courseId": course.get("course_id", ""),
-        "name": course.get("name", ""),
-        "institution": course.get("institution", ""),
-        "provider": course.get("provider", ""),
-        "url": course.get("url", ""),
-        "collectedAt": course.get("collected_at", ""),
+        "courseId": item.get("courseId", ""),
+        "name": item.get("name", ""),
+        "institution": item.get("institution", ""),
+        "provider": item.get("provider", ""),
+        "url": item.get("url", ""),
+        "collectedAt": item.get("collectedAt", ""),
+        "section": item.get("section"),
+        "rank": item.get("rank"),
+        "score": item.get("score"),
     }
+
+
+def _fragment(
+    course: dict,
+    chunk_index: int,
+    chapter_index: int | None,
+    section: str,
+    content: str,
+) -> dict[str, Any]:
+    """One retrievable course fragment, carrying everything needed to answer."""
+    return {
+        "doc_id": str(course.get("course_id") or ""),
+        "chunk_index": chunk_index,
+        "course_id": str(course.get("course_id") or ""),
+        "chapter_index": chapter_index,
+        "section": section,
+        "content": content,
+        "course": course,
+    }
+
+
+def _course_fragments(direction: dict) -> list[dict[str, Any]]:
+    """Split verified courses into section fragments for BM25.
+
+    Every section of every chapter becomes one fragment whose content carries
+    the course name, institution, skills, chapter title, and section title — a
+    bare section title would match text with no course behind it. A chapter
+    without sections falls back to a chapter-level fragment (``section`` empty),
+    and a course without chapters to its metadata, so older fixtures stay
+    retrievable. Only ``url_verified`` courses with a URL produce fragments.
+    """
+    fragments: list[dict[str, Any]] = []
+    for course in direction.get("courses") or []:
+        if course.get("url_verified") is not True:
+            continue
+        if not str(course.get("url") or "").strip():
+            continue
+        head = " ".join(
+            part
+            for part in (
+                str(course.get("name") or ""),
+                str(course.get("institution") or ""),
+                " ".join(str(skill) for skill in course.get("skills") or [] if skill),
+            )
+            if part
+        )
+        chapters = [
+            chapter for chapter in course.get("chapters") or [] if isinstance(chapter, dict)
+        ]
+        if not chapters:
+            fragments.append(_fragment(course, len(fragments), None, "", head))
+            continue
+        for offset, chapter in enumerate(chapters):
+            chapter_title = str(chapter.get("title") or "")
+            chapter_index = chapter.get("index")
+            if not isinstance(chapter_index, int):
+                chapter_index = offset + 1
+            titles = [
+                str(section).strip()
+                for section in chapter.get("sections") or []
+                if str(section).strip()
+            ] or [""]
+            for section_title in titles:
+                content = " ".join(
+                    part for part in (head, chapter_title, section_title) if part
+                )
+                fragments.append(
+                    _fragment(course, len(fragments), chapter_index, section_title, content)
+                )
+    return fragments
+
+
+def _fragment_url(fragment: dict) -> str:
+    """Section URL when the course lists one and it passes the host check.
+
+    ``section_urls`` is optional in the data file and absent from every course
+    today. A missing entry, a section the map does not list, or an unusable
+    address all fall back to the course URL — a URL is never derived from a
+    section title.
+    """
+    course = fragment.get("course") or {}
+    section = fragment.get("section")
+    section_urls = course.get("section_urls")
+    if section and isinstance(section_urls, dict):
+        raw = section_urls.get(section)
+        if isinstance(raw, str):
+            verified = resource_links.sanitize_resource_url(raw)
+            if verified:
+                return verified
+    return str(course.get("url") or "").strip()
+
+
+def rank_courses(
+    direction_id: str,
+    query: str,
+    k: int = COURSE_CANDIDATE_K,
+    min_coverage: float = 0.0,
+    courses_data: dict | None = None,
+) -> list[dict[str, Any]]:
+    """Rank a direction's courses for ``query`` and keep the best hit per course.
+
+    ``retrieval.rank`` is called through the module object so tests can
+    monkeypatch it. Every fragment is scored (``k`` only caps the returned
+    slice), so ``k`` here counts de-duplicated courses: the first hit of a
+    course decides its order, section, and URL. An empty ranking returns
+    ``[]`` — never a fabricated match.
+    """
+    direction_id = str(direction_id or "").strip()
+    if not direction_id:
+        return []
+    courses_data = courses_data if courses_data is not None else load_courses()
+    try:
+        course_dir = _course_direction(courses_data, direction_id)
+    except DirectionNotFoundError:
+        return []
+    fragments = _course_fragments(course_dir)
+    if not fragments:
+        return []
+    hits = retrieval.rank(
+        query, fragments, k=len(fragments), min_coverage=min_coverage
+    )
+    ranked: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for fragment, score in hits:
+        if len(ranked) >= k:
+            break
+        course_id = fragment.get("course_id") or ""
+        if not course_id or course_id in seen:
+            continue
+        seen.add(course_id)
+        course = fragment.get("course") or {}
+        ranked.append(
+            {
+                "courseId": course_id,
+                "name": course.get("name", ""),
+                "institution": course.get("institution", ""),
+                "provider": course.get("provider", ""),
+                "url": _fragment_url(fragment),
+                "collectedAt": course.get("collected_at", ""),
+                "section": fragment.get("section") or None,
+                "rank": len(ranked) + 1,
+                "score": round(score, 4),
+            }
+        )
+    return ranked
 
 
 def parse_known(raw: str | None) -> list[str]:
@@ -154,20 +318,20 @@ def compute_skill_gap(
         ),
     )
 
-    verified_courses = [
-        course
-        for course in (course_dir.get("courses") or [])
-        if course.get("url_verified") is True
-    ]
-
     gaps: list[dict[str, Any]] = []
     for skill in ranked:
         if skill in known_set:
             continue
+        # Ranked retrieval, not ``skill in course.skills``: the course that best
+        # covers this skill leads, and an empty result stays empty.
         matching = [
-            _course_ref(course)
-            for course in verified_courses
-            if skill in (course.get("skills") or [])
+            _course_ref(item)
+            for item in rank_courses(
+                direction_id,
+                skill,
+                min_coverage=SKILL_QUERY_MIN_COVERAGE,
+                courses_data=courses_data,
+            )
         ]
         gaps.append(
             {
