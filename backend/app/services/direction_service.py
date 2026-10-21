@@ -81,6 +81,8 @@ def _fragment(
     course: dict,
     chunk_index: int,
     chapter_index: int | None,
+    chapter_title: str,
+    chapter_url: str | None,
     section: str,
     content: str,
 ) -> dict[str, Any]:
@@ -90,6 +92,8 @@ def _fragment(
         "chunk_index": chunk_index,
         "course_id": str(course.get("course_id") or ""),
         "chapter_index": chapter_index,
+        "chapter_title": chapter_title,
+        "chapter_url": chapter_url,
         "section": section,
         "content": content,
         "course": course,
@@ -125,7 +129,7 @@ def _course_fragments(direction: dict) -> list[dict[str, Any]]:
             chapter for chapter in course.get("chapters") or [] if isinstance(chapter, dict)
         ]
         if not chapters:
-            fragments.append(_fragment(course, len(fragments), None, "", head))
+            fragments.append(_fragment(course, len(fragments), None, "", None, "", head))
             continue
         for offset, chapter in enumerate(chapters):
             chapter_title = str(chapter.get("title") or "")
@@ -142,28 +146,28 @@ def _course_fragments(direction: dict) -> list[dict[str, Any]]:
                     part for part in (head, chapter_title, section_title) if part
                 )
                 fragments.append(
-                    _fragment(course, len(fragments), chapter_index, section_title, content)
+                    _fragment(
+                        course,
+                        len(fragments),
+                        chapter_index,
+                        chapter_title,
+                        chapter.get("chapter_url"),
+                        section_title,
+                        content,
+                    )
                 )
     return fragments
 
 
 def _fragment_url(fragment: dict) -> str:
-    """Section URL when the course lists one and it passes the host check.
+    """Use the matched section's chapter URL, then the course URL.
 
-    ``section_urls`` is optional in the data file and absent from every course
-    today. A missing entry, a section the map does not list, or an unusable
-    address all fall back to the course URL — a URL is never derived from a
-    section title.
+    The chapter URL is optional. Never derive a URL from a section title.
     """
     course = fragment.get("course") or {}
-    section = fragment.get("section")
-    section_urls = course.get("section_urls")
-    if section and isinstance(section_urls, dict):
-        raw = section_urls.get(section)
-        if isinstance(raw, str):
-            verified = resource_links.sanitize_resource_url(raw)
-            if verified:
-                return verified
+    chapter_url = resource_links.sanitize_resource_url(fragment.get("chapter_url"))
+    if chapter_url:
+        return chapter_url
     return str(course.get("url") or "").strip()
 
 

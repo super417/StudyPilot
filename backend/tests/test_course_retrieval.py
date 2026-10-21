@@ -1,7 +1,7 @@
 """Batch 23: course catalogue is searched with the existing BM25 retriever.
 
 Covers the fragment shape (section granularity, chapter and metadata fallbacks),
-section-level URL resolution, skill-gap ranking, and the Top-K shortlist that
+chapter URL resolution, skill-gap ranking, and the Top-K shortlist that
 route generation hands to the model.
 """
 
@@ -23,7 +23,6 @@ def _course(
     url: str | None = None,
     url_verified: bool = True,
     chapters: list[dict] | None = None,
-    section_urls: dict | None = None,
 ) -> dict:
     payload = {
         "course_id": course_id,
@@ -36,8 +35,6 @@ def _course(
         "collected_at": "2026-10-21",
         "chapters": chapters or [],
     }
-    if section_urls is not None:
-        payload["section_urls"] = section_urls
     return payload
 
 
@@ -134,6 +131,7 @@ class CourseFragmentTests(unittest.TestCase):
             if chapter["index"] == first["chapter_index"]
         )
         self.assertIn(chapter_title, first["content"])
+        self.assertEqual(first["chapter_title"], chapter_title)
         for skill in course["skills"]:
             self.assertIn(skill, first["content"])
         self.assertEqual(first["doc_id"], course["course_id"])
@@ -150,6 +148,7 @@ class CourseFragmentTests(unittest.TestCase):
         self.assertEqual(len(fragments), 1)
         self.assertEqual(fragments[0]["section"], "")
         self.assertEqual(fragments[0]["chapter_index"], 3)
+        self.assertEqual(fragments[0]["chapter_title"], "第3章 只有章标题")
         self.assertIn("第3章 只有章标题", fragments[0]["content"])
 
     def test_course_without_chapters_falls_back_to_metadata(self) -> None:
@@ -159,6 +158,7 @@ class CourseFragmentTests(unittest.TestCase):
         fragments = direction_service._course_fragments(courses["directions"][0])
         self.assertEqual(len(fragments), 1)
         self.assertIsNone(fragments[0]["chapter_index"])
+        self.assertEqual(fragments[0]["chapter_title"], "")
         self.assertEqual(fragments[0]["section"], "")
         self.assertIn("无章课程", fragments[0]["content"])
         self.assertIn("技能甲", fragments[0]["content"])
@@ -175,12 +175,13 @@ class CourseFragmentTests(unittest.TestCase):
         self.assertEqual(direction_service._course_fragments(courses["directions"][0]), [])
 
 
-class SectionUrlFallbackTests(unittest.TestCase):
-    """A URL comes from ``section_urls[section]`` or the course URL — never invented."""
+class ChapterUrlFallbackTests(unittest.TestCase):
+    """A section hit uses its chapter URL or the course URL — never invented."""
 
     COURSE_URL = "https://www.icourse163.org/course/PY-1"
+    CHAPTER_URL = "https://www.icourse163.org/course/PY-1#/learn/chapter/1"
 
-    def _url_for(self, query: str, **course_kwargs) -> str:
+    def _url_for(self, query: str, chapter_url: object = None, section_urls: dict | None = None) -> str:
         course = _course(
             "c-python",
             name="Python 脚本入门",
@@ -190,43 +191,75 @@ class SectionUrlFallbackTests(unittest.TestCase):
                     "index": 1,
                     "title": "第1章 Python 基础",
                     "sections": ["变量与循环", "函数定义"],
+                    **({"chapter_url": chapter_url} if chapter_url is not None else {}),
                 }
             ],
-            **course_kwargs,
         )
+        if section_urls is not None:
+            course["section_urls"] = section_urls
         courses = _one_course_direction(course)
         ranked = direction_service.rank_courses("one", query, courses_data=courses)
         self.assertEqual(len(ranked), 1, ranked)
         return ranked[0]["url"]
 
-    def test_missing_section_urls_returns_course_url(self) -> None:
+    def test_missing_chapter_url_returns_course_url(self) -> None:
         self.assertEqual(self._url_for("变量与循环"), self.COURSE_URL)
 
-    def test_matching_section_url_is_used(self) -> None:
-        section_url = "https://www.icourse163.org/course/PY-1#/learn/content?type=detail&id=1"
+    def test_matched_section_uses_its_chapter_url(self) -> None:
         self.assertEqual(
-            self._url_for(
-                "变量与循环", section_urls={"变量与循环": section_url}
-            ),
-            section_url,
+            self._url_for("变量与循环", chapter_url=self.CHAPTER_URL),
+            self.CHAPTER_URL,
         )
 
-    def test_unlisted_section_title_returns_course_url(self) -> None:
+    def test_other_section_in_same_chapter_uses_same_chapter_url(self) -> None:
         self.assertEqual(
-            self._url_for(
-                "变量与循环",
-                section_urls={"别的节": "https://www.icourse163.org/course/PY-1#other"},
-            ),
-            self.COURSE_URL,
+            self._url_for("函数定义", chapter_url=self.CHAPTER_URL),
+            self.CHAPTER_URL,
         )
 
-    def test_untrustworthy_section_url_falls_back_to_course_url(self) -> None:
+    def test_section_uses_its_own_chapter_url(self) -> None:
+        second_url = "https://www.icourse163.org/course/PY-1#chapter-2"
+        course = _course(
+            "c-python",
+            name="Python 脚本入门",
+            url=self.COURSE_URL,
+            chapters=[
+                {
+                    "index": 1,
+                    "title": "第1章 Python 基础",
+                    "sections": ["变量与循环"],
+                    "chapter_url": self.CHAPTER_URL,
+                },
+                {
+                    "index": 2,
+                    "title": "第2章 数据处理",
+                    "sections": ["缺失值处理"],
+                    "chapter_url": second_url,
+                },
+            ],
+        )
+        ranked = direction_service.rank_courses(
+            "one", "缺失值处理", courses_data=_one_course_direction(course)
+        )
+        self.assertEqual(ranked[0]["section"], "缺失值处理")
+        self.assertEqual(ranked[0]["url"], second_url)
+
+    def test_unverified_chapter_url_falls_back_to_course_url(self) -> None:
         for bad in ("https://evil.example/lesson/1", "javascript:alert(1)", "", None):
             with self.subTest(bad=bad):
                 self.assertEqual(
-                    self._url_for("变量与循环", section_urls={"变量与循环": bad}),
+                    self._url_for("变量与循环", chapter_url=bad),
                     self.COURSE_URL,
                 )
+
+    def test_old_section_urls_are_ignored(self) -> None:
+        self.assertEqual(
+            self._url_for(
+                "变量与循环",
+                section_urls={"变量与循环": "https://www.icourse163.org/course/PY-1#guessed"},
+            ),
+            self.COURSE_URL,
+        )
 
 
 class RankCoursesTests(unittest.TestCase):

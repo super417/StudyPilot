@@ -31,6 +31,7 @@ PY_URL = "https://www.icourse163.org/course/c-python"
 EXCEL_URL = "https://www.icourse163.org/course/c-excel"
 SQL_URL = "https://www.icourse163.org/course/c-sql"
 EXTRA_URL = "https://www.icourse163.org/course/c-extra"
+PY_CHAPTER_URL = "https://www.icourse163.org/course/c-python#chapter-1"
 BILIBILI = "https://www.bilibili.com"
 
 PY_TASK = "Python 变量与循环练习"
@@ -325,6 +326,38 @@ class GenerateScopeTests(_DatabaseCase):
         self.assertEqual(tasks[PY_TASK], PY_URL)
         self.assertEqual(tasks["Excel 函数与透视练习"], EXCEL_URL)
         self._assert_links_follow_task_top_k(fields)
+
+    async def test_matched_chapter_url_is_the_top_k_link(self) -> None:
+        courses = scope_courses()
+        courses["directions"][0]["courses"][0]["chapters"][0][
+            "chapter_url"
+        ] = PY_CHAPTER_URL
+        fields = goal()
+
+        def generator(fields_, used_docs, context_text, instruction):
+            return structure(
+                [
+                    single_task(PY_TASK, PY_CHAPTER_URL),
+                    single_task("Python 函数定义练习", PY_URL),
+                ]
+            )
+
+        with patch("app.services.direction_service.load_courses", return_value=courses):
+            offered = planner_service._target_course_candidates(fields)
+            self.assertIn(PY_CHAPTER_URL, [item["url"] for item in offered])
+            await generate_plan(self.session, self.user.id, fields, [], generator)
+            self.assertIn(
+                PY_CHAPTER_URL,
+                [
+                    item["url"]
+                    for item in direction_service.rank_courses(
+                        DIRECTION,
+                        planner_service._task_query(PY_TASK, fields),
+                    )
+                ],
+            )
+        self.assertEqual(self._tasks()[PY_TASK], PY_CHAPTER_URL)
+        self.assertIsNone(self._tasks()["Python 函数定义练习"])
 
     async def test_rank_returning_empty_offers_nothing_and_writes_no_url(self) -> None:
         fields = goal()
