@@ -132,6 +132,34 @@ class ProfileRouteTests(unittest.TestCase):
         self.assertEqual(user.nickname, "小明")
         self.assertEqual(user.target_school, "某某大学")
 
+    def test_put_profile_replaces_all_fields(self) -> None:
+        """整体替换为设计行为，前端 saveAssistantName 负责 GET 后合并，此处钉住以免误改成增量。"""
+        first = self.client.put(
+            "/api/profile",
+            json={
+                "nickname": "小明",
+                "direction": "AI",
+                "targetSchool": "某处",
+                "bio": "简介",
+                "assistantName": "小航",
+            },
+        )
+        self.assertEqual(first.status_code, 200, first.text)
+
+        second = self.client.put("/api/profile", json={"nickname": "x"})
+        self.assertEqual(second.status_code, 200, second.text)
+        expected = {
+            "nickname": "x",
+            "direction": "",
+            "targetSchool": "",
+            "bio": "",
+            "assistantName": "",
+        }
+        self.assertEqual(second.json()["profile"], expected)
+        get = self.client.get("/api/profile")
+        self.assertEqual(get.status_code, 200, get.text)
+        self.assertEqual(get.json()["profile"], expected)
+
     def test_put_rejects_too_long_bio(self) -> None:
         response = self.client.put(
             "/api/profile",
