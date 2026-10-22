@@ -14,8 +14,22 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.clock import local_today
-from app.models.entities import DailyTask, Phase, Plan, PlanAdjustment, PracticeQuestion
-from app.services import document_service, evidence_time, planner_service, resource_links, task_service
+from app.models.entities import (
+    DailyTask,
+    MasteryEvidence,
+    Phase,
+    Plan,
+    PlanAdjustment,
+    PracticeQuestion,
+)
+from app.services import (
+    document_service,
+    evidence_time,
+    planner_service,
+    resource_links,
+    task_service,
+    weekly_review_service,
+)
 from app.services.api_config_service import require_verified_api_config
 from app.services.planner_service import PlanGenerator, PlanGenerationError
 
@@ -723,6 +737,84 @@ def get_adjustment(
     return row
 
 
+_MASTERY_NOTE_HEAD = (
+    "以下是该用户各阶段的掌握情况；薄弱阶段可适当增加复习或放缓推进，"
+    "掌握良好的阶段可压缩；不要删除未完成的阶段。"
+)
+
+
+def _phase_error_tags(
+    session: Session,
+    user_id: uuid.UUID,
+    phase_ids: set[uuid.UUID],
+    week_start: date,
+    week_end: date,
+) -> dict[uuid.UUID, str]:
+    """Latest error tag per phase inside the same week window as phase_mastery."""
+    if not phase_ids:
+        return {}
+    rows = session.scalars(
+        select(MasteryEvidence)
+        .where(
+            MasteryEvidence.user_id == user_id,
+            MasteryEvidence.knowledge_point.in_(phase_ids),
+            MasteryEvidence.error_tag.is_not(None),
+        )
+        .order_by(MasteryEvidence.created_at.desc())
+    )
+    tags: dict[uuid.UUID, str] = {}
+    for row in rows:
+        day = weekly_review_service._evidence_day(row.created_at)
+        if day is None or day < week_start or day > week_end:
+            continue
+        if row.knowledge_point is None or not row.error_tag:
+            continue
+        tags.setdefault(row.knowledge_point, row.error_tag)
+    return tags
+
+
+def _mastery_note(session: Session, plan: Plan, user_id: uuid.UUID) -> str | None:
+    """This week's mastery for this plan's phases, or ``None`` without evidence.
+
+    Values come from ``weekly_review_service.phase_mastery`` — the same read the
+    weekly review uses — and only phases with evidence are listed. A phase with
+    no evidence is omitted rather than shown as 0%, and the error tag is the
+    newest real one for that phase, never inferred from the phase name.
+    """
+    week_start, week_end = weekly_review_service.week_bounds(local_today())
+    _, detail = weekly_review_service.phase_mastery(
+        session, user_id, week_start, week_end
+    )
+    plan_phase_ids = set(
+        session.scalars(select(Phase.id).where(Phase.plan_id == plan.id))
+    )
+    rows = [
+        item
+        for item in detail
+        if item["evidenceCount"] > 0 and uuid.UUID(item["phaseId"]) in plan_phase_ids
+    ]
+    if not rows:
+        return None
+    tags = _phase_error_tags(
+        session,
+        user_id,
+        {uuid.UUID(item["phaseId"]) for item in rows},
+        week_start,
+        week_end,
+    )
+    lines = [_MASTERY_NOTE_HEAD]
+    for item in rows:
+        line = (
+            f"- 阶段「{item['subject']}」：掌握度 {item['percent']}%，"
+            f"证据 {item['evidenceCount']} 条"
+        )
+        tag = tags.get(uuid.UUID(item["phaseId"]))
+        if tag:
+            line += f"，最近错误标签：{tag}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 async def create_preview(
     session: Session,
     user_id: uuid.UUID,
@@ -781,6 +873,7 @@ async def create_preview(
         plan_generator,
         candidates,
         soft_course_links=True,
+        mastery_note=_mastery_note(session, plan, user_id),
     )
     structure = await planner_service._run_generator(
         generator, fields, used_docs, context_text, instruction

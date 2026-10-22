@@ -766,6 +766,7 @@ async def _generate_structure_via_ai_proxy(
     candidates: list[dict],
     *,
     soft_course_links: bool = False,
+    mastery_note: str | None = None,
 ) -> dict:
     """Call the user's configured model via Ai_Proxy credentials + httpx POST.
 
@@ -778,6 +779,9 @@ async def _generate_structure_via_ai_proxy(
     ``soft_course_links`` relaxes the two "only from this list" wordings for the
     adjustment preview. Without candidates both prompts stay byte-identical to
     the generation path.
+
+    ``mastery_note`` is the adjustment preview's weekly mastery summary. ``None``
+    adds no message, so every other caller sends exactly what it sent before.
     """
     try:
         credential = resolve_credential(session, user_id)
@@ -807,6 +811,10 @@ async def _generate_structure_via_ai_proxy(
                 "content": _course_catalog_message(candidates, soft=soft),
             }
         )
+    # Mastery summary is its own message as well: it constrains how phases are
+    # treated, it is not part of the user's adjustment request.
+    if mastery_note:
+        messages.append({"role": "user", "content": mastery_note})
 
     payload = {
         "model": credential.model_type,
@@ -845,6 +853,7 @@ def _bound_ai_plan_generator(
     candidates: list[dict],
     *,
     soft_course_links: bool = False,
+    mastery_note: str | None = None,
 ) -> PlanGenerator:
     """Bind DB session + user + course shortlist into the PlanGenerator signature."""
 
@@ -863,6 +872,7 @@ def _bound_ai_plan_generator(
             instruction,
             candidates,
             soft_course_links=soft_course_links,
+            mastery_note=mastery_note,
         )
 
     return _bound
@@ -875,9 +885,14 @@ def _resolve_plan_generator(
     candidates: list[dict],
     *,
     soft_course_links: bool = False,
+    mastery_note: str | None = None,
 ) -> PlanGenerator:
     return plan_generator or _bound_ai_plan_generator(
-        session, user_id, candidates, soft_course_links=soft_course_links
+        session,
+        user_id,
+        candidates,
+        soft_course_links=soft_course_links,
+        mastery_note=mastery_note,
     )
 
 
