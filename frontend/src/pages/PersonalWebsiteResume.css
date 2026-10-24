@@ -237,3 +237,122 @@
   .resume-web-feature-art { min-height: 150px; }
   .resume-web-feature-detail { min-height: 210px; }
 }
+
+/* Jack reference layout, with StudyPilot's verified data in place of sample claims. */
+html:has(.resume-web-site), body:has(.resume-web-site), #root:has(.resume-web-site) { background: #0c0c0c; }
+.resume-web-site { overflow-x: clip; }
+.resume-web-gradient-heading { background: linear-gradient(180deg, #646973 0%, #bbccd7 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.resume-web-hero { height: 100vh; height: 100svh; min-height: 600px; display: flex; flex-direction: column; justify-content: flex-start; overflow-x: clip; padding: 0 24px; }
+.resume-web-topbar { padding: 24px 24px 0; }
+.resume-web-nav { display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto; gap: 20px; margin-left: 110px; padding-top: 24px; color: #d7e2ea; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+.resume-web-nav a { transition: opacity .2s; }
+.resume-web-nav a:hover { opacity: .7; }
+.resume-web-heading-clip { overflow: hidden; width: 100%; }
+.resume-web-hero h1 { margin: 24px 0 0; width: 100%; white-space: nowrap; font-size: 14vw; font-weight: 900; line-height: 1; letter-spacing: -.05em; text-transform: uppercase; }
+.resume-web-portrait { position: absolute; z-index: 10; left: 50%; bottom: 0; width: 280px; translate: -50% 0; }
+.resume-web-portrait img { display: block; width: 100%; height: auto; object-fit: contain; }
+.resume-web-portrait-note { position: absolute; right: 5px; bottom: 12px; padding: 4px 8px; border-radius: 20px; background: rgba(12,12,12,.65); color: #d7e2ea; font-size: 10px; white-space: nowrap; }
+.resume-web-magnet { margin: -150px; padding: 150px; }
+.resume-web-hero-bottom { position: relative; z-index: 11; display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; width: 100%; margin-top: auto; padding-bottom: 28px; }
+.resume-web-hero-bottom p { max-width: 160px; color: #d7e2ea; font-size: clamp(.75rem, 1.4vw, 1.5rem); font-weight: 300; line-height: 1.25; letter-spacing: .04em; text-transform: uppercase; }
+.resume-web-primary-link { min-height: 0; padding: 12px 32px; border-radius: 999px; outline: 2px solid #fff; outline-offset: -3px; background: linear-gradient(123deg, #18011f 7%, #b600a8 37%, #7621b0 72%, #be4c00 100%); box-shadow: 0 4px 4px rgba(181,1,167,.25), inset 4px 4px 12px #7721b1; color: white !important; font-size: 12px; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; }
+.resume-web-marquee { padding: 96px 0 40px; }
+.resume-web-marquee-row { gap: 12px; margin-bottom: 12px; }
+.resume-web-marquee-row img { width: 420px; height: 270px; flex-basis: 420px; border-radius: 16px; }
+.resume-web-about { min-height: 100vh; min-height: 100svh; padding: 80px 20px; gap: 0; }
+.resume-web-about-image { position: absolute; z-index: 0; width: 120px; height: auto; object-fit: contain; pointer-events: none; }
+.resume-web-about-image-1 { top: 4%; left: 1%; }
+.resume-web-about-image-2 { bottom: 8%; left: 3%; width: 100px; }
+.resume-web-about-image-3 { top: 4%; right: 1%; }
+.resume-web-about-image-4 { bottom: 8%; right: 3%; width: 130px; }
+.resume-web-about h2 { margin: 0 0 40px; font-size: clamp(3rem, 12vw, 160px); line-height: 1; letter-spacing: -.05em; }
+.resume-web-about-text { max-width: 560px; margin: 0 0 64px; font-size: clamp(1rem, 2vw, 1.35rem); font-weight: 500; line-height: 1.7; }
+.resume-web-reveal-char { position: relative; display: inline-block; white-space: pre; }
+.resume-web-reveal-placeholder { visibility: hidden; }
+.resume-web-reveal-foreground { position: absolute; inset: 0; }
+.resume-web-services { padding: 80px 20px 0; border-radius: 40px 40px 0 0; }
+.resume-web-services h2 { margin: 0 0 16px; font-size: clamp(3rem, 12vw, 160px); line-height: 1; letter-spacing: -.05em; text-transform: uppercase; }
+.resume-web-services-subtitle { margin: 0 auto 64px; max-width: 640px; color: #65636b; text-align: center; }
+.resume-web-service-list { max-width: 1024px; }
+.resume-web-service-list article { grid-template-columns: minmax(110px, .33fr) 1fr; padding: 32px 0; border-bottom: 1px solid rgba(12,12,12,.15); }
+.resume-web-service-list article strong { font-size: clamp(3rem, 10vw, 140px); font-weight: 900; }
+.resume-web-service-list article h3 { font-size: clamp(1rem, 2.2vw, 2.1rem); font-weight: 500; }
+.resume-web-service-list article p { max-width: 672px; font-size: clamp(.85rem, 1.6vw, 1.25rem); opacity: .6; }
+.resume-web-service-list article .resume-web-service-evidence { margin-top: 12px; font-size: 13px; opacity: .85; }
+.resume-web-abilities { margin: 80px -20px 0; padding: 80px 20px 120px; background: #fff; color: #0c0c0c; }
+.resume-web-abilities .resume-web-section-head h2 { color: #0c0c0c; }
+.resume-web-abilities .resume-web-section-head > p { color: #5f5c66; }
+.resume-web-abilities .resume-web-group-tabs button { border-color: rgba(12,12,12,.2); background: rgba(12,12,12,.03); color: #383341; }
+.resume-web-abilities .resume-web-group-tabs button:hover, .resume-web-abilities .resume-web-group-tabs button.is-active { border-color: #7621b0; background: rgba(118,33,176,.09); color: #1e1425; }
+.resume-web-abilities .resume-web-empty { border-color: rgba(12,12,12,.2); background: #f8f7f9; color: #56505d; }
+.resume-web-abilities .resume-web-tools button { background: #0c0c0c; color: #fff; }
+.resume-web-features { z-index: 10; margin-top: -40px; padding: 100px 20px 120px; border-radius: 40px 40px 0 0; }
+.resume-web-features h2 { margin: 0 0 32px; font-size: clamp(3rem, 12vw, 160px); line-height: 1; letter-spacing: -.05em; text-transform: uppercase; }
+.resume-web-project-slot { min-height: 85vh; }
+.resume-web-feature-card { position: sticky; min-height: 0; margin: 0; padding: 16px; border: 2px solid #d7e2ea; border-radius: 40px; }
+.resume-web-feature-top { grid-template-columns: minmax(90px, .3fr) 1fr auto; gap: 20px; }
+.resume-web-feature-top > strong { font-size: clamp(3rem, 10vw, 140px); font-weight: 900; }
+.resume-web-feature-top h3 { font-size: clamp(1rem, 2.2vw, 2.1rem); font-weight: 500; }
+.resume-web-feature-top p { margin: 8px 0 0; color: #b6bbc4; font-size: 13px; }
+.resume-web-live-button { align-self: start; padding: 12px 28px; border: 2px solid #d7e2ea; border-radius: 999px; color: #d7e2ea; font-size: 14px; font-weight: 500; letter-spacing: .15em; text-transform: uppercase; white-space: nowrap; }
+.resume-web-live-button:hover { background: rgba(215,226,234,.1); }
+.resume-web-project-images { display: grid; grid-template-columns: 40% 60%; gap: 12px; height: min(58vh, 540px); margin-top: 24px; padding-right: 12px; }
+.resume-web-project-images > div { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.resume-web-project-images img { width: 100%; height: 100%; min-height: 0; border-radius: 40px; object-fit: cover; background: #1e1e25; }
+.resume-web-project-images > div img:first-child { height: clamp(130px, 16vw, 230px); }
+.resume-web-project-images > div img:last-child { flex: 1; }
+.resume-web-project-caption { margin: 16px 0 0; color: #d7e2ea; font-size: 13px; line-height: 1.5; }
+@media (min-width: 640px) {
+  .resume-web-hero { padding: 0 40px; }
+  .resume-web-topbar { padding: 28px 40px 0; }
+  .resume-web-nav { padding-top: 28px; font-size: 16px; }
+  .resume-web-hero h1 { margin-top: 16px; font-size: 15vw; }
+  .resume-web-portrait { width: 360px; }
+  .resume-web-hero-bottom { padding-bottom: 32px; }
+  .resume-web-hero-bottom p { max-width: 220px; }
+  .resume-web-primary-link { padding: 14px 40px; font-size: 14px; }
+  .resume-web-marquee { padding-top: 128px; }
+  .resume-web-about-image-1, .resume-web-about-image-3 { width: 160px; }
+  .resume-web-about-image-2 { width: 140px; left: 6%; }
+  .resume-web-about-image-4 { width: 170px; right: 6%; }
+  .resume-web-services { padding: 96px 32px 0; border-radius: 50px 50px 0 0; }
+  .resume-web-abilities { margin-left: -32px; margin-right: -32px; padding-left: 32px; padding-right: 32px; }
+  .resume-web-features { margin-top: -48px; padding: 110px 32px 130px; border-radius: 50px 50px 0 0; }
+  .resume-web-feature-card, .resume-web-project-images img { border-radius: 50px; }
+}
+@media (min-width: 768px) {
+  .resume-web-nav { font-size: 18px; }
+  .resume-web-hero h1 { margin-top: -20px; font-size: 16vw; }
+  .resume-web-portrait { width: 440px; }
+  .resume-web-hero-bottom { padding-bottom: 40px; }
+  .resume-web-hero-bottom p { max-width: 260px; }
+  .resume-web-primary-link { padding: 16px 48px; font-size: 16px; }
+  .resume-web-marquee { padding-top: 160px; }
+  .resume-web-about { padding: 80px 40px; }
+  .resume-web-about-image-1, .resume-web-about-image-3 { width: 210px; }
+  .resume-web-about-image-2 { width: 180px; left: 10%; }
+  .resume-web-about-image-4 { width: 220px; right: 10%; }
+  .resume-web-services { padding: 128px 40px 0; border-radius: 60px 60px 0 0; }
+  .resume-web-abilities { margin-left: -40px; margin-right: -40px; padding-left: 40px; padding-right: 40px; }
+  .resume-web-features { margin-top: -56px; padding: 128px 40px 140px; border-radius: 60px 60px 0 0; }
+  .resume-web-feature-card, .resume-web-project-images img { border-radius: 60px; }
+}
+@media (min-width: 1024px) {
+  .resume-web-nav { font-size: 1.4rem; }
+  .resume-web-hero h1 { font-size: 17.5vw; }
+  .resume-web-portrait { width: 520px; }
+}
+@media (max-width: 639px) {
+  .resume-web-nav { margin-left: 82px; gap: 8px; font-size: 11px; }
+  .resume-web-topbar { padding: 18px 16px 0; }
+  .resume-web-back { min-height: 30px; padding: 0 8px; font-size: 11px; }
+  .resume-web-portrait { top: 50%; bottom: auto; translate: -50% -50%; }
+  .resume-web-about-image { opacity: .55; }
+  .resume-web-feature-top { display: grid; grid-template-columns: 70px 1fr; }
+  .resume-web-feature-top > strong { font-size: 60px; }
+  .resume-web-live-button { grid-column: 2; justify-self: start; padding: 8px 14px; font-size: 11px; }
+  .resume-web-project-images { height: 330px; gap: 8px; padding-right: 8px; }
+  .resume-web-project-images > div { gap: 8px; }
+  .resume-web-project-images img { border-radius: 30px; }
+  .resume-web-project-slot { min-height: 85vh; }
+}
