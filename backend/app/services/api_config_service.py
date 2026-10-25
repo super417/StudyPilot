@@ -151,6 +151,23 @@ async def _verify_api_config(
                 )
             else:
                 verified = 200 <= response.status_code < 300
+            if verified:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    chat_probe = await client.post(
+                        derive_chat_completions_url(base_url),
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Accept": "application/json",
+                        },
+                        json={
+                            "model": model_type,
+                            "messages": [{"role": "user", "content": "ping"}],
+                            "max_tokens": 1,
+                            "stream": False,
+                        },
+                    )
+                if chat_probe.status_code in (401, 402, 403):
+                    verified = False
     except (httpx.TimeoutException, asyncio.TimeoutError):
         raise ApiConfigVerificationTimeoutError(
             "API configuration verification timed out"

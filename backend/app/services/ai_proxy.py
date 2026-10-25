@@ -74,6 +74,9 @@ class CredentialUnavailableError(RuntimeError):
 _CLIENT_ERROR_MESSAGES = {
     NoVerifiedApiConfigError.code: "请先在设置中配置并验证 API",
     CredentialUnavailableError.code: "凭证暂不可用，请稍后重试",
+    "AI_INSUFFICIENT_BALANCE": "API 账户余额不足，请充值或更换 Key 后重试",
+    "AI_AUTH_FAILED": "API Key 无效或已失效，请到个人中心重新配置",
+    "AI_RATE_LIMITED": "API 调用过于频繁，请稍后重试",
 }
 
 

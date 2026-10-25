@@ -248,6 +248,70 @@ class ApiConfigServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error.exception.code, "VERIFY_FAILED")
         self.assertEqual(self._config_count(), 0)
 
+    async def test_chat_probe_rejects_insufficient_balance(self) -> None:
+        calls = []
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def get(self, url, headers):
+                return httpx.Response(200, request=httpx.Request("GET", url))
+
+            async def post(self, url, headers, json):
+                calls.append((url, headers, json))
+                return httpx.Response(402, request=httpx.Request("POST", url))
+
+        with patch("app.services.api_config_service.httpx.AsyncClient", FakeClient):
+            with self.assertRaises(ApiConfigVerificationError) as error:
+                await save_api_config(
+                    self.session, self.user.id, "sk-test-placeholder-1234",
+                    "test-model", "https://api.example.test/v1",
+                )
+
+        self.assertEqual(error.exception.code, "VERIFY_FAILED")
+        self.assertNotIn("sk-test-placeholder-1234", str(error.exception))
+        self.assertEqual(self._config_count(), 0)
+        self.assertEqual(calls[0][0], "https://api.example.test/v1/chat/completions")
+        self.assertEqual(calls[0][2], {
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+            "stream": False,
+        })
+
+    async def test_chat_probe_server_error_preserves_models_success(self) -> None:
+        class FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def get(self, url, headers):
+                return httpx.Response(200, request=httpx.Request("GET", url))
+
+            async def post(self, url, headers, json):
+                return httpx.Response(500, request=httpx.Request("POST", url))
+
+        with patch("app.services.api_config_service.httpx.AsyncClient", FakeClient):
+            config = await save_api_config(
+                self.session, self.user.id, "sk-test-placeholder-1234",
+                "test-model", "https://api.example.test/v1",
+            )
+
+        self.assertTrue(config.is_verified)
+        self.assertEqual(self._config_count(), 1)
+
     async def test_empty_fields_and_invalid_url_skip_verifier_and_database(self) -> None:
         calls = 0
 

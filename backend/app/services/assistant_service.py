@@ -86,6 +86,35 @@ _DOMAIN_REFUSAL = (
     "请换一个与学习与能力提升相关的问题。"
 )
 
+
+class UpstreamChatError(Exception):
+    """Safe upstream status and error identifier, without response content."""
+
+    def __init__(self, status: int, upstream_code: str | None) -> None:
+        self.status = status
+        self.upstream_code = upstream_code
+        super().__init__(f"upstream chat failed (HTTP {status})")
+
+    @classmethod
+    def from_response(cls, response: httpx.Response) -> UpstreamChatError:
+        try:
+            upstream_error = response.json().get("error") or {}
+            upstream_code = upstream_error.get("type") or upstream_error.get("code")
+            if not isinstance(upstream_code, str):
+                upstream_code = None
+        except (ValueError, AttributeError):
+            upstream_code = None
+        return cls(response.status_code, upstream_code)
+
+    @property
+    def code(self) -> str | None:
+        return {
+            402: "AI_INSUFFICIENT_BALANCE",
+            401: "AI_AUTH_FAILED",
+            403: "AI_AUTH_FAILED",
+            429: "AI_RATE_LIMITED",
+        }.get(self.status)
+
 # ASCII text running straight into an address leaves the boundary a guess, so we
 # ask instead of picking one. See ``video_link.url_is_glued``.
 _GLUED_LINK_REPLY = (
@@ -379,6 +408,10 @@ async def openai_compatible_chat_stream(
                     yield _delta_iter()
                     return
                 await response.aread()
+                if response.status_code in (401, 402, 403, 429):
+                    raise UpstreamChatError.from_response(response)
+        except UpstreamChatError:
+            raise
         except Exception:
             pass
 
@@ -391,7 +424,7 @@ async def openai_compatible_chat_stream(
             json={**payload, "stream": False},
         )
         if response.status_code >= 400:
-            raise RuntimeError("upstream chat failed")
+            raise UpstreamChatError.from_response(response)
         body = response.json()
         choices = body.get("choices") or []
         content = ""
@@ -761,6 +794,17 @@ async def _stream_chat_reply(
             done_extra={"citations": citations} if citations else None,
         ):
             yield frame
+    except UpstreamChatError as error:
+        if error.code is None:
+            yield format_sse(
+                SSE_ERROR_EVENT,
+                {"code": "AI_STREAM_ERROR", "message": "AI 响应异常，请稍后重试"},
+            )
+        else:
+            err = build_client_error(error)
+            yield format_sse(
+                SSE_ERROR_EVENT, {"code": err["code"], "message": err["message"]}
+            )
     except Exception:
         yield format_sse(
             SSE_ERROR_EVENT,
