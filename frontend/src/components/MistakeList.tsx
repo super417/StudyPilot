@@ -66,7 +66,7 @@ function MistakeListItem({ mistake, isSelected, onSelect }: MistakeListItemProps
         // will-change:transform（需求 18.28）：提示浏览器为 hover 位移提前建立合成层。
         style={{ willChange: 'transform' }}
         whileHover={{ y: -2, boxShadow: '0 8px 20px -12px rgba(15, 118, 110, 0.45)' }}
-        whileTap={{ y: 0 }}
+        whileTap={{ y: 1, scale: 0.965, boxShadow: '0 2px 8px rgba(15, 118, 110, 0.16)' }}
         transition={{ type: 'spring', stiffness: 320, damping: 24 }}
         className={[
           'flex w-full items-start gap-3 rounded-3xl px-4 py-4 text-left',

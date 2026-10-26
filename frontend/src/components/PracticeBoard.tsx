@@ -145,7 +145,7 @@ function PracticeCard({
   const showSources = hasVisibleSourceRefs(item.sourceRefs);
 
   return (
-    <article className="rounded-3xl bg-card p-4 text-brandDark">
+    <article className="pressable-card rounded-3xl bg-card p-4 text-brandDark">
       <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
       <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.question}</p>
       {showAnswer ? (

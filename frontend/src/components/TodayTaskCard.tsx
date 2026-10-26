@@ -3,6 +3,7 @@ import type { DailyTask, TodayStatus } from '@/mocks/types';
 import CheckInForm from '@/components/CheckInForm';
 import type { CheckInFormValues } from '@/components/CheckInForm';
 import { Magnet } from '@/components/motion';
+import './TodayTaskCard.css';
 
 /** 时长快捷选项（分钟，需求 4.5） */
 const DURATION_OPTIONS = [60, 75, 90] as const;
@@ -35,11 +36,11 @@ const STATUS_BADGE = 'bg-white/20 text-white';
  *
  * 绿色渐变背景 + 纯白文字的大圆角卡片：展示今日日期、今日任务状态徽标、
  * 60/75/90 分钟时长快捷选项（本地 state 记录选中，选中态白底绿字），
- * 「开始今天的学习」主按钮（白底 brandDark 文字胶囊），
+ * 「开始今天的学习」主按钮（绿色渐变胶囊），
  * 下半部内嵌 CheckInForm 打卡表单（需求 4.6）。
  *
- * 动效（任务 26 · 需求 18.4）：「开始今天的学习」按钮用 Magnet 包裹
- * （strength = 3、padding = 150，默认值），光标接近时朝光标方向磁吸位移。
+ * 动效（任务 26 · 需求 18.4）：「开始今天的学习」按钮用弹性 Magnet 包裹
+ * （strength = 2.5、padding = 150），光标接近时按钮和文字分别磁吸并弹性回位。
  */
 function TodayTaskCard({
   todayStatus,
@@ -102,14 +103,15 @@ function TodayTaskCard({
         </div>
       </div>
 
-      {/* 开始今天的学习（需求 4.4），Magnet 磁吸包裹（需求 18.4） */}
-      <Magnet strength={3} padding={150} className="mt-5">
+      {/* 开始今天的学习（需求 4.4），弹性 Magnet 磁吸包裹（需求 18.4） */}
+      <Magnet strength={2.5} padding={150} elastic labelStrength={0.24} className="mt-5">
         <button
           type="button"
           onClick={handleStart}
-          className="w-full rounded-full bg-white px-6 py-3 text-sm font-semibold text-brandDark transition-shadow hover:shadow-[0_0_20px_rgba(255,255,255,0.45)]"
+          className="today-start-button"
         >
-          开始今天的学习
+          <span className="today-start-button-bg" aria-hidden="true" />
+          <span className="today-start-button-label" data-magnet-label>开始今天的学习</span>
         </button>
       </Magnet>
 

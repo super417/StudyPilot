@@ -9,7 +9,7 @@ export interface LearningModeCardProps {
 /** 深色「学习模式」洞察卡：三条由用户 metrics / 任务推导。 */
 function LearningModeCard({ weekLabel, insights, onOpenWeekly }: LearningModeCardProps) {
   return (
-    <section className="flex h-full flex-col rounded-[28px] bg-[#0B1220] p-6 text-white sm:p-7">
+    <section className="hover-glow-card hover-glow-card--purple flex h-full flex-col rounded-[28px] bg-[#0B1220] p-6 text-white sm:p-7">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-purple">STUDYPILOT NOTICED</p>

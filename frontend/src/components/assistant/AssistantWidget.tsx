@@ -7,11 +7,11 @@ import FloatingIcon from './FloatingIcon';
  * 在 App 顶层挂载一次即可全局悬浮于所有页面之上（fixed 定位，z-index 高于内容）。
  * 图标常驻右下角，点击弹出聊天窗口；两者相互独立定位，互不遮挡布局。
  */
-function AssistantWidget() {
+function AssistantWidget({ overviewEntrance = false }: { overviewEntrance?: boolean }) {
   return (
     <>
       <ChatWindow />
-      <FloatingIcon />
+      <FloatingIcon overviewEntrance={overviewEntrance} />
     </>
   );
 }

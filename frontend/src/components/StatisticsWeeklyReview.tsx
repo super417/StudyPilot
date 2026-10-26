@@ -28,7 +28,7 @@ function StatisticsWeeklyReview({
 
   return (
     <section
-      className="rounded-2xl bg-[#EDE9FE]/60 p-6 shadow-sm ring-1 ring-slate-100"
+      className="pressable-card rounded-2xl bg-[#EDE9FE]/60 p-6 shadow-sm ring-1 ring-slate-100"
       aria-labelledby="statistics-weekly-review-heading"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">

@@ -27,7 +27,7 @@ const MIN_W = 300;
 const MIN_H = 360;
 const PAD_X = 16;
 const PAD_TOP = 8;
-const PAD_BOTTOM = 96;
+const PAD_BOTTOM = 208;
 
 type ChatBox = { left: number; top: number; width: number; height: number };
 type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';

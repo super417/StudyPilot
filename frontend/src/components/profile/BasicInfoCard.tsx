@@ -25,7 +25,9 @@ const FIELDS: { key: keyof BasicProfile; label: string; placeholder: string; tex
   { key: 'nickname', label: '昵称', placeholder: '如：小明' },
   { key: 'direction', label: '方向/目标', placeholder: '如：想研究的方向' },
   { key: 'targetSchool', label: '以后想到的地方', placeholder: '如：想去的城市' },
-  { key: 'bio', label: '简介', placeholder: '一句话介绍自己的目标', textarea: true },
+  { key: 'school', label: '学校（可选）', placeholder: '填写实际学校；示例请保留“待确认”标记' },
+  { key: 'major', label: '专业（可选）', placeholder: '填写实际专业；示例请保留“待确认”标记' },
+  { key: 'bio', label: '简介', placeholder: '自我介绍（展示在个人网站简历的“关于我”）', textarea: true },
   {
     key: 'assistantName',
     label: '助手名字',
@@ -93,6 +95,8 @@ function BasicInfoCard({ editOpen, onEditOpenChange, onSaved, onToast }: BasicIn
   const rows: { label: string; value: string }[] = [
     { label: '方向/目标', value: profile.direction || '未填写' },
     { label: '以后想到的地方', value: profile.targetSchool || '未填写' },
+    { label: '学校', value: profile.school || '未填写' },
+    { label: '专业', value: profile.major || '未填写' },
     { label: '简介', value: profile.bio || '未填写' },
     { label: '助手名字', value: profile.assistantName || '未填写' },
   ];

@@ -7,7 +7,7 @@ export interface SelfNoteCardProps {
 /** 浅绿「近期自述」卡：由周报 / 指标拼出的真实摘要。 */
 function SelfNoteCard({ headline, recentLabel, nextStep }: SelfNoteCardProps) {
   return (
-    <section className="flex h-full flex-col justify-between rounded-[28px] bg-brandLight p-6 text-brandDark sm:p-7">
+    <section className="hover-glow-card hover-glow-card--brand flex h-full flex-col justify-between rounded-[28px] bg-brandLight p-6 text-brandDark sm:p-7">
       <div>
         <p className="text-[11px] font-semibold tracking-[0.14em] text-brandDark/55">
           RECENT · SELF NOTE

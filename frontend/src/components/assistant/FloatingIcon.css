@@ -1,0 +1,97 @@
+.assistant-glass-bubble {
+  position: absolute;
+  width: 130px;
+  height: 111px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.94);
+  transform-origin: 68% 100%;
+  transition: opacity 180ms ease, transform 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  filter: drop-shadow(0 5px 8px rgba(6, 78, 59, 0.22));
+}
+
+.assistant-glass-bubble--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.assistant-glass-bubble--below {
+  transform-origin: 68% 0;
+}
+
+.assistant-glass-bubble__surface,
+.assistant-glass-bubble__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.assistant-glass-bubble__surface {
+  clip-path: url('#assistant-invite-cloud-clip');
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.08) 52%, rgba(255, 255, 255, 0.22));
+  -webkit-backdrop-filter: blur(14px) saturate(180%) brightness(1.08);
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.08);
+  box-shadow: inset 1px 1px rgba(255, 255, 255, 0.85), inset -1px -1px rgba(255, 255, 255, 0.3);
+}
+
+.assistant-glass-bubble__surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 26% 27%, rgba(255, 255, 255, 0.66), transparent 41%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.32), transparent 32%, rgba(255, 255, 255, 0.22) 79%, transparent);
+}
+
+.assistant-glass-bubble__art path {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.assistant-glass-bubble__shadow {
+  stroke: #251c2d;
+  stroke-width: 6;
+}
+
+.assistant-glass-bubble__rim {
+  stroke: #8796f8;
+  stroke-width: 5;
+}
+
+.assistant-glass-bubble__highlight {
+  stroke: rgba(255, 255, 255, 0.96);
+  stroke-width: 2.5;
+}
+
+.assistant-glass-bubble__dash {
+  stroke: #ffd426;
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  stroke-linecap: round;
+}
+
+.assistant-glass-bubble__sparks path {
+  fill: #ffd400;
+  stroke: #eab800;
+  stroke-width: 1;
+}
+
+.assistant-glass-bubble__text {
+  position: absolute;
+  top: 59%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #064e3b;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-glass-bubble {
+    transition: none;
+  }
+}

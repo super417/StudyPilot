@@ -71,6 +71,8 @@ describe('profilePrefs assistantName', () => {
       nickname: '小明',
       direction: 'AI',
       targetSchool: '',
+      school: '',
+      major: '',
       bio: '',
       assistantName: '小航',
     });
@@ -135,12 +137,14 @@ describe('profilePrefs assistantName', () => {
       nickname: '旧昵称',
       direction: '旧方向',
       targetSchool: '',
+      school: '',
+      major: '',
       bio: '',
       assistantName: '服务端学伴',
     });
   });
 
-  it('saveAssistantName merges after GET then PUTs five fields', async () => {
+  it('saveAssistantName preserves school and major when updating the name', async () => {
     mocks.apiRequest
       .mockResolvedValueOnce({
         status: 'ok',
@@ -148,6 +152,8 @@ describe('profilePrefs assistantName', () => {
           nickname: '小明',
           direction: 'AI',
           targetSchool: '某处',
+          school: '上海财经大学（示例，待确认）',
+          major: '统计学（示例，待确认）',
           bio: '简介',
           assistantName: '',
         },
@@ -158,6 +164,8 @@ describe('profilePrefs assistantName', () => {
           nickname: '小明',
           direction: 'AI',
           targetSchool: '某处',
+          school: '上海财经大学（示例，待确认）',
+          major: '统计学（示例，待确认）',
           bio: '简介',
           assistantName: '小航',
         },
@@ -176,6 +184,8 @@ describe('profilePrefs assistantName', () => {
       nickname: '小明',
       direction: 'AI',
       targetSchool: '某处',
+      school: '上海财经大学（示例，待确认）',
+      major: '统计学（示例，待确认）',
       bio: '简介',
       assistantName: '小航',
     });

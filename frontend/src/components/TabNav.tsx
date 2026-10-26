@@ -1,7 +1,9 @@
 import { openMainframePage } from '@/lib/mainframeRoute';
+import { motion } from 'framer-motion';
+import './TabNav.css';
 
 /** Tab 的 key 联合类型，保证类型安全（需求 12.5） */
-export type TabKey = 'overview' | 'roadmap' | 'mistakes' | 'weekly' | 'profile';
+export type TabKey = 'overview' | 'roadmap' | 'mistakes' | 'weekly' | 'resume' | 'profile';
 
 /** 单个 Tab 的展示配置 */
 interface TabItem {
@@ -9,12 +11,13 @@ interface TabItem {
   label: string;
 }
 
-/** 五个内容 Tab，顺序对应参考 UI */
+/** 六个内容 Tab，顺序对应参考 UI */
 const TABS: readonly TabItem[] = [
   { key: 'overview', label: '总览' },
   { key: 'roadmap', label: 'Roadmap' },
   { key: 'mistakes', label: '习题本' },
   { key: 'weekly', label: '数据统计' },
+  { key: 'resume', label: '我的简历' },
   { key: 'profile', label: '个人中心' },
 ];
 
@@ -52,13 +55,26 @@ function TabNav({ activeTab, onChange }: TabNavProps) {
               type="button"
               aria-current={isActive ? 'page' : undefined}
               onClick={() => onChange(tab.key)}
-              className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+              className={`pressable-card relative isolate whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
                 isActive
-                  ? 'bg-brand text-white shadow-sm'
+                  ? 'text-brandDark'
                   : 'text-brandDark/70 hover:bg-white/55 hover:text-brandDark'
               }`}
             >
-              {tab.label}
+              {isActive ? (
+                <motion.span
+                  layoutId="active-main-tab"
+                  className="tab-liquid-glass absolute inset-0 -z-10 rounded-full"
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                />
+              ) : null}
+              <motion.span
+                className="relative inline-block origin-center"
+                animate={{ scale: isActive ? 1.22 : 1 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              >
+                {tab.label}
+              </motion.span>
             </button>
           );
         })}

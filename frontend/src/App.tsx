@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import profileBg from '@/assets/profile-bg.jpg';
 import AuthPage from '@/components/auth/AuthPage';
@@ -10,22 +10,38 @@ import OverviewPage from '@/pages/OverviewPage';
 import RoadmapPage from '@/pages/RoadmapPage';
 import MistakeBookPage from '@/pages/MistakeBookPage';
 import StatisticsPage from '@/pages/StatisticsPage';
+import ResumeSelectorPage from '@/pages/ResumeSelectorPage';
+import PracticalResumePage from '@/pages/PracticalResumePage';
 import ProfilePage from '@/pages/ProfilePage';
 import MainframePage from '@/pages/MainframePage';
+import StudyPilotHero from '@/components/StudyPilotHero';
+import StudyPilotJourney from '@/components/StudyPilotJourney';
 import {
   closeMainframePage,
   isMainframeRoute,
 } from '@/lib/mainframeRoute';
 import { useAuthStore } from '@/store/authStore';
 
+const PersonalWebsiteResume = lazy(() => import('@/pages/PersonalWebsiteResume'));
+
 /** activeTab → 对应页面组件的映射（页面容器路由） */
-const PAGES: Record<TabKey, () => JSX.Element> = {
+const PAGES: Record<TabKey, ComponentType> = {
   overview: OverviewPage,
   roadmap: RoadmapPage,
   mistakes: MistakeBookPage,
   weekly: StatisticsPage,
+  resume: PersonalWebsiteResume,
   profile: ProfilePage,
 };
+
+type ResumeRoute = '/resume' | '/resume/practical' | '/resume/interactive' | null;
+
+function currentResumeRoute(): ResumeRoute {
+  const path = window.location.hash.slice(1).replace(/\/$/, '');
+  return path === '/resume' || path === '/resume/practical' || path === '/resume/interactive'
+    ? path
+    : null;
+}
 
 /**
  * 个人中心整屏背景：雪山图 + 极淡明暗叠加层 + 兜底渐变。
@@ -49,8 +65,11 @@ const PROFILE_BACKDROP: CSSProperties = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>(() => currentResumeRoute() ? 'resume' : 'overview');
   const [showMainframe, setShowMainframe] = useState(() => isMainframeRoute());
+  const [resumeRoute, setResumeRoute] = useState<ResumeRoute>(() => currentResumeRoute());
+  const [heroOverlap, setHeroOverlap] = useState(156);
+  const topbarRef = useRef<HTMLDivElement>(null);
   const { status, error, checkSession, logout } = useAuthStore();
   const CurrentPage = PAGES[activeTab];
 
@@ -59,10 +78,52 @@ function App() {
   }, [checkSession]);
 
   useEffect(() => {
-    const sync = () => setShowMainframe(isMainframeRoute());
+    const sync = () => {
+      setShowMainframe(isMainframeRoute());
+      const route = currentResumeRoute();
+      setResumeRoute(route);
+      if (route) setActiveTab('resume');
+    };
     window.addEventListener('hashchange', sync);
     return () => window.removeEventListener('hashchange', sync);
   }, []);
+
+  useLayoutEffect(() => {
+    const topbar = topbarRef.current;
+    if (!topbar) return;
+    const update = () => {
+      const documentTop = topbar.getBoundingClientRect().top + window.scrollY;
+      setHeroOverlap(documentTop + topbar.offsetHeight + 24);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(topbar);
+    return () => observer.disconnect();
+  }, [status, activeTab, showMainframe, resumeRoute]);
+
+  const openResumeRoute = (route: Exclude<ResumeRoute, null>) => {
+    setActiveTab('resume');
+    setResumeRoute(route);
+    window.location.hash = route;
+  };
+
+  const changeTab = (tab: TabKey) => {
+    if (tab === 'resume') {
+      openResumeRoute('/resume');
+      return;
+    }
+    setActiveTab(tab);
+    setResumeRoute(null);
+    if (currentResumeRoute()) window.location.hash = '';
+    if (tab === 'overview') {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+        });
+      });
+    }
+  };
 
   if (status === 'checking') {
     return (
@@ -89,9 +150,21 @@ function App() {
         onBack={closeMainframePage}
         onNavigate={(tab) => {
           closeMainframePage();
-          setActiveTab(tab);
+          changeTab(tab);
         }}
       />
+    );
+  }
+
+  if (resumeRoute === '/resume/practical') {
+    return <PracticalResumePage onBack={() => openResumeRoute('/resume')} />;
+  }
+
+  if (resumeRoute === '/resume/interactive') {
+    return (
+      <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#0c0c0c] text-sm text-white">正在载入个人网站简历…</main>}>
+        <PersonalWebsiteResume onBack={() => openResumeRoute('/resume')} />
+      </Suspense>
     );
   }
 
@@ -111,26 +184,34 @@ function App() {
           页头 + Tab 导航作为一组：组内间距 12px（比外层 space-y-6 的 24px 紧），
           让"标题区 → 导航"读成一个整体；与下方内容区仍保持 24px 的分隔。
         */}
-        <div className="space-y-3">
+        <div ref={topbarRef} className={`app-shared-topbar space-y-3 ${activeTab === 'overview' ? 'sp-hero-topbar' : ''}`}>
           <Header onLogout={() => void logout()} />
-          <TabNav activeTab={activeTab} onChange={setActiveTab} />
+          <TabNav activeTab={activeTab} onChange={changeTab} />
         </div>
         <main>
-          {/* mode=wait 曾使 exit 未结束时主区卡住：Tab 已高亮但内容仍停在总览。 */}
-          <AnimatePresence>
+          {/* 旧页面退出时退出布局，避免把新总览首屏向下挤；总览背景首帧即绘制。 */}
+          <AnimatePresence mode="popLayout">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 16 }}
+              initial={activeTab === 'overview' ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              {activeTab === 'profile' ? (
-                <ProfilePage onNavigate={setActiveTab} />
+              {activeTab === 'resume' ? (
+                <ResumeSelectorPage onBack={() => changeTab('overview')} onSelect={openResumeRoute} />
+              ) : activeTab === 'profile' ? (
+                <ProfilePage onNavigate={changeTab} />
               ) : activeTab === 'overview' ? (
-                <OverviewPage onNavigate={setActiveTab} />
+                <>
+                  <StudyPilotHero onNavigate={changeTab} overlap={heroOverlap} />
+                  <StudyPilotJourney />
+                  <div id="overview-content" className="spj-overview-bridge scroll-mt-6">
+                    <OverviewPage onNavigate={changeTab} />
+                  </div>
+                </>
               ) : activeTab === 'weekly' ? (
-                <StatisticsPage onNavigate={setActiveTab} />
+                <StatisticsPage onNavigate={changeTab} />
               ) : (
                 <CurrentPage />
               )}
@@ -138,7 +219,7 @@ function App() {
           </AnimatePresence>
         </main>
       </div>
-      <AssistantWidget />
+      <AssistantWidget overviewEntrance={activeTab === 'overview'} />
     </div>
   );
 }

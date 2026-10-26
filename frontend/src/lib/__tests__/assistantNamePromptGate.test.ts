@@ -6,6 +6,8 @@ const empty: BasicProfile = {
   nickname: '',
   direction: '',
   targetSchool: '',
+  school: '',
+  major: '',
   bio: '',
   assistantName: '',
 };

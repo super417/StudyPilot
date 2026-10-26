@@ -1,0 +1,41 @@
+.today-start-button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 24px;
+  background: transparent;
+  color: #0e100f;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.today-start-button:hover {
+  box-shadow: 0 0 20px rgba(171, 255, 132, 0.45);
+}
+
+.today-start-button:focus-visible {
+  outline: 3px solid #fffce1;
+  outline-offset: 3px;
+}
+
+.today-start-button-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(114.41deg, #0ae448 20.74%, #abff84 65.5%);
+}
+
+.today-start-button-label {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+}

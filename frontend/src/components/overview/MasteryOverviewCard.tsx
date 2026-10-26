@@ -11,7 +11,7 @@ function MasteryOverviewCard({ avg, items }: MasteryOverviewCardProps) {
   const noEvidence = items.length === 0 || items.every((item) => item.evidenceCount === 0);
 
   return (
-    <section className="flex h-full flex-col rounded-[28px] border border-brandFaint bg-card p-6 sm:p-7">
+    <section className="hover-glow-card hover-glow-card--purple flex h-full flex-col rounded-[28px] bg-card p-6 sm:p-7">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">MASTERY</p>

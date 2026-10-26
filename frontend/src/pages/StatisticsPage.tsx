@@ -41,6 +41,17 @@ import {
 import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
 import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi';
 
+const DETAIL_PANELS = [
+  { key: 'rings', title: '阶段双环' },
+  { key: 'activity', title: '近 30 日作答量' },
+  { key: 'mastery', title: '掌握度分布' },
+  { key: 'mistakes', title: '高频错题 TOP5' },
+  { key: 'stars', title: '近 30 日星图' },
+  { key: 'route', title: '学习航线' },
+  { key: 'feedback', title: '正反馈与顺延' },
+] as const;
+type DetailPanelKey = (typeof DETAIL_PANELS)[number]['key'];
+
 const MASTERY_COLORS = {
   correct: '#10B981',
   partial: '#F59E0B',
@@ -630,6 +641,7 @@ export interface StatisticsPageProps {
 }
 
 function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
+  const [activePanel, setActivePanel] = useState<DetailPanelKey | null>(null);
   const [data, setData] = useState<StatisticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -807,6 +819,45 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
     return CARDS.map((c) => ({ ...c, value: data[c.key] }));
   }, [data]);
 
+  const panelContent = (key: DetailPanelKey) => {
+    switch (key) {
+      case 'rings':
+        return reviewError ? (
+          <div role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {reviewError}
+            <button type="button" className="ml-3 underline" onClick={() => void reloadReview()}>重试</button>
+          </div>
+        ) : reviewLoading ? (
+          <p className="py-10 text-center text-sm text-slate-400">加载阶段双环…</p>
+        ) : reviewEmpty || !review ? (
+          <p className="py-10 text-center text-sm text-slate-400">完成一周学习后，这里会显示各阶段的完成度与掌握度双环。</p>
+        ) : (
+          <PhaseRings items={review.masteryDetail} reinforceOutcomesByPhase={reinforceOutcomesByPhase} />
+        );
+      case 'activity':
+        return <BarChart items={data?.dailyActivity ?? []} />;
+      case 'mastery':
+        return <PieChart mastery={data?.masteryDistribution ?? { correct: 0, partial: 0, wrong: 0 }} />;
+      case 'mistakes':
+        return <TopMistakesList items={data?.topMistakes ?? []} />;
+      case 'stars':
+        return <StarMap items={data?.stars ?? []} />;
+      case 'route':
+        return <RouteTrack items={data?.route ?? []} busyPhaseId={quizBusyPhaseId} onQuiz={(id) => void handlePhaseQuiz(id)} message={quizMsg} />;
+      case 'feedback':
+        return data ? (
+          <FeedbackAndRemedy data={data} planId={planId} onRemedy={() => void handleRemedyPreview()} remedyBusy={remedyBusy} remedyMsg={remedyMsg} />
+        ) : (
+          <p className="py-6 text-center text-sm text-slate-400">加载统计后显示</p>
+        );
+    }
+  };
+
+  const openPanelFromCard = (key: DetailPanelKey, event: ReactMouseEvent<HTMLElement>) => {
+    if ((event.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+    setActivePanel(key);
+  };
+
   if (loading) {
     return <p className="text-sm text-brandDark/60">正在加载数据统计…</p>;
   }
@@ -836,7 +887,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           return (
             <article
               key={card.key}
-              className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5"
+              className="pressable-card flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5"
             >
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${card.iconBg}`}>
                 <Icon className="h-5 w-5" />
@@ -851,7 +902,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         })}
       </div>
 
-      <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <section className="pressable-card rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
@@ -909,73 +960,35 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         ) : null}
       </section>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">阶段双环</h2>
-          {reviewError ? (
-            <div role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {reviewError}
-              <button type="button" className="ml-3 underline" onClick={() => void reloadReview()}>
-                重试
-              </button>
+      <div className={activePanel ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}>
+        {(activePanel ? DETAIL_PANELS.filter((panel) => panel.key === activePanel) : DETAIL_PANELS).map((panel) => (
+          <article
+            key={panel.key}
+            onClick={(event) => openPanelFromCard(panel.key, event)}
+            className={`statistics-panel-glass pressable-card rounded-xl p-6 ${activePanel ? 'min-h-80' : 'cursor-pointer'} ${!activePanel && ['stars', 'route', 'feedback'].includes(panel.key) ? 'md:col-span-2' : ''}`}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-slate-800">
+                {activePanel ? panel.title : (
+                  <button type="button" className="rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand" onClick={() => setActivePanel(panel.key)} aria-label={`展开${panel.title}`}>
+                    {panel.title}
+                  </button>
+                )}
+              </h2>
+              {activePanel ? <button type="button" className="pressable-card rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50" onClick={() => setActivePanel(null)}>收起详情</button> : null}
             </div>
-          ) : reviewLoading ? (
-            <p className="py-10 text-center text-sm text-slate-400">加载阶段双环…</p>
-          ) : reviewEmpty || !review ? (
-            <p className="py-10 text-center text-sm text-slate-400">
-              完成一周学习后，这里会显示各阶段的完成度与掌握度双环。
-            </p>
-          ) : (
-            <PhaseRings
-              items={review.masteryDetail}
-              reinforceOutcomesByPhase={reinforceOutcomesByPhase}
-            />
-          )}
-        </article>
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">近 30 日作答量</h2>
-          <BarChart items={data?.dailyActivity ?? []} />
-        </article>
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">掌握度分布</h2>
-          <PieChart
-            mastery={data?.masteryDistribution ?? { correct: 0, partial: 0, wrong: 0 }}
-          />
-        </article>
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">高频错题 TOP5</h2>
-          <TopMistakesList items={data?.topMistakes ?? []} />
-        </article>
-      </div>
-
-      <div className="mt-6 grid grid-cols-1 gap-6">
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">近 30 日星图</h2>
-          <StarMap items={data?.stars ?? []} />
-        </article>
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">学习航线</h2>
-          <RouteTrack
-            items={data?.route ?? []}
-            busyPhaseId={quizBusyPhaseId}
-            onQuiz={(id) => void handlePhaseQuiz(id)}
-            message={quizMsg}
-          />
-        </article>
-        <article className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-base font-semibold text-slate-800">正反馈与顺延</h2>
-          {data ? (
-            <FeedbackAndRemedy
-              data={data}
-              planId={planId}
-              onRemedy={() => void handleRemedyPreview()}
-              remedyBusy={remedyBusy}
-              remedyMsg={remedyMsg}
-            />
-          ) : (
-            <p className="py-6 text-center text-sm text-slate-400">加载统计后显示</p>
-          )}
-        </article>
+            {panelContent(panel.key)}
+          </article>
+        ))}
+        {activePanel ? (
+          <nav className="flex gap-3 overflow-x-auto pb-2" aria-label="统计模块缩略条">
+            {DETAIL_PANELS.filter((panel) => panel.key !== activePanel).map((panel) => (
+              <button key={panel.key} type="button" onClick={() => setActivePanel(panel.key)} className="pressable-card min-w-36 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-4 text-left text-sm font-medium text-slate-700 shadow-sm hover:border-brand hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
+                {panel.title}
+              </button>
+            ))}
+          </nav>
+        ) : null}
       </div>
 
       <div className="mt-8 flex justify-center">

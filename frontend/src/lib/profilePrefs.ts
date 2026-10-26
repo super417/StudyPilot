@@ -1,5 +1,5 @@
 /**
- * 用户基本信息（昵称 / 学习方向 / 目标院校 / 简介 / 助手名字）。
+ * 用户基本信息（昵称 / 学习方向 / 目标院校 / 学校 / 专业 / 简介 / 助手名字）。
  *
  * 读写走 GET/PUT /api/profile。旧版 localStorage 仅在服务端仍为空时迁移一次。
  */
@@ -9,6 +9,8 @@ export interface BasicProfile {
   nickname: string;
   direction: string;
   targetSchool: string;
+  school: string;
+  major: string;
   bio: string;
   assistantName: string;
 }
@@ -22,6 +24,8 @@ const DEFAULT_PROFILE: BasicProfile = {
   nickname: '',
   direction: '',
   targetSchool: '',
+  school: '',
+  major: '',
   bio: '',
   assistantName: '',
 };
@@ -38,6 +42,8 @@ function normalize(raw: Partial<BasicProfile> | null | undefined): BasicProfile 
     nickname: asString(raw?.nickname),
     direction: asString(raw?.direction),
     targetSchool: asString(raw?.targetSchool),
+    school: asString(raw?.school),
+    major: asString(raw?.major),
     bio: asString(raw?.bio),
     assistantName: asString(raw?.assistantName),
   };
@@ -66,6 +72,8 @@ function isEmpty(profile: BasicProfile): boolean {
     profile.nickname ||
     profile.direction ||
     profile.targetSchool ||
+    profile.school ||
+    profile.major ||
     profile.bio
   );
 }

@@ -109,6 +109,57 @@ body {
     @apply bg-card rounded-[32px] shadow-[0_10px_40px_rgba(6,78,59,0.08)];
   }
 
+  .pressable-card {
+    transition: transform 260ms cubic-bezier(0.22, 1.5, 0.36, 1), box-shadow 260ms ease;
+    will-change: transform;
+  }
+
+  .pressable-card:active {
+    transform: scale(0.965);
+    box-shadow: 0 2px 8px rgba(6, 78, 59, 0.12), inset 0 2px 5px rgba(6, 78, 59, 0.08);
+    transition-duration: 80ms;
+  }
+
+  .statistics-panel-glass {
+    position: relative;
+    isolation: isolate;
+    will-change: auto;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(16px) saturate(170%);
+    backdrop-filter: blur(16px) saturate(170%);
+    box-shadow:
+      0 16px 34px rgba(6, 78, 59, 0.12),
+      inset 1px 1px 0 rgba(255, 255, 255, 0.76),
+      inset -1px -1px 0 rgba(42, 112, 84, 0.1);
+  }
+
+  .statistics-panel-glass::before,
+  .statistics-panel-glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .statistics-panel-glass::before {
+    background:
+      radial-gradient(ellipse at 4% 0%, rgba(255, 255, 255, 0.62), transparent 46%),
+      linear-gradient(112deg, transparent 34%, rgba(255, 255, 255, 0.2) 48%, transparent 62%);
+  }
+
+  .statistics-panel-glass::after {
+    box-shadow:
+      inset 0 2px 2px rgba(255, 255, 255, 0.48),
+      inset 0 -3px 6px rgba(55, 131, 99, 0.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pressable-card { transition: none; }
+  }
+
   /* 主色药丸按钮 + hover 光晕 (需求 12) */
   .btn-pill {
     @apply rounded-full bg-brandDark text-white transition-shadow;
@@ -201,6 +252,109 @@ body {
   /* 玻璃面板内的小色块（待办/操作按钮底），半透明以透出玻璃层次 */
   .liquid-glass-tile {
     @apply rounded-2xl bg-white/55 transition hover:bg-white/80;
+  }
+
+  /*
+   * 总览四卡：悬浮光晕交互（hover-glow-card）
+   *
+   * 只搬 uiverse 那套「玻璃卡 + 右上角光斑/竖线 + hover 发光」的交互，
+   * **不搬它的配色**：卡面底色、文字色一律沿用各自原有令牌（深墨蓝 / 白 / 浅绿），
+   * 光晕与装饰改用卡片自身的强调色 —— 暖橙光压在浅绿主题上会直接打架。
+   *
+   * 结构差异：原版把 ::before 圆形、::after 竖线画在外层 .container 上、浮在 .box 外侧；
+   * 这里卡片本身就是 .box，所以装饰改画在卡内、被圆角裁切（overflow:hidden），
+   * 并靠 isolation:isolate + z-index:-1 压在背景之上、内容之下（同 .liquid-glass 的坑）。
+   *
+   * 静态时装饰 opacity:0，hover 才淡入 + 轻微放大：白卡静止态不该有脏点，
+   * 交互感集中在 hover 一瞬间。
+   */
+  .hover-glow-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid var(--glow-border, rgba(6, 78, 59, 0.1));
+    transition: all ease 0.3s;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  .hover-glow-card::before,
+  .hover-glow-card::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    transition: all ease 0.3s;
+  }
+
+  /* 右上角光斑（原 .container::before）。原版是纯色硬边圆，压在纯白卡上像贴纸，
+     这里同一颜色改成径向渐变收边 —— 颜色不变，只是从"圆片"变成"光"。 */
+  .hover-glow-card::before {
+    width: 6rem;
+    height: 6rem;
+    top: 30%;
+    right: 7%;
+    border-radius: 50%;
+    background-image: radial-gradient(circle, var(--glow-tint) 0%, transparent 72%);
+    transform: scale(0.8);
+  }
+
+  /* 右上角细竖线（原 .container::after）。
+     原版画在 .box 之外的留白里；这里卡内右上角被「W43 胶囊 / 百分比 / 计数徽标」占着，
+     right 收到 2% 正好落在 p-6/p-7 的右内边距槽里，不再横穿徽标。 */
+  .hover-glow-card::after {
+    height: 3rem;
+    top: 8%;
+    right: 2%;
+    border: 1px solid var(--glow-line);
+  }
+
+  .hover-glow-card:hover::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .hover-glow-card:hover::after {
+    opacity: 1;
+  }
+
+  .hover-glow-card:hover {
+    box-shadow: 0 0 20px 1px var(--glow-shadow);
+    border-color: var(--glow-border-hover);
+  }
+
+  /* 强调色变体：绿 / 紫 / 红，各自对应卡片里已有的强调色 */
+  .hover-glow-card--brand {
+    --glow-tint: rgba(16, 185, 129, 0.28);
+    --glow-line: rgba(6, 78, 59, 0.32);
+    --glow-shadow: rgba(16, 185, 129, 0.34);
+    --glow-border: rgba(16, 185, 129, 0.18);
+    --glow-border-hover: rgba(16, 185, 129, 0.48);
+  }
+
+  .hover-glow-card--purple {
+    --glow-tint: rgba(139, 92, 246, 0.22);
+    --glow-line: rgba(139, 92, 246, 0.42);
+    --glow-shadow: rgba(139, 92, 246, 0.3);
+    --glow-border: rgba(139, 92, 246, 0.14);
+    --glow-border-hover: rgba(139, 92, 246, 0.42);
+  }
+
+  .hover-glow-card--danger {
+    --glow-tint: rgba(185, 28, 28, 0.16);
+    --glow-line: rgba(185, 28, 28, 0.38);
+    --glow-shadow: rgba(185, 28, 28, 0.26);
+    --glow-border: rgba(185, 28, 28, 0.14);
+    --glow-border-hover: rgba(185, 28, 28, 0.38);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hover-glow-card,
+    .hover-glow-card::before,
+    .hover-glow-card::after {
+      transition: none;
+    }
   }
 }
 

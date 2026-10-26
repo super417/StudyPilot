@@ -482,7 +482,7 @@ function MistakeBookPage() {
         <div className="lg:col-span-1">
           <nav className="card mb-4 space-y-3 p-4" aria-label="习题本分区">
             <div>
-              <button type="button" className={`text-sm font-semibold ${board === 'practice' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('practice')}>
+              <button type="button" className={`pressable-card rounded-lg px-2 py-1 text-sm font-semibold ${board === 'practice' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('practice')}>
                 习题
               </button>
               <div className="mt-1 flex flex-wrap gap-1.5">
@@ -491,7 +491,7 @@ function MistakeBookPage() {
               </div>
             </div>
             <div>
-              <button type="button" className={`text-sm font-semibold ${board === 'mistakes' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('mistakes')}>
+              <button type="button" className={`pressable-card rounded-lg px-2 py-1 text-sm font-semibold ${board === 'mistakes' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('mistakes')}>
                 错题
               </button>
               <div className="mt-1 flex flex-wrap gap-1.5">

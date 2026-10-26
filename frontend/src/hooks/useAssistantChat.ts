@@ -44,6 +44,7 @@ export function useAssistantChat(acceptQueued = true) {
   const attachCitations = useAssistantStore((s) => s.attachCitations);
   const setStreaming = useAssistantStore((s) => s.setStreaming);
   const stopStreaming = useAssistantStore((s) => s.stopStreaming);
+  const markReplyCompleted = useAssistantStore((s) => s.markReplyCompleted);
 
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const activePlanId = usePlanSessionStore((s) => s.activePlanId);
@@ -272,6 +273,8 @@ export function useAssistantChat(acceptQueued = true) {
       setStreaming(true);
       void (async () => {
         let sawToken = false;
+        let sawError = false;
+        let completed = false;
         try {
           await streamAssistantChat(
             text,
@@ -295,6 +298,7 @@ export function useAssistantChat(acceptQueued = true) {
               },
               onError: (code, message) => {
                 if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
+                sawError = true;
                 pushAssistant(
                   code === 'NO_API_KEY'
                     ? `请先在个人中心配置并验证 API（${message}）`
@@ -303,16 +307,19 @@ export function useAssistantChat(acceptQueued = true) {
               },
               onDone: (data) => {
                 if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
+                if (sawError) return;
                 if (!sawToken) {
                   pushAssistant('这次没有生成内容，换个问法或补充科目/资料后再问一次。');
                   return;
                 }
                 if (data.citations?.length) attachCitations(data.citations);
+                completed = true;
               },
             },
             ac.signal,
           );
         } catch (err) {
+          completed = false;
           if (abortRef.current !== ac || abortReasonRef.current === 'pause') return;
           if (!ac.signal.aborted) {
             replyError(err, '助手请求失败，请稍后重试', pushAssistant);
@@ -320,7 +327,10 @@ export function useAssistantChat(acceptQueued = true) {
             pushAssistant('响应未完成（已停止），已保留上方内容。');
           }
         } finally {
-          if (abortRef.current === ac) stopStreaming();
+          if (abortRef.current === ac) {
+            stopStreaming();
+            if (completed && !ac.signal.aborted) markReplyCompleted();
+          }
         }
       })();
     },
@@ -332,6 +342,7 @@ export function useAssistantChat(acceptQueued = true) {
       targetPlanId,
       clearClarify,
       markSkipped,
+      markReplyCompleted,
       pushAssistant,
       setClarify,
       setPreview,

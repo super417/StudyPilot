@@ -104,6 +104,10 @@ export interface AssistantState {
   context: AssistantContext | null;
   /** 是否正在流式接收 */
   streaming: boolean;
+  /** 本轮回答是否已收到模型正文 token，用于结束角色的思考状态 */
+  replyStarted: boolean;
+  /** 成功完成的模型正文回答次数，用于触发一次跳跃动画 */
+  completedReplyCount: number;
 
   /** 全部会话，按 updatedAt 倒序 */
   conversations: Conversation[];
@@ -159,6 +163,8 @@ export interface AssistantState {
   attachCitations: (citations: ChatCitation[]) => void;
   /** 设置流式状态 */
   setStreaming: (v: boolean) => void;
+  /** 模型正文回答成功结束 */
+  markReplyCompleted: () => void;
   /** 结束流式，把末尾流式消息标记为已完成并落盘 */
   stopStreaming: () => void;
 }
@@ -179,6 +185,8 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
   position: { x: 0, y: 0 },
   context: null,
   streaming: false,
+  replyStarted: false,
+  completedReplyCount: 0,
 
   conversations: [],
   activeId: null,
@@ -429,6 +437,7 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
             [id]: trimHistory(updated, MAX_MESSAGES),
           },
           streaming: true,
+          replyStarted: true,
         };
       }
 
@@ -446,13 +455,15 @@ export const useAssistantStore = create<AssistantState>((set, get) => ({
           [id]: trimHistory([...list, created], MAX_MESSAGES),
         },
         streaming: true,
+        replyStarted: true,
       };
     });
 
     // 流式期间不落盘（每字符一次太频繁），收尾由 stopStreaming 统一保存
   },
 
-  setStreaming: (v) => set({ streaming: v }),
+  setStreaming: (v) => set({ streaming: v, ...(v ? { replyStarted: false } : {}) }),
+  markReplyCompleted: () => set((state) => ({ completedReplyCount: state.completedReplyCount + 1 })),
 
   stopStreaming: () => {
     const id = get().activeId;
