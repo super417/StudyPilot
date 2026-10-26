@@ -1,6 +1,10 @@
 # ---- Python / 后端 ----
 backend/.env
 backend/.venv/
+speech/.venv/
+speech/.cache/
+speech/models/
+speech/output/
 **/__pycache__/
 *.py[cod]
 backend/*.db*
