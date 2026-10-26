@@ -99,6 +99,8 @@ class ProfileRouteTests(unittest.TestCase):
         self.assertEqual(profile["nickname"], "")
         self.assertEqual(profile["direction"], "")
         self.assertEqual(profile["targetSchool"], "")
+        self.assertEqual(profile["school"], "")
+        self.assertEqual(profile["major"], "")
         self.assertEqual(profile["bio"], "")
 
     def test_put_profile_persists_and_reads_back(self) -> None:
@@ -108,6 +110,8 @@ class ProfileRouteTests(unittest.TestCase):
                 "nickname": "小明",
                 "direction": "计算机",
                 "targetSchool": "某某大学",
+                "school": "上海财经大学（示例，待确认）",
+                "major": "统计学（示例，待确认）",
                 "bio": "冲刺考研",
             },
         )
@@ -122,6 +126,8 @@ class ProfileRouteTests(unittest.TestCase):
                 "nickname": "小明",
                 "direction": "计算机",
                 "targetSchool": "某某大学",
+                "school": "上海财经大学（示例，待确认）",
+                "major": "统计学（示例，待确认）",
                 "bio": "冲刺考研",
                 "assistantName": "",
             },
@@ -131,6 +137,8 @@ class ProfileRouteTests(unittest.TestCase):
         user = self.session.get(User, self.user.id)
         self.assertEqual(user.nickname, "小明")
         self.assertEqual(user.target_school, "某某大学")
+        self.assertEqual(user.school, "上海财经大学（示例，待确认）")
+        self.assertEqual(user.major, "统计学（示例，待确认）")
 
     def test_put_profile_replaces_all_fields(self) -> None:
         """整体替换为设计行为，前端 saveAssistantName 负责 GET 后合并，此处钉住以免误改成增量。"""
@@ -152,6 +160,8 @@ class ProfileRouteTests(unittest.TestCase):
             "nickname": "x",
             "direction": "",
             "targetSchool": "",
+            "school": "",
+            "major": "",
             "bio": "",
             "assistantName": "",
         }

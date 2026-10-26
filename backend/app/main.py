@@ -17,6 +17,8 @@ from app.routers.phases import router as phases_router
 from app.routers.plans import router as plans_router
 from app.routers.practice import router as practice_router
 from app.routers.profile import router as profile_router
+from app.routers.resume import router as resume_router
+from app.routers.resume_documents import router as resume_documents_router
 from app.routers.statistics import router as statistics_router
 from app.routers.study import router as study_router
 from app.routers.weekly_reviews import router as weekly_reviews_router
@@ -26,6 +28,8 @@ app = FastAPI(title="StudyPilot API", version="0.1.0")
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(profile_router)
+app.include_router(resume_router)
+app.include_router(resume_documents_router)
 app.include_router(api_config_router)
 app.include_router(documents_router)
 app.include_router(materials_router)

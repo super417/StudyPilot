@@ -40,7 +40,8 @@ from app.services import (
 
 # Frozen at batch 27: this batch adds no migration. A future batch that does
 # must bump this number on purpose.
-MIGRATION_FILE_COUNT = 25
+# 26 = +resume_documents（简历编辑器快照按账号保存）。
+MIGRATION_FILE_COUNT = 26
 
 
 def _structure() -> dict:

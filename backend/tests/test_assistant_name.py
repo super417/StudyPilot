@@ -104,13 +104,15 @@ class AssistantNameProfileTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["profile"]["assistantName"], "")
 
-    def test_put_five_fields_persists(self) -> None:
+    def test_put_profile_fields_persists(self) -> None:
         put = self.client.put(
             "/api/profile",
             json={
                 "nickname": "小明",
                 "direction": "计算机",
                 "targetSchool": "某某大学",
+                "school": "",
+                "major": "",
                 "bio": "简介",
                 "assistantName": "小航",
             },
@@ -126,6 +128,8 @@ class AssistantNameProfileTests(unittest.TestCase):
                 "nickname": "小明",
                 "direction": "计算机",
                 "targetSchool": "某某大学",
+                "school": "",
+                "major": "",
                 "bio": "简介",
                 "assistantName": "小航",
             },

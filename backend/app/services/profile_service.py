@@ -12,6 +12,8 @@ from app.models.entities import User
 NICKNAME_MAX = 64
 DIRECTION_MAX = 128
 TARGET_SCHOOL_MAX = 128
+SCHOOL_MAX = 128
+MAJOR_MAX = 128
 BIO_MAX = 280
 ASSISTANT_NAME_MAX = 32
 
@@ -44,6 +46,8 @@ def profile_dict(user: User) -> dict[str, str]:
         "nickname": user.nickname or "",
         "direction": user.direction or "",
         "targetSchool": user.target_school or "",
+        "school": user.school or "",
+        "major": user.major or "",
         "bio": user.bio or "",
         "assistantName": user.assistant_name or "",
     }
@@ -63,6 +67,8 @@ def update_profile(
     nickname: object = None,
     direction: object = None,
     target_school: object = None,
+    school: object = None,
+    major: object = None,
     bio: object = None,
     assistant_name: object = None,
 ) -> dict[str, str]:
@@ -73,6 +79,8 @@ def update_profile(
     user.nickname = _clip(nickname, NICKNAME_MAX)
     user.direction = _clip(direction, DIRECTION_MAX)
     user.target_school = _clip(target_school, TARGET_SCHOOL_MAX)
+    user.school = _clip(school, SCHOOL_MAX)
+    user.major = _clip(major, MAJOR_MAX)
     user.bio = _clip(bio, BIO_MAX)
     user.assistant_name = _sanitize_assistant_name(assistant_name)
 

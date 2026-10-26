@@ -32,6 +32,8 @@ class ProfilePayload(BaseModel):
     nickname: str | None = None
     direction: str | None = None
     target_school: str | None = None
+    school: str | None = None
+    major: str | None = None
     bio: str | None = None
     assistant_name: str | None = None
 
@@ -61,6 +63,8 @@ def put_profile_route(
             nickname=payload.nickname,
             direction=payload.direction,
             target_school=payload.target_school,
+            school=payload.school,
+            major=payload.major,
             bio=payload.bio,
             assistant_name=payload.assistant_name,
         )

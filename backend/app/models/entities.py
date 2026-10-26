@@ -40,6 +40,8 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     direction: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     target_school: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    school: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    major: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     bio: Mapped[str] = mapped_column(String(280), default="", nullable=False)
     assistant_name: Mapped[str] = mapped_column(String(32), default="", nullable=False)
     failed_login_count: Mapped[int] = mapped_column(
@@ -609,3 +611,33 @@ class UserDocument(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
     )
+
+
+class ResumeDocument(Base):
+    """Per-user snapshot of the embedded resume editor (one row per user).
+
+    The payload is the editor's own persisted state (localStorage
+    ``resume-storage``), kept verbatim so the client can restore it as-is.
+    """
+
+    __tablename__ = "resume_documents"
+    __table_args__ = (
+        CheckConstraint(
+            "length(payload) > 0", name="ck_resume_documents_payload_not_empty"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
+    )
+
