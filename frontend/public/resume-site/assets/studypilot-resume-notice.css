@@ -1,0 +1,54 @@
+/* StudyPilot：编辑器「注意」提示卡的关闭按钮（与主应用同一套 morphicons 动效） */
+
+.sp-notice-close {
+  position: absolute;
+  left: 1rem;
+  top: 0.9rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sp-notice-close:hover {
+  background: rgba(185, 28, 28, 0.12);
+  color: #7f1d1d;
+}
+
+.sp-notice-close:focus-visible {
+  outline: 2px solid #b91c1c;
+  outline-offset: 2px;
+}
+
+/* 关掉 × 之后把原警示图标和正文右移，避免和 × 重叠 */
+[data-sp-notice='1'] > svg {
+  left: 2.75rem !important;
+}
+
+[data-sp-notice='1'] > :not(svg):not(.sp-notice-close) {
+  padding-left: 4.25rem !important;
+}
+
+/* 点击后先淡出，180ms 后再由 [data-sp-closed] 彻底移除占位 */
+[data-sp-notice='1'] {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+[data-sp-closing='1'] {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+[data-sp-closed='1'] {
+  display: none !important;
+}
