@@ -21,6 +21,25 @@
 - 构建：`npm run build`，产物在 `frontend/dist`
 - 环境变量：构建时注入 `VITE_API_BASE_URL`（同域反代时留空即可）
 
+### 「实用简历管理」内嵌编辑器
+
+`frontend/public/resume-site/` 是本地内置的简历编辑器（源自开源 Magic Resume，已改品牌文案、去掉 GitHub 入口），
+页面用 iframe 指向 `/zh`。该应用按站点根路径取资源并做无扩展名路由，因此：
+
+- `npm run dev` / `npm run preview`：由 `vite.config.ts` 里的 `studypilot-resume-site-mirror` 插件把
+  `/zh`、`/en`、`/app/*`、`/assets/*`、`/fonts/*`、`/landing/*`、`/template-snapshots/*` 及根级图片
+  映射到 `public/resume-site/`（支持目录索引与动态路由回落），无需额外配置。
+- 纯静态托管（nginx）：需把上述前缀反代到 `/resume-site/` 并开启目录索引，例如
+
+  ```nginx
+  location ~ ^/(zh|en|app|assets|fonts|landing|template-snapshots)(/|$) {
+      rewrite ^/(.*)$ /resume-site/$1 break;
+      root /srv/studypilot/dist;
+      index index.html;
+      try_files $uri $uri/index.html $uri.html =404;
+  }
+  ```
+
 ## 竞赛演示主路径
 
 1. 注册 / 登录  
@@ -46,6 +65,7 @@
 | `POST /api/mistakes` | ✅ 手动录入错题；默认 pending 进复习队列；标「已安排」按 1/2/4/7/15/30 天、之后翻倍排下次复习 |
 | `POST /api/mistakes/ocr` | ✅；错题本「拍照 / 上传图片」识别题目，走设置里的模型，需支持识图（GPT-4o、Gemini 等） |
 | 课程章节 | ✅；一门课可加网页链接（视频或课程页），学完打勾。链接由用户填写，不编造地址 |
+| `GET/PUT /api/resume-documents` | ✅；简历编辑器快照按账号保存（一人一份，≤4MB），前端进页先合并再挂载 iframe，编辑后 4s 内回写，换设备/清缓存可恢复 |
 | 每日任务资源链接 | ✅；规划生成的每日任务可带 `resourceUrl`，只接受白名单平台域名（B 站 / 中国大学 MOOC / 学堂在线 / 研招网 / 高校域名等，见 `services/resource_links.py`）。名单外的链接直接丢弃、任务描述保留。助手里问「找课程 / 推荐网课 / 学习路径」会走 regenerate 把资源排进每日任务 |
 
 ## API 配置与真实调用

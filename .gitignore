@@ -34,6 +34,10 @@ dist-ssr/
 *.tsbuildinfo
 *.log
 
+# ---- 本地语音环境（venv 与 pip 缓存，不进仓库）----
+speech/.venv/
+speech/.cache/
+
 # ---- 编辑器 / 系统 ----
 .DS_Store
 Thumbs.db
