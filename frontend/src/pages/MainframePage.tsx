@@ -588,8 +588,10 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
       {/*
         浮层统一挂在最外层，且用 AnimatePresence 做退场 —— 关掉时直接消失
         会显得很生硬，而这个页面本身就是拿来「看」的。
-        层级：演示面板 / 站内信 z-50 压在上面；聊天框与会话栏 z-20，互不重叠（左 46vw + 右 33vw）。
-        会话栏写在聊天框**前面**：窄屏下两者都占满宽，后写的聊天框在上层，点聊天必定看得见。
+        层级：演示面板 / 站内信 z-50 压在上面；聊天框 z-20、会话栏 `z-20 sm:z-30`。
+        聊天框加宽到视口 75–85% 后，右侧 33vw 的会话栏必然压在聊天框上，
+        所以桌面端把会话栏抬到 z-30 —— 抽屉打开时必须是它在上层，否则会被聊天框吃掉大半。
+        窄屏（<sm）两者都占满宽，维持原样：后写的聊天框在上层，点聊天必定看得见。
       */}
       <AnimatePresence>
         {sessionsOpen ? <SessionList onClose={() => setSessionsOpen(false)} /> : null}

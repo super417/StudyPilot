@@ -65,7 +65,7 @@ function SessionList({ onClose }: SessionListProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-      className="pointer-events-none fixed inset-y-0 right-0 z-20 w-full pt-20 pb-6 pl-3 pr-6 sm:w-1/3"
+      className="pointer-events-none fixed inset-y-0 right-0 z-20 w-full pt-20 pb-6 pl-3 pr-6 sm:z-30 sm:w-1/3"
     >
       {/* 同 ChatPanel：顶部 padding 区让点击穿过，否则会盖住导航里的「聊天记录」按钮 */}
       <div className="liquid-glass pointer-events-auto flex h-full flex-col rounded-[28px]">
