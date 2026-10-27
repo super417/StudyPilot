@@ -44,7 +44,8 @@ export const STRENGTH_OPTIONS: readonly StrengthOption[] = [
   { id: 'deep', label: '深度', description: '最大化推理深度，耗时更长，适合难题攻坚' },
 ];
 
-const DEFAULT_PREFS: ModelPrefs = { model: '', strength: 'standard' };
+/** 默认档位是 High：对话页的「模型 · 思考强度」入口没选过时展示 High（主人定的默认）。 */
+const DEFAULT_PREFS: ModelPrefs = { model: '', strength: 'high' };
 
 const STORAGE_KEY = 'studypilot.modelPrefs.v1';
 
