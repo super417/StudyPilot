@@ -50,10 +50,12 @@ echo [INFO] starting backend on http://127.0.0.1:8000/ ...
 REM --reload-dir app keeps the watcher off .venv (huge, and not source).
 start "StudyPilot Backend" /D "%BACKEND%" cmd /k ".venv\Scripts\python.exe -m alembic upgrade head && .venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-dir app --host 127.0.0.1 --port 8000"
 
+REM Start frontend before opening the browser; poll until Vite answers.
 echo [INFO] starting frontend on http://127.0.0.1:5173/ ...
-echo [INFO] browser opens in about 6 seconds
-start "" powershell -WindowStyle Hidden -Command "Start-Sleep -Seconds 6; Start-Process 'http://127.0.0.1:5173/'"
 start "StudyPilot Frontend" /D "%FRONTEND%" cmd /k "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort"
+
+echo [INFO] waiting for the frontend to become ready ...
+powershell -NoProfile -Command "for ($i=0; $i -lt 90; $i++) { try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 'http://127.0.0.1:5173/'; if ($r.StatusCode -eq 200) { Write-Output '[INFO] frontend is up'; Start-Process 'http://127.0.0.1:5173/'; exit 0 } } catch {}; Start-Sleep -Milliseconds 1000 }; Write-Output '[WARN] frontend did not answer within 90s - opening browser anyway'; Start-Process 'http://127.0.0.1:5173/'"
 
 echo [INFO] waiting for the backend health check ...
 powershell -NoProfile -Command "for ($i=0; $i -lt 30; $i++) { try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 'http://127.0.0.1:8000/health'; if ($r.StatusCode -eq 200) { Write-Output '[INFO] backend is up'; exit 0 } } catch {}; Start-Sleep -Milliseconds 500 }; Write-Output '[WARN] backend did not answer within 15s - read the StudyPilot Backend window'"

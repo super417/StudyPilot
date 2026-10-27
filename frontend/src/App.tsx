@@ -5,24 +5,33 @@ import AuthPage from '@/components/auth/AuthPage';
 import Header from '@/components/Header';
 import TabNav, { type TabKey } from '@/components/TabNav';
 import { ScrollProgressBar } from '@/components/motion';
-import { AssistantWidget } from '@/components/assistant';
-import OverviewPage from '@/pages/OverviewPage';
-import RoadmapPage from '@/pages/RoadmapPage';
-import MistakeBookPage from '@/pages/MistakeBookPage';
-import StatisticsPage from '@/pages/StatisticsPage';
-import ResumeSelectorPage from '@/pages/ResumeSelectorPage';
-import PracticalResumePage from '@/pages/PracticalResumePage';
-import ProfilePage from '@/pages/ProfilePage';
-import MainframePage from '@/pages/MainframePage';
-import StudyPilotHero from '@/components/StudyPilotHero';
-import StudyPilotJourney from '@/components/StudyPilotJourney';
 import {
   closeMainframePage,
   isMainframeRoute,
 } from '@/lib/mainframeRoute';
 import { useAuthStore } from '@/store/authStore';
 
+/** 未登录路径只急切加载 Auth；主应用页面按需 lazy（与 PersonalWebsiteResume 同模式） */
+const AssistantWidget = lazy(() =>
+  import('@/components/assistant').then((m) => ({ default: m.AssistantWidget })),
+);
+const OverviewPage = lazy(() => import('@/pages/OverviewPage'));
+const RoadmapPage = lazy(() => import('@/pages/RoadmapPage'));
+const MistakeBookPage = lazy(() => import('@/pages/MistakeBookPage'));
+const StatisticsPage = lazy(() => import('@/pages/StatisticsPage'));
+const ResumeSelectorPage = lazy(() => import('@/pages/ResumeSelectorPage'));
+const PracticalResumePage = lazy(() => import('@/pages/PracticalResumePage'));
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const MainframePage = lazy(() => import('@/pages/MainframePage'));
+const StudyPilotHero = lazy(() => import('@/components/StudyPilotHero'));
+const StudyPilotJourney = lazy(() => import('@/components/StudyPilotJourney'));
 const PersonalWebsiteResume = lazy(() => import('@/pages/PersonalWebsiteResume'));
+
+const PAGE_FALLBACK = (
+  <main className="flex min-h-screen items-center justify-center bg-[#F7FAF8] p-6 text-brandDark">
+    <div className="rounded-full bg-white px-5 py-3 text-sm shadow-card">加载中…</div>
+  </main>
+);
 
 /** activeTab → 对应页面组件的映射（页面容器路由） */
 const PAGES: Record<TabKey, ComponentType> = {
@@ -146,18 +155,24 @@ function App() {
     // 演示首屏的导航要真的能进主应用：先清 hash 关掉本页，再切板块。
     // 两步必须在同一个回调里 —— 分开写会先闪一下主应用默认板块再跳。
     return (
-      <MainframePage
-        onBack={closeMainframePage}
-        onNavigate={(tab) => {
-          closeMainframePage();
-          changeTab(tab);
-        }}
-      />
+      <Suspense fallback={PAGE_FALLBACK}>
+        <MainframePage
+          onBack={closeMainframePage}
+          onNavigate={(tab) => {
+            closeMainframePage();
+            changeTab(tab);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (resumeRoute === '/resume/practical') {
-    return <PracticalResumePage onBack={() => openResumeRoute('/resume')} />;
+    return (
+      <Suspense fallback={PAGE_FALLBACK}>
+        <PracticalResumePage onBack={() => openResumeRoute('/resume')} />
+      </Suspense>
+    );
   }
 
   if (resumeRoute === '/resume/interactive') {
@@ -198,28 +213,32 @@ function App() {
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
             >
-              {activeTab === 'resume' ? (
-                <ResumeSelectorPage onBack={() => changeTab('overview')} onSelect={openResumeRoute} />
-              ) : activeTab === 'profile' ? (
-                <ProfilePage onNavigate={changeTab} />
-              ) : activeTab === 'overview' ? (
-                <>
-                  <StudyPilotHero onNavigate={changeTab} overlap={heroOverlap} />
-                  <StudyPilotJourney />
-                  <div id="overview-content" className="spj-overview-bridge scroll-mt-6">
-                    <OverviewPage onNavigate={changeTab} />
-                  </div>
-                </>
-              ) : activeTab === 'weekly' ? (
-                <StatisticsPage onNavigate={changeTab} />
-              ) : (
-                <CurrentPage />
-              )}
+              <Suspense fallback={PAGE_FALLBACK}>
+                {activeTab === 'resume' ? (
+                  <ResumeSelectorPage onBack={() => changeTab('overview')} onSelect={openResumeRoute} />
+                ) : activeTab === 'profile' ? (
+                  <ProfilePage onNavigate={changeTab} />
+                ) : activeTab === 'overview' ? (
+                  <>
+                    <StudyPilotHero onNavigate={changeTab} overlap={heroOverlap} />
+                    <StudyPilotJourney />
+                    <div id="overview-content" className="spj-overview-bridge scroll-mt-6">
+                      <OverviewPage onNavigate={changeTab} />
+                    </div>
+                  </>
+                ) : activeTab === 'weekly' ? (
+                  <StatisticsPage onNavigate={changeTab} />
+                ) : (
+                  <CurrentPage />
+                )}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
-      <AssistantWidget overviewEntrance={activeTab === 'overview'} />
+      <Suspense fallback={null}>
+        <AssistantWidget overviewEntrance={activeTab === 'overview'} />
+      </Suspense>
     </div>
   );
 }
