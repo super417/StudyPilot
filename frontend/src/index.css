@@ -683,6 +683,47 @@ body {
   color: #fecaca;
 }
 
+/*
+ * 对话页的两行排版（variant="stacked"）
+ *
+ * 材质、光带、发送钮与单行胶囊完全一致，只改容器形状与内部排布：
+ * 上沿一行打字，下沿一行 —— 左边星标，右边「模型入口 + 发送钮」。
+ * 光带的裁切半径要跟着换成 26px —— 沿用 9999px 会把两行容器拉成橄榄形。
+ */
+.assistant-input-container--stacked {
+  height: 104px;
+  border-radius: 26px;
+}
+.assistant-input-container--stacked .assistant-input-ring {
+  border-radius: 26px;
+}
+.assistant-input-container--stacked .assistant-input-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 10px 8px 8px 16px;
+  border-radius: 24px;
+}
+.assistant-input-el--stacked {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 40px;
+  font-size: 14.5px;
+}
+.assistant-input-controls {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+/* 星标留在左下；模型入口与发送钮一起贴右下 */
+.assistant-input-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 /* Mainframe expand landing — scoped so StudyPilot chrome stays untouched */
 .mainframe-page {
   font-family: var(--font-body);
