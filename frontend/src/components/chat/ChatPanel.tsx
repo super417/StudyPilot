@@ -29,7 +29,6 @@ import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { displayAssistantName, fetchBasicProfile, getBasicProfile } from '@/lib/profilePrefs';
-import ningning from '@/assets/chat-girl-idle.png';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   mistake: '错题',
@@ -361,29 +360,6 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           />
         </div>
       </div>
-
-      {/*
-        右侧窄绿缝里的人物（项目内的 ningning，同一张 chat-girl-idle）：
-        贴着面板右外沿、脚落在面板底线上，取 LobeHub「人物站在侧栏外沿」那套构图。
-        她整张图都在面板外面 —— 不压主文案、不压发送钮，也不吃鼠标事件。
-      */}
-      <img
-        src={ningning}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        className="pointer-events-none absolute bottom-6 hidden select-none md:block"
-        style={{
-          left: '100%',
-          height: 'clamp(200px, 30vh, 280px)',
-          width: 'auto',
-          // 绿缝不够宽时按比例缩、并且始终贴地，别把人挤成一条
-          maxWidth: 'calc(100vw - 100% - 12px)',
-          objectFit: 'contain',
-          objectPosition: 'bottom',
-          filter: 'drop-shadow(0 18px 24px rgba(0, 0, 0, 0.38))',
-        }}
-      />
     </motion.aside>
   );
 }
