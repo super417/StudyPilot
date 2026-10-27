@@ -38,8 +38,11 @@ const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
 };
 
 const PANEL_MIN_W = 320;
-/** 需求：聊天框占视口 75–85%，右侧留一条窄绿缝给场景人物。 */
-const PANEL_DEFAULT_RATIO = 0.8;
+/**
+ * 参考图定稿：面板约占视口 55%，右侧留出大块绿景给场景人物。
+ * 拖拽手柄仍可拉到 85%，只是默认不再铺满。
+ */
+const PANEL_DEFAULT_RATIO = 0.55;
 const PANEL_MAX_RATIO = 0.85;
 /** 超宽屏别把面板拉到荒唐的宽度，留一点上限。 */
 const PANEL_ABS_MAX_W = 1680;
@@ -168,10 +171,10 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
       exit={{ opacity: 0, x: -24 }}
       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
       style={{ width: panelWidth }}
-      className="pointer-events-none fixed inset-y-0 left-0 z-20 max-w-[100vw] pt-20 pb-6 pl-6 pr-3"
+      className="pointer-events-none fixed inset-y-0 left-0 z-20 max-w-[100vw] pt-24 pb-16 pl-6 pr-3"
     >
       {/*
-        pointer-events：外层这圈 padding（顶部 80px）是留给顶部导航的，必须让点击穿过去。
+        pointer-events：外层这圈 padding（上 96px / 下 64px）是留给顶部导航和底部呼吸空间的，必须让点击穿过去。
         不透传的话，聊天框一开，左上角的 logo 和导航链接就全点不动了 —— 而且看不出原因。
       */}
       <div className="liquid-glass pointer-events-auto relative flex h-full min-w-0 flex-col rounded-[28px]">
@@ -368,7 +371,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
         alt=""
         aria-hidden="true"
         draggable={false}
-        className="pointer-events-none absolute bottom-6 hidden select-none md:block"
+        className="pointer-events-none absolute bottom-16 hidden select-none md:block"
         style={{
           left: '100%',
           height: 'clamp(200px, 30vh, 280px)',
