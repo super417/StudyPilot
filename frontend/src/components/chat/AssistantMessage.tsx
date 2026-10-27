@@ -4,19 +4,20 @@ import {
   Copy,
   MoreHorizontal,
   RefreshCw,
-  Share2,
-  ThumbsDown,
-  ThumbsUp,
-  Trash2,
   Volume2,
 } from 'lucide-react';
 import { AssistantMarkdown, stripAssistantMarkup } from '@/lib/assistantMarkdown';
 import { extractChatPractice } from '@/lib/chatPracticeExtract';
 import { ApiError } from '@/lib/httpClient';
 import { savePracticeFromChat } from '@/lib/practiceApi';
+import { playAssistantSpeech, type SpeechPlayback } from '@/lib/assistantSpeech';
 import { selectActiveMessages, useAssistantStore, type ChatMessage } from '@/store';
 
 const REGENERATE_TIP = '点击将重新生成内容，此会话后的内容都将被覆盖，请谨慎操作';
+
+/** ⋯ 菜单尺寸（w-44 + 7 项），用于把浮层夹回视口内。 */
+const MENU_W = 176;
+const MENU_EST_H = 268;
 
 export interface AssistantMessageProps {
   message: ChatMessage;
@@ -32,12 +33,17 @@ function plainAssistant(text: string): string {
   return stripAssistantMarkup(text);
 }
 
-/** 助手回复：悬停后在下方显示删除、复制、评价、朗读、重生成、分享和更多。 */
+/**
+ * 助手回复：悬停后在下方显示四个操作 —— 复制 / 朗读 / 重新生成 / ⋯。
+ * 评价、分享、反馈、删除这些低频动作收进 ⋯ 菜单，避免一排八个图标糊在消息下面。
+ */
 function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessageProps) {
   const messages = useAssistantStore(selectActiveMessages);
   const removeMessage = useAssistantStore((s) => s.removeMessage);
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const speechPlayback = useRef<SpeechPlayback | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -49,7 +55,6 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const closeTimer = useRef<number | null>(null);
 
   // 启发式：同时含「题」「答案」且能切出段落才显示；可能误判，宁可少显示。
   const practiceParts = useMemo(
@@ -72,36 +77,46 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   }, [message.citations]);
 
   const closeMore = () => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = null;
     setMoreOpen(false);
     setFeedbackOpen(false);
   };
 
-  const scheduleCloseMore = () => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(closeMore, 150);
-  };
-
-  const cancelCloseMore = () => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = null;
-  };
-
   useEffect(
     () => () => {
-      if (closeTimer.current) window.clearTimeout(closeTimer.current);
-      window.speechSynthesis?.cancel();
+      speechPlayback.current?.stop();
     },
     [],
   );
+
+  // ⋯ 菜单改成点击开，就要有对应的关闭：点外面或按 Esc。
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (moreBtnRef.current?.contains(target)) return;
+      closeMore();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      // 拦在 document：同一次 Esc 不能再冒泡到 window 把整个聊天面板关掉。
+      event.stopPropagation();
+      closeMore();
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
 
   const regenerate = () => {
     const index = messages.findIndex((item) => item.id === message.id);
     for (let i = index - 1; i >= 0; i -= 1) {
       const previous = messages[i];
       if (previous?.role === 'user') {
-        window.speechSynthesis?.cancel();
+        speechPlayback.current?.stop();
         onResend(previous.id, previous.content);
         return;
       }
@@ -109,19 +124,23 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   };
 
   const speak = () => {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
+    setSpeechError(null);
+    if (speechPlayback.current?.blocked) {
+      setSpeaking(true);
+      speechPlayback.current.retry();
+      return;
+    }
     if (speaking) {
-      synth.cancel();
+      speechPlayback.current?.stop();
       setSpeaking(false);
       return;
     }
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(plainAssistant(message.content));
-    utterance.lang = 'zh-CN';
-    utterance.onend = () => setSpeaking(false);
     setSpeaking(true);
-    synth.speak(utterance);
+    speechPlayback.current = playAssistantSpeech(plainAssistant(message.content), {
+      onEnd: () => setSpeaking(false),
+      onError: (error) => { setSpeaking(false); setSpeechError(error.message); },
+      onBlocked: () => { setSpeaking(false); setSpeechError('请再点一下朗读按钮播放'); },
+    });
   };
 
   const share = () => {
@@ -252,46 +271,13 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
       </div>
       {message.streaming ? null : (
         <div className="mt-1 flex items-center gap-0.5 px-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <button
-            type="button"
-            aria-label="删除"
-            title="删除"
-            onMouseEnter={closeMore}
-            onClick={() => removeMessage(message.id)}
-            className={`${iconBtn} hover:text-dangerText`}
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button type="button" aria-label="复制" title="复制" onMouseEnter={closeMore} onClick={() => copyText(shown)} className={iconBtn}>
+          <button type="button" aria-label="复制" title="复制" onClick={() => copyText(shown)} className={iconBtn}>
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="点赞"
-            title="点赞"
-            aria-pressed={vote === 'up'}
-            onMouseEnter={closeMore}
-            onClick={() => setVote((current) => (current === 'up' ? null : 'up'))}
-            className={`${iconBtn} ${vote === 'up' ? 'text-brand' : ''}`}
-          >
-            <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="点踩"
-            title="点踩"
-            aria-pressed={vote === 'down'}
-            onMouseEnter={closeMore}
-            onClick={() => setVote((current) => (current === 'down' ? null : 'down'))}
-            className={`${iconBtn} ${vote === 'down' ? 'text-dangerText' : ''}`}
-          >
-            <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
           <button
             type="button"
             aria-label={speaking ? '停止朗读' : '朗读'}
             title={speaking ? '停止朗读' : '朗读'}
-            onMouseEnter={closeMore}
             onClick={speak}
             className={`${iconBtn} ${speaking ? 'text-brand' : ''}`}
           >
@@ -311,30 +297,38 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
           >
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          <button type="button" aria-label="分享" title="分享" onMouseEnter={closeMore} onClick={share} className={iconBtn}>
-            <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
           <button
             ref={moreBtnRef}
             type="button"
             aria-label="更多"
             title="更多"
             aria-expanded={moreOpen}
-            onMouseEnter={() => {
-              cancelCloseMore();
-              setTip(null);
+            onClick={() => {
+              if (moreOpen) {
+                closeMore();
+                return;
+              }
               const rect = moreBtnRef.current?.getBoundingClientRect();
-              if (rect) setMenuPos({ x: rect.right, y: rect.bottom + 4 });
+              if (rect) {
+                // 操作行现在只有四个图标，⋯ 离屏幕左边很近：菜单右对齐到按钮时
+                // 会整块甩到视口外，这里把 x 夹回可视区；下方放不下就翻到上面。
+                const x = Math.max(rect.right, MENU_W + 8);
+                const below = rect.bottom + 4;
+                const y =
+                  below + MENU_EST_H > window.innerHeight - 8
+                    ? Math.max(8, rect.top - MENU_EST_H - 4)
+                    : below;
+                setMenuPos({ x, y });
+              }
               setMoreOpen(true);
             }}
-            onMouseLeave={scheduleCloseMore}
-            onClick={() => closeMore()}
             className={iconBtn}
           >
             <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       )}
+      {speechError && <p role="status" className="mt-1 text-xs text-brandDark/60">{speechError}</p>}
       {tip
         ? createPortal(
             <div
@@ -350,8 +344,6 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
         ? createPortal(
             <div
               ref={menuRef}
-              onMouseEnter={cancelCloseMore}
-              onMouseLeave={scheduleCloseMore}
               className="fixed z-[10000] w-44 rounded-xl bg-neutral-900 py-1 text-sm text-white shadow-lg"
               style={{ left: menuPos.x, top: menuPos.y, transform: 'translateX(-100%)' }}
             >
@@ -396,6 +388,38 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
                   </button>
                   <button
                     type="button"
+                    aria-pressed={vote === 'up'}
+                    className="block w-full px-3 py-2 text-left hover:bg-white/10"
+                    onClick={() => {
+                      setVote((current) => (current === 'up' ? null : 'up'));
+                      closeMore();
+                    }}
+                  >
+                    {vote === 'up' ? '已点赞' : '点赞'}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={vote === 'down'}
+                    className="block w-full px-3 py-2 text-left hover:bg-white/10"
+                    onClick={() => {
+                      setVote((current) => (current === 'down' ? null : 'down'));
+                      closeMore();
+                    }}
+                  >
+                    {vote === 'down' ? '已点踩' : '点踩'}
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left hover:bg-white/10"
+                    onClick={() => {
+                      share();
+                      closeMore();
+                    }}
+                  >
+                    分享
+                  </button>
+                  <button
+                    type="button"
                     className="block w-full px-3 py-2 text-left hover:bg-white/10"
                     onClick={() => setFeedbackOpen(true)}
                   >
@@ -410,6 +434,16 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
                     }}
                   >
                     复制request ID
+                  </button>
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-left text-red-300 hover:bg-white/10"
+                    onClick={() => {
+                      removeMessage(message.id);
+                      closeMore();
+                    }}
+                  >
+                    删除这条消息
                   </button>
                 </>
               )}
