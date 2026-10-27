@@ -23,11 +23,13 @@ import AssistantNamePrompt from '@/components/assistant/AssistantNamePrompt';
 import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
+import ModelEffortMenu from '@/components/chat/ModelEffortMenu';
 import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
+import ningning from '@/assets/chat-girl-idle.png';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   mistake: '错题',
@@ -36,13 +38,21 @@ const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
 };
 
 const PANEL_MIN_W = 320;
+/** 需求：聊天框占视口 75–85%，右侧留一条窄绿缝给场景人物。 */
+const PANEL_DEFAULT_RATIO = 0.8;
+const PANEL_MAX_RATIO = 0.85;
+/** 超宽屏别把面板拉到荒唐的宽度，留一点上限。 */
+const PANEL_ABS_MAX_W = 1680;
+
+/** 与原总览页「开始今天的学习」同一句话，保证助手拿到的是同一条指令。 */
+const START_TODAY_PROMPT = '开始今天 60 分钟学习';
 
 function panelMaxWidth(viewport = typeof window !== 'undefined' ? window.innerWidth : 1280): number {
-  return Math.min(720, Math.floor(viewport * 0.7));
+  return Math.min(PANEL_ABS_MAX_W, Math.floor(viewport * PANEL_MAX_RATIO));
 }
 
 function panelDefaultWidth(viewport = typeof window !== 'undefined' ? window.innerWidth : 1280): number {
-  return Math.min(560, Math.floor(viewport * 0.46));
+  return Math.min(PANEL_ABS_MAX_W, Math.floor(viewport * PANEL_DEFAULT_RATIO));
 }
 
 function clampPanelWidth(width: number, viewport = window.innerWidth): number {
@@ -285,6 +295,25 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
             })
           }
         />
+        {/*
+          输入条上沿的一排：左边「模型 · 思考强度」折叠入口，右边「开始今天学习」CTA。
+          输入条本身（深色胶囊）一个像素都不改，只跟着面板变宽。
+        */}
+        <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-4 pb-2">
+          <ModelEffortMenu />
+          {messages.length > 0 && !streaming ? (
+            <button
+              type="button"
+              onClick={() => {
+                pinToBottom();
+                send(START_TODAY_PROMPT);
+              }}
+              className="shrink-0 rounded-full bg-brandDark px-4 py-2 text-[12.5px] font-medium text-white shadow-[0_8px_20px_rgba(6,78,59,0.28)] transition-colors hover:bg-[#053b2d]"
+            >
+              {START_TODAY_PROMPT}
+            </button>
+          ) : null}
+        </div>
         <div className="min-w-0 shrink-0 px-4 pb-4">
           <AssistantInput
             value={input}
@@ -302,6 +331,29 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           />
         </div>
       </div>
+
+      {/*
+        右侧窄绿缝里的人物（项目内的 ningning，同一张 chat-girl-idle）：
+        贴着面板右外沿、脚落在面板底线上，取 LobeHub「人物站在侧栏外沿」那套构图。
+        她整张图都在面板外面 —— 不压主文案、不压发送钮，也不吃鼠标事件。
+      */}
+      <img
+        src={ningning}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="pointer-events-none absolute bottom-6 hidden select-none md:block"
+        style={{
+          left: '100%',
+          height: 'clamp(200px, 30vh, 280px)',
+          width: 'auto',
+          // 绿缝不够宽时按比例缩、并且始终贴地，别把人挤成一条
+          maxWidth: 'calc(100vw - 100% - 12px)',
+          objectFit: 'contain',
+          objectPosition: 'bottom',
+          filter: 'drop-shadow(0 18px 24px rgba(0, 0, 0, 0.38))',
+        }}
+      />
     </motion.aside>
   );
 }
