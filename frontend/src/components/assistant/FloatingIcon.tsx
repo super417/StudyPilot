@@ -8,10 +8,10 @@ import './FloatingIcon.css';
 
 /** 全身角色的点击区域（px），拖拽和边界钳制使用相同尺寸。 */
 const ICON_SIZE = 235;
-/** 初始距右边界间距。 */
+/** 窄屏时保留的右边界间距。 */
 const EDGE_GAP = 24;
-/** 为首屏底部的探索按钮留出空间。 */
-const BOTTOM_GAP = 120;
+/** 默认脚下不留额外间距，贴页面底部。 */
+const BOTTOM_GAP = 0;
 /** 判定为「拖拽」而非「点击」的位移阈值（px） */
 const DRAG_THRESHOLD = 5;
 /** resize 重钳去抖延迟（≤500ms，需求 8.5） */
@@ -26,7 +26,7 @@ function initialPosition() {
     return { x: 0, y: 0 };
   }
   return {
-    x: Math.max(0, window.innerWidth - ICON_SIZE - EDGE_GAP),
+    x: Math.max(0, Math.min(window.innerWidth * 0.82 - ICON_SIZE / 2, window.innerWidth - ICON_SIZE - EDGE_GAP)),
     y: Math.max(0, window.innerHeight - ICON_SIZE - BOTTOM_GAP),
   };
 }
@@ -34,7 +34,7 @@ function initialPosition() {
 /**
  * FloatingIcon —— 右下角可拖拽的悬浮聊天图标（需求 8.1～8.5、18.4、18.25）
  *
- * - `position: fixed` + `z-index: 9999`，初始距右 24px、距底部 120px，不随滚动移动。
+ * - `position: fixed` + `z-index: 9999`，初始中心在视口宽度 82% 处、贴底，不随滚动移动。
  * - 用 framer-motion `drag` + 实时 `onDrag` 钳制到视口内，拖拽结束再钳一次并写回 store（8.3/8.4/18.25）。
  * - `resize` 去抖重钳（≤500ms）把越界图标拉回最近合法位置（8.5）。
  * - 拖拽位移超阈值视为拖拽，抬手不触发打开；否则视为点击 → toggle 窗口（8.6 入口）。
@@ -106,7 +106,7 @@ function FloatingIcon({ overviewEntrance = false }: { overviewEntrance?: boolean
   useLayoutEffect(() => {
     const savedPosition = useAssistantStore.getState().position;
     const target = clampIconPosition(
-      savedPosition.x === 0 && savedPosition.y === 0 ? initialPosition() : savedPosition,
+      overviewEntrance || (savedPosition.x === 0 && savedPosition.y === 0) ? initialPosition() : savedPosition,
       { width: window.innerWidth, height: window.innerHeight },
       { width: ICON_SIZE, height: ICON_SIZE },
     );

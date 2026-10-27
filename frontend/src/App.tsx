@@ -5,6 +5,7 @@ import AuthPage from '@/components/auth/AuthPage';
 import Header from '@/components/Header';
 import TabNav, { type TabKey } from '@/components/TabNav';
 import { ScrollProgressBar } from '@/components/motion';
+import OverviewBackToTop from '@/components/OverviewBackToTop';
 import {
   closeMainframePage,
   isMainframeRoute,
@@ -25,6 +26,7 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 const MainframePage = lazy(() => import('@/pages/MainframePage'));
 const StudyPilotHero = lazy(() => import('@/components/StudyPilotHero'));
 const StudyPilotJourney = lazy(() => import('@/components/StudyPilotJourney'));
+const StudyPilotPostcards = lazy(() => import('@/components/StudyPilotPostcards'));
 const PersonalWebsiteResume = lazy(() => import('@/pages/PersonalWebsiteResume'));
 
 const PAGE_FALLBACK = (
@@ -223,7 +225,10 @@ function App() {
                     <StudyPilotHero onNavigate={changeTab} overlap={heroOverlap} />
                     <StudyPilotJourney />
                     <div id="overview-content" className="spj-overview-bridge scroll-mt-6">
-                      <OverviewPage onNavigate={changeTab} />
+                      <StudyPilotPostcards />
+                      <div id="learning-overview" className="scroll-mt-6 pt-16">
+                        <OverviewPage onNavigate={changeTab} />
+                      </div>
                     </div>
                   </>
                 ) : activeTab === 'weekly' ? (
@@ -236,6 +241,7 @@ function App() {
           </AnimatePresence>
         </main>
       </div>
+      {activeTab === 'overview' && <OverviewBackToTop />}
       <Suspense fallback={null}>
         <AssistantWidget overviewEntrance={activeTab === 'overview'} />
       </Suspense>

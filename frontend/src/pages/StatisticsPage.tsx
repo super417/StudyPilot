@@ -10,15 +10,15 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import {
-  ArrowRight,
   Bookmark,
   Calendar,
   ClipboardCheck,
   FileText,
-  Lightbulb,
 } from 'lucide-react';
 import PhaseRings from '@/components/PhaseRings';
+import StackedBars, { type StackedBar } from '@/components/StackedBars';
 import StatisticsWeeklyReview from '@/components/StatisticsWeeklyReview';
+import StatisticsDiagnosis from '@/components/StatisticsDiagnosis';
 import type { TabKey } from '@/components/TabNav';
 import type { ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { useAssistantStore, usePlanSessionStore } from '@/store';
@@ -31,7 +31,6 @@ import {
 } from '@/lib/practiceApi';
 import {
   fetchStatisticsOverview,
-  type DailyActivityItem,
   type MasteryDistribution,
   type RoutePhaseItem,
   type StarDayItem,
@@ -458,122 +457,6 @@ function FeedbackAndRemedy({
   );
 }
 
-function BarChart({ items }: { items: DailyActivityItem[] }) {
-  const max = Math.max(1, ...items.map((d) => d.count));
-  const w = 420;
-  const h = 180;
-  const padL = 28;
-  const padB = 28;
-  const padT = 12;
-  const padR = 8;
-  const innerW = w - padL - padR;
-  const innerH = h - padB - padT;
-  const barW = innerW / Math.max(items.length, 1);
-  const barColor = '#3B82F6';
-  const [tip, setTip] = useState<TipState>(null);
-  const [hoverKey, setHoverKey] = useState<string | null>(null);
-  const hasData = items.some((d) => d.count > 0);
-  if (!hasData) {
-    return <p className="py-10 text-center text-sm text-slate-400">暂无数据，继续加油</p>;
-  }
-  const labelEvery = Math.max(1, Math.ceil(items.length / 6));
-  const total = items.reduce((s, d) => s + d.count, 0);
-
-  const onBarMove = (
-    event: ReactMouseEvent<SVGRectElement>,
-    d: DailyActivityItem,
-  ) => {
-    const host = event.currentTarget.ownerSVGElement?.parentElement;
-    if (!host) return;
-    const box = host.getBoundingClientRect();
-    const dayLabel = d.date.slice(5); // MM-DD
-    setHoverKey(d.date);
-    setTip({
-      label: dayLabel,
-      value: d.count,
-      percent: total ? Math.round((100 * d.count) / total) : 0,
-      color: barColor,
-      unitLabel: '道题',
-      text: `${dayLabel}: 完成 ${d.count} 道题`,
-      x: event.clientX - box.left,
-      y: event.clientY - box.top,
-    });
-  };
-
-  const clearHover = () => {
-    setTip(null);
-    setHoverKey(null);
-  };
-
-  return (
-    <div className="relative w-full">
-      <ChartTooltip tip={tip} />
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="h-auto w-full max-w-full overflow-visible"
-        onMouseLeave={clearHover}
-      >
-        {items.map((d, i) => {
-          const hovered = hoverKey === d.date;
-          const baseW = barW * 0.7;
-          const bw = hovered ? baseW * 1.35 : baseW;
-          const bhRaw = (d.count / max) * innerH;
-          const bh = Math.max(bhRaw * (hovered ? 1.08 : 1), d.count > 0 ? 2 : 0);
-          const x = padL + i * barW + (barW - bw) / 2;
-          const y = padT + innerH - bh;
-          // 整列透明热区，零作答日也能悬停
-          const hitX = padL + i * barW;
-          return (
-            <g key={d.date}>
-              <rect
-                x={hitX}
-                y={padT}
-                width={barW}
-                height={innerH}
-                fill="transparent"
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={(e) => onBarMove(e, d)}
-                onMouseMove={(e) => onBarMove(e, d)}
-              />
-              <rect
-                x={x}
-                y={y}
-                width={bw}
-                height={bh}
-                rx={hovered ? 4 : 2}
-                fill={barColor}
-                opacity={hovered ? 1 : 0.85}
-                style={{
-                  pointerEvents: 'none',
-                  transition: 'x 0.18s ease-out, y 0.18s ease-out, width 0.18s ease-out, height 0.18s ease-out, opacity 0.18s ease-out',
-                  filter: hovered ? 'drop-shadow(0 2px 4px rgba(59,130,246,0.35))' : undefined,
-                }}
-              />
-            </g>
-          );
-        })}
-        {items.map((d, i) =>
-          i % labelEvery === 0 || i === items.length - 1 ? (
-            <text
-              key={`t-${d.date}`}
-              x={padL + i * barW + barW / 2}
-              y={h - 8}
-              textAnchor="middle"
-              className="fill-slate-400"
-              fontSize={9}
-            >
-              {d.date.slice(5)}
-            </text>
-          ) : null,
-        )}
-        <text x={4} y={padT + 8} className="fill-slate-400" fontSize={9}>
-          {max}
-        </text>
-      </svg>
-    </div>
-  );
-}
-
 function PieChart({ mastery }: { mastery: MasteryDistribution }) {
   const slices: RingSlice[] = [
     { key: 'correct', label: '已掌握', value: mastery.correct, color: MASTERY_COLORS.correct },
@@ -819,6 +702,35 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
     return CARDS.map((c) => ({ ...c, value: data[c.key] }));
   }, [data]);
 
+  /**
+   * 「近 30 日作答量」→ 堆叠柱。
+   *
+   * 柱子上方按掌握度结果拆三段（已掌握 / 基本掌握 / 未掌握），三段之和就是
+   * 当日作答量，和右侧「掌握度分布」环图同一套色；基线下方那根是**独立指标**
+   * ——当天新收录的错题数，对应原版「被升级的少数」。
+   *
+   * 不把「未掌握」放到基线下方：那会让上下两段各用一套比例尺，4 条已掌握
+   * 画得比 6 条未掌握还高，等于把数据说反了。
+   */
+  const activityBars = useMemo<StackedBar[]>(
+    () =>
+      (data?.dailyActivity ?? []).map((d) => ({
+        label: d.date.slice(5), // MM-DD
+        short: d.date.slice(5),
+        segs: [
+          { label: '已掌握', value: d.correct ?? 0 },
+          { label: '基本掌握', value: d.partial ?? 0 },
+          { label: '未掌握', value: d.wrong ?? 0 },
+        ],
+        esc: d.mistakes ?? 0,
+      })),
+    [data],
+  );
+
+  const hasActivity = activityBars.some(
+    (b) => b.esc > 0 || b.segs.some((s) => s.value > 0),
+  );
+
   const panelContent = (key: DetailPanelKey) => {
     switch (key) {
       case 'rings':
@@ -835,7 +747,11 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <PhaseRings items={review.masteryDetail} reinforceOutcomesByPhase={reinforceOutcomesByPhase} />
         );
       case 'activity':
-        return <BarChart items={data?.dailyActivity ?? []} />;
+        return hasActivity ? (
+          <StackedBars bars={activityBars} unit="道" escLabel="新增错题" gap={4} />
+        ) : (
+          <p className="py-10 text-center text-sm text-slate-400">暂无数据，继续加油</p>
+        );
       case 'mastery':
         return <PieChart mastery={data?.masteryDistribution ?? { correct: 0, partial: 0, wrong: 0 }} />;
       case 'mistakes':
@@ -887,7 +803,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           return (
             <article
               key={card.key}
-              className="pressable-card flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5"
+              className="pressable-card flex items-center gap-3 squircle-card bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5"
             >
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${card.iconBg}`}>
                 <Icon className="h-5 w-5" />
@@ -902,7 +818,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         })}
       </div>
 
-      <section className="pressable-card rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+      <section className="pressable-card squircle-card bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
@@ -965,7 +881,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <article
             key={panel.key}
             onClick={(event) => openPanelFromCard(panel.key, event)}
-            className={`statistics-panel-glass pressable-card rounded-xl p-6 ${activePanel ? 'min-h-80' : 'cursor-pointer'} ${!activePanel && ['stars', 'route', 'feedback'].includes(panel.key) ? 'md:col-span-2' : ''}`}
+            className={`statistics-panel-glass pressable-card p-6 ${activePanel ? 'min-h-80' : 'cursor-pointer'} ${!activePanel && ['stars', 'route', 'feedback'].includes(panel.key) ? 'md:col-span-2' : ''}`}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-800">
@@ -991,34 +907,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         ) : null}
       </div>
 
-      <div className="mt-8 flex justify-center">
-        <div className="group flex w-full max-w-sm flex-col items-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-8 text-center shadow-sm transition-all duration-300 ease-in-out hover:border-solid hover:border-blue-400 hover:shadow-[0_8px_28px_rgba(59,130,246,0.22)]">
-          <div className="relative mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-500 shadow-[0_8px_20px_rgba(59,130,246,0.35)] transition-all duration-300 ease-out group-hover:rotate-12 group-hover:rounded-3xl">
-            <div className="absolute top-2 left-2 h-0.5 w-2 rotate-45 rounded-full bg-white" />
-            <div className="absolute top-2 right-2 h-0.5 w-2 -rotate-45 rounded-full bg-white" />
-            <div className="absolute bottom-2 left-2 h-0.5 w-2 -rotate-45 rounded-full bg-white" />
-            <div className="absolute bottom-2 right-2 h-0.5 w-2 rotate-45 rounded-full bg-white" />
-            <Lightbulb className="h-10 w-10 text-white" aria-hidden="true" />
-          </div>
-          <h3 className="mb-2 text-xl font-semibold text-slate-800">学习诊断分析</h3>
-          <p className="mb-6 text-slate-600">
-            基于你的刷题数据，AI 将为你生成个性化学习建议
-          </p>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg bg-blue-500 px-6 py-3 text-white shadow-[0_6px_16px_rgba(59,130,246,0.35)] transition-colors duration-300 hover:bg-blue-600"
-            onClick={() =>
-              openAssistantWithContext({
-                type: 'free',
-                hint: '根据我的刷题与掌握度数据，生成一份学习诊断报告',
-              })
-            }
-          >
-            生成诊断报告
-            <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
-          </button>
-        </div>
-      </div>
+      <StatisticsDiagnosis />
     </section>
   );
 }

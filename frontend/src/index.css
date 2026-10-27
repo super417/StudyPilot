@@ -120,10 +120,33 @@ body {
     transition-duration: 80ms;
   }
 
+  /*
+   * 苹果式卡片四角：24px + 连续曲率（squircle）。
+   *
+   * 普通 border-radius 是「直边走到这里，然后突然开始画一段圆弧」，拐点处曲率
+   * 突变，看起来是「被切了一刀」；squircle 让曲率从 0 连续长到最大值，四角是
+   * 鼓出来的，不是切出来的 —— 这就是苹果卡片和小部件的那种手感。
+   *
+   * 同样半径下 squircle 视觉上比普通圆角「小」一圈，所以取 24px（观感接近
+   * 普通 20px）。Chrome 139+ 支持 corner-shape，更老的浏览器忽略这一行、
+   * 退回普通 24px 圆角 —— 任何情况下都不会是直角。
+   *
+   * 用它就别再叠 rounded-*（Tailwind 的 rounded 在 utilities 层，会盖掉这里的
+   * border-radius）。
+   */
+  .squircle-card {
+    border-radius: 24px;
+    corner-shape: squircle;
+  }
+
   .statistics-panel-glass {
     position: relative;
     isolation: isolate;
     will-change: auto;
+    /* 与 .squircle-card 同一套四角（那边有完整说明），玻璃卡自己也要一份：
+       Tailwind 的 rounded-* 在 utilities 层，靠 JSX 叠类会被盖掉。 */
+    border-radius: 24px;
+    corner-shape: squircle;
     border: 1px solid rgba(255, 255, 255, 0.72);
     background: rgba(255, 255, 255, 0.12);
     -webkit-backdrop-filter: blur(16px) saturate(170%);
@@ -141,6 +164,9 @@ body {
     inset: 0;
     z-index: -1;
     border-radius: inherit;
+    /* corner-shape 不继承，伪元素得自己接上，否则它的角会比父级「方」一点，
+       在 squircle 的弧上露出两道直角。 */
+    corner-shape: inherit;
     pointer-events: none;
   }
 
@@ -909,3 +935,713 @@ body {
   transition-duration: 0.3s;
 }
 
+
+/* ══ Stacked bars (components/StackedBars.tsx) ═══
+ *
+ * 从 Bencho（MIT — bencho.dev/licence）搬来的堆叠柱卡。
+ *
+ * ── 令牌映射：不新造全局变量 ─────────────────────────────
+ * 原样式读 --c / --fill-on / --fill-slab / --font-ui / --i / --pane-edge /
+ * --stb-r / --stb-rr，但一个都不定义。这里把这八个名字对到 StudyPilot
+ * **已经有**的东西上，并且只声明在 .stb 自己的根上，不外泄到别的组件：
+ *
+ *   --fill-on   本项目的 ink —— brandDark #064E3B（tailwind.config 的
+ *               brandDark，也是 body 的默认文字色）。Bencho 的 #17181a
+ *               仍留在下面每条 color-mix 的 fallback 里。
+ *   --fill-slab 本项目的 surface —— card #FFFFFF。它同时是混色基准：
+ *               拖动时「其余柱子向板面退一步」混的就是这个白，
+ *               所以它必须是不透明的，不能跟着卡片变半透明。
+ *   --font-ui   项目已有的 --font-body（Helvetica Now Display +
+ *               Noto Sans SC），不另立字体变量。
+ *   --pane-edge 项目没有描边令牌，给一个与 .hover-glow-card 的
+ *               --glow-border 同源的墨绿 12%；只有 [data-stroke] 开启时用到。
+ *   --c         段色，由组件内联成 var(--stb-cN)，不落地成全局。
+ *   --i         列/字符序号，同样由组件内联。
+ *   --stb-r / --stb-rr  按柱宽算出来后内联，这里不定义。
+ *
+ * ── 配色也不搬 ──────────────────────────────────────────
+ * Bencho 的紫/蓝/黄是它自己的品牌色，压在本项目 brand #10B981 上会直接打架。
+ * 这里换成统计页「掌握度」已经在用的三色（MASTERY_COLORS），
+ * 让柱子和旁边的掌握度环说同一套话。 */
+
+.stb {
+  /* —— Bencho 令牌 → 本项目已有令牌（仅此组件根，不外泄） —— */
+  --fill-on: #064e3b;
+  --fill-slab: #ffffff;
+  --font-ui: var(--font-body);
+  --pane-edge: rgba(6, 78, 59, 0.12);
+
+  --stb-c1: color-mix(in srgb, var(--fill-on, #17181a) 100%, var(--fill-slab, #ffffff));
+  --stb-c2: color-mix(in srgb, var(--fill-on, #17181a) 78%, var(--fill-slab, #ffffff));
+  --stb-c3: color-mix(in srgb, var(--fill-on, #17181a) 60%, var(--fill-slab, #ffffff));
+  --stb-c4: color-mix(in srgb, var(--fill-on, #17181a) 44%, var(--fill-slab, #ffffff));
+  --stb-c5: color-mix(in srgb, var(--fill-on, #17181a) 32%, var(--fill-slab, #ffffff));
+  --stb-c6: color-mix(in srgb, var(--fill-on, #17181a) 22%, var(--fill-slab, #ffffff));
+  --stb-alert: color-mix(in srgb, var(--fill-on, #17181a) 100%, var(--fill-slab, #ffffff));
+  --stb-soft: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #ffffff));
+  --stb-mute: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  --stb-faint: color-mix(in srgb, var(--fill-on, #17181a) 32%, var(--fill-slab, #ffffff));
+  --stb-w6: color-mix(in srgb, var(--fill-on, #17181a) 6%, transparent);
+  --stb-w12: color-mix(in srgb, var(--fill-on, #17181a) 12%, transparent);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 统计卡被同排的「阶段双环」撑高，内容默认贴着标题走、下方留一大块空白；
+     居中后数字/图/轴整体落在卡片中线上，和左边那张环图的重心对齐。 */
+  justify-content: center;
+  gap: 16px;
+  /* 原版自带 16px 内边距 + 白底 + 20px 圆角，因为它本身就是一张卡；
+     统计页外面已经是 .statistics-panel-glass 玻璃卡，再套一层白底会变成卡中卡，
+     和同排的掌握度环、星图不在一个平面上。所以这里只留呼吸空间，不画底。 */
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  background: transparent;
+  color: var(--fill-on, #17181a);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stb[data-colour="on"] {
+  /* 已掌握 / 基本掌握 / 未掌握 —— 与 StatisticsPage 的 MASTERY_COLORS 同值 */
+  --stb-c1: #10b981;
+  --stb-c2: #f59e0b;
+  --stb-c3: #ef4444;
+  --stb-c4: #34d399;
+  --stb-c5: #6ee7b7;
+  --stb-c6: #a7f3d0;
+  /* 基线下方是独立指标（新增错题），压深一档的 dangerText #B91C1C，
+     免得和柱子里那段「未掌握」同色、读成同一个数。 */
+  --stb-alert: #b91c1c;
+}
+
+[data-stroke="on"] .stb {
+  box-shadow: 0 0 0 1px var(--pane-edge);
+}
+
+/* the one figure */
+.stb-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: -4px;
+}
+
+.stb-num {
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stb-unit {
+  font-size: 13px;
+  color: var(--stb-mute);
+}
+
+/* header: icon tile, title, Day / Week */
+.stb-head { display: flex; align-items: center; gap: 12px; }
+
+.stb-titles { flex: 1; min-width: 0; }
+
+.stb-title { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; line-height: 18px; }
+
+.stb-sub { font-size: 12px; color: var(--stb-mute); line-height: 16px; font-variant-numeric: tabular-nums; }
+
+/* 原版这个开关在标题右边；本项目标题归外层卡片，就挪到数字右边，
+   靠 margin-left:auto 顶到最右，align-self 把它从基线对齐里拉出来。 */
+.stb-seg-ctl {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-left: auto;
+  align-self: center;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--stb-w6);}
+
+.stb-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 8px;
+  background: var(--fill-slab, #ffffff);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);}
+
+.stb-seg-ctl[data-mode="Week"] .stb-thumb { transform: translateX(100%); }
+
+.stb-tab {
+  position: relative;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0 10px;
+  height: 28px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--stb-mute);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 160ms ease, scale 160ms cubic-bezier(0.22, 1, 0.36, 1);}
+
+.stb-tab[data-on] { color: var(--fill-on, #17181a); }
+
+.stb-tab:hover:not([data-on]) { color: var(--stb-soft); }
+
+.stb-tab:active { scale: 0.96; }
+
+/* 原版是写死的 #2231dd，这里用项目自己的强调色 */
+.stb-tab:focus-visible { outline: 2px solid var(--signal); outline-offset: 0; }
+
+/* Price flow's pop in: each character rises a touch from below, out
+   of a slight blur and from nothing, a hair past its mark — left to
+   right, 70ms apart */
+.stb-digit {
+  display: inline-block;
+}
+
+.stb-digit[data-pop] {
+  animation: stb-pop 500ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stb-digit[data-pop] {
+    animation: none;
+  }
+}
+
+/* the plot: absolutely placed columns, each segment its own rounded box */
+.stb-plot {
+  position: relative;
+  width: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.stb-base {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* 原版 1px + --stb-w12。零值改成小圆点之后，基线得再明显一点，
+     才能把上面的堆叠和基线下面的红柱分开 —— 所以加粗到 2px、墨色提到 16%。 */
+  height: 2px;
+  background: color-mix(in srgb, var(--fill-on, #17181a) 16%, var(--fill-slab, #ffffff));
+}
+
+.stb-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.stb-bar,
+.stb-esc {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: var(--stb-r);
+  transition:
+    height 600ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i) * 14ms),
+    bottom 600ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i) * 14ms),
+    background-color 160ms ease;
+}
+
+.stb-bar {
+  background-color: var(--c);
+}
+
+/* 数量为 0 的段不画扁条，画一个小圆点：占位高度还是 2px，但画出来是圆的。
+   颜色：上面那摞走淡灰（灰点读作「这天没有」）；基线下面的错题柱是另一条
+   序列，保持红色系，0 的时候用淡红，免得一串深红点看着像「天天都有错题」。 */
+.stb-bar[data-zero],
+.stb-esc[data-zero] {
+  border-radius: 50%;
+}
+
+.stb-bar[data-zero] {
+  background-color: color-mix(in srgb, var(--fill-on, #17181a) 22%, var(--fill-slab, #ffffff));
+}
+
+.stb-esc[data-zero] {
+  background-color: color-mix(in srgb, var(--stb-alert) 42%, var(--fill-slab, #ffffff));
+}
+
+.stb-esc {
+  background-color: var(--stb-alert);
+}
+
+/* Mono: escalated is full ink, hatched, so it never reads as Identity */
+.stb[data-colour="off"] .stb-esc {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 1.5px,
+    var(--fill-slab, #ffffff) 1.5px 3px
+  );
+}
+
+/* scrubbing: the others step back by mixing toward the slab */
+.stb[data-scrub] .stb-col:not([data-on]) .stb-bar {
+  background-color: color-mix(in srgb, var(--c) 38%, var(--fill-slab, #ffffff));
+}
+
+.stb[data-scrub] .stb-col:not([data-on]) .stb-esc {
+  background-color: color-mix(in srgb, var(--stb-alert) 38%, var(--fill-slab, #ffffff));
+}
+
+.stb-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  border: 1.5px solid var(--stb-mute);
+  border-radius: var(--stb-rr);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.stb[data-scrub] .stb-ring {
+  opacity: 1;
+}
+
+/* the tooltip: beside the column, gliding on a spring */
+.stb-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--fill-slab, #ffffff);
+  /* filled like the card, parted from the bars by a soft grey hairline */
+  border: 1px solid color-mix(in srgb, var(--fill-on, #17181a) 10%, var(--fill-slab, #ffffff));
+  font-size: 12px;
+  line-height: 16px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.stb[data-scrub] .stb-tip {
+  opacity: 1;
+}
+
+.stb-tip-head,
+.stb-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.stb-tip-head {
+  justify-content: space-between;
+  color: var(--stb-mute);
+  margin-bottom: 2px;
+}
+
+.stb-tip b {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--fill-on, #17181a);
+}
+
+.stb-tip-row span {
+  flex: 1;
+  color: var(--stb-soft);
+}
+
+.stb-tip-row b {
+  font-weight: 400;
+}
+
+.stb-tip-row i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background-color: var(--c);
+}
+
+.stb-tip-row[data-esc] i {
+  background-color: var(--stb-alert);
+}
+
+.stb[data-colour="off"] .stb-tip-row[data-esc] i {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 1.5px,
+    var(--fill-slab, #ffffff) 1.5px 3px
+  );
+}
+
+/* one tiny footer: first and last date */
+.stb-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -8px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--stb-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes stb-pop {
+  from {
+    transform: translateY(0.18em);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    transform: none;
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+/* ══ Upload dropzone (components/profile/UploadDropzone.tsx) ═══
+ *
+ * 从 Bencho（MIT — bencho.dev/licence）搬来的拖放上传盒。
+ *
+ * ── 令牌映射：不新造全局 ─────────────────────────────────
+ * 原样式读 --card / --fill-on / --fill-slab / --font-ui / --ink /
+ * --ok / --pane-edge / --signal，一个都不定义。这里把它们对到 StudyPilot
+ * 已有的东西上，并且只声明在 .upl 自己的根上，不外泄：
+ *
+ *   --card      项目的 surface —— tailwind 的 card #FFFFFF。
+ *   --fill-on   本项目的 ink —— brandDark #064E3B（body 的默认文字色）。
+ *   --fill-slab 同上，卡片面 #FFFFFF；它同时是「向板面退一步」的混色基准，
+ *               必须不透明。
+ *   --font-ui   项目已有的 --font-body（Helvetica Now Display + Noto Sans SC）。
+ *   --ink       项目只有一种墨色，和 --fill-on 同值。
+ *   --ok        项目成功色 brand #10B981（勾选圆底）。
+ *   --signal    项目的强调/动作色 brandDark #064E3B（进度条、焦点环）——
+ *               和 --ok 拉开一档，免得进度条和完成勾同色。
+ *   --pane-edge 项目没有描边令牌，本地给墨绿 12%，与 .hover-glow-card 的
+ *               --glow-border 同源；只有 [data-stroke] 开启时用到。
+ *
+ * ── 没移植的两组跨底色补丁 ───────────────────────────────
+ * 原文件末尾 `[data-fill="dark"]` / `[data-theme="dark"]` 那四行，是 Bencho
+ * 自己的「舞台底色 × 块底色」双主题系统；本项目没有 data-fill / data-theme
+ * 这两套属性，选择器永远不命中，属于死代码，故未搬运。 */
+
+.upl {
+  /* —— Bencho 令牌 → 本项目已有令牌（仅此组件根，不外泄） —— */
+  --card: #ffffff;
+  --fill-on: #064e3b;
+  --fill-slab: #ffffff;
+  --font-ui: var(--font-body);
+  --ink: #064e3b;
+  --ok: #10b981;
+  --pane-edge: rgba(6, 78, 59, 0.12);
+  --signal: #064e3b;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 300 是原组件的设计宽度，保持不动；卡片内容区比它宽时居中，
+     免得盒子贴左、右边空出一大条。 */
+  width: 300px;
+  max-width: 100%;
+  margin-inline: auto;
+  font-family: var(--font-ui);
+  color: var(--fill-on, var(--ink));
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* a slot of fixed size, so the box can close in round an upload
+   without moving anything below it */
+.upl-zone-wrap {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 140px;
+}
+
+.upl-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  /* 原版 176。这里内容多了一行（箭头两侧的文件），再把高度收到 148，
+     盒子底下那条空白就不至于拖一条长尾巴。 */
+  height: 140px;
+  padding: 0 16px;
+  overflow: hidden;
+  border-radius: var(--upl-r);
+  background: var(--fill-slab, var(--card));
+  /* a file over it and it grows, with a bounce; an upload and it
+     closes in round it */
+  transition:
+    scale 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    width 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    height 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    background-color 220ms ease;
+}
+
+.upl-zone[data-over] { scale: 1.02; }
+
+/* the gulp: in a little as the file goes down, out past its size,
+   and settle */
+.upl-zone[data-gulp] { animation: upl-gulp 460ms cubic-bezier(0.3, 1.2, 0.4, 1); }
+
+.upl-zone[data-gulp] .upl-icon { animation: upl-open 460ms cubic-bezier(0.3, 1.4, 0.4, 1); }
+
+[data-stroke="on"] .upl-zone { box-shadow: 0 0 0 1px var(--pane-edge); }
+
+/* 箭头那一行：原来躺在盒子下面的两枚文件，改成左一枚、右一枚夹着箭头。
+   图标本身（.upl-file / .upl-page / .upl-label）完全沿用托盘那套，
+   这里只负责把它们排成一行、垂直对齐到箭头的中线。 */
+.upl-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* 顶对齐之后箭头要自己往下走一点，才对得上文件图标的页身中线：
+   页身从 padding-top 4 开始、高 40，箭头 38，差的一半是 1 —— 4+1。 */
+.upl-line > .upl-icon { margin-top: 5px; }
+
+.upl-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  /* a light grey tile, no edge — the fill's own ink walked most
+     of the way to its slab, so it is a pale grey on the light fill
+     and a lifted grey on the dark one */
+  background: color-mix(in srgb, var(--fill-on, #17181a) 6%, var(--fill-slab, #ffffff));
+  color: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #ffffff));
+  transition: translate 420ms cubic-bezier(0.24, 1.34, 0.38, 1), background-color 220ms ease, color 220ms ease;
+}
+
+/* over the box the tile only lifts, and its arrow goes to full
+   ink — no colour of its own */
+.upl-zone[data-over] .upl-icon {
+  translate: 0 -4px;
+  color: var(--fill-on, var(--ink));
+}
+
+.upl-say {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: 0em;
+}
+
+.upl-say b { font-weight: 500; }
+
+.upl-say span {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+.upl-zone[data-refuse] .upl-say b { color: #e5484d; }
+
+/* the file, arrived in the box */
+.upl-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  flex: none;
+  animation: upl-land 420ms var(--upl-spring) both;
+}
+
+.upl-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 150px;
+}
+
+.upl-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  letter-spacing: 0em;
+}
+
+.upl-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 14px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+.upl-track {
+  position: relative;
+  height: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fill-on, #17181a) 6%, var(--fill-slab, #ffffff));
+}
+
+.upl-bar {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--signal, #2231dd);
+  transform-origin: left center;
+}
+
+.upl-roll { display: inline-flex; line-height: 1em; height: 1em; overflow: hidden; }
+
+.upl-roll-col { display: inline-block; height: 1em; overflow: hidden; }
+
+.upl-roll-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 220ms cubic-bezier(0.24, 1.34, 0.38, 1);
+}
+
+.upl-roll-strip > span { height: 1em; }
+
+.upl-end {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.upl-tick {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok, #15803d);
+  color: #fff;
+  animation: upl-pop 380ms cubic-bezier(0.3, 1.6, 0.4, 1) both;
+}
+
+/* 拖着文件的时候盒子不能再裁剪：两枚文件图标长在盒子里面，
+   要能被拎出去再拎回来。松手就恢复，缩小动画照旧裁切。 */
+.upl[data-held] .upl-zone { overflow: visible; }
+
+.upl-file {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  /* 可以拎起来拖进盒子 */
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+  /* home is a spring; the Bounce knob sets its overshoot */
+  transition: transform 420ms var(--upl-spring), opacity 220ms ease;
+}
+
+.upl-file[data-held] {
+  z-index: 5;
+  cursor: grabbing;
+  transition: none;
+}
+
+.upl-file[data-gone] { opacity: 0; pointer-events: none; transition: none; }
+
+.upl-file:not([data-gone]) { animation: upl-back 360ms var(--upl-spring) both; }
+
+.upl-file:focus-visible .upl-page { outline: 2px solid var(--signal, #2231dd); outline-offset: 3px; border-radius: 6px; }
+
+.upl-page { overflow: visible; }
+
+.upl-page-line {
+  stroke: color-mix(in srgb, var(--fill-on, #17181a) 32%, var(--fill-slab, #ffffff));
+  stroke-width: 1.5;
+  /* outline only: the page is drawn, not filled */
+  fill: none;
+}
+
+.upl-page-ext {
+  fill: #fff;
+  font-family: var(--font-ui);
+  /* size is the <text>'s own fontSize, in the icon's units */
+  font-weight: 500;
+  letter-spacing: 0em;
+}
+
+.upl-label {
+  max-width: 76px;
+  overflow: hidden;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+/* 真实拖放没有托盘 tile 可起飞，就在落点造一个 44px 的小卡片飞进盒子。
+   挂在 body 上，.upl 的变量不在作用域，所以这里写死同款色值。 */
+.upl-ghost {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow:
+    0 8px 20px rgba(6, 78, 59, 0.18),
+    0 0 0 1px rgba(6, 78, 59, 0.1);
+  color: #064e3b;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  pointer-events: none;
+  transition:
+    transform 380ms cubic-bezier(0.55, 0, 0.85, 0.3),
+    opacity 300ms ease-in 80ms;
+}
+
+@keyframes upl-gulp {
+  0% { scale: 1.02; }
+  35% { scale: 0.985; }
+  70% { scale: 1.006; }
+  100% { scale: 1; }
+}
+
+@keyframes upl-open { 40% { scale: 1.08; } }
+
+@keyframes upl-land { from { opacity: 0; scale: 0.85; translate: 0 10px; } }
+
+@keyframes upl-pop { from { scale: 0; } }
+
+@keyframes upl-back { from { scale: 0.7; opacity: 0; } }

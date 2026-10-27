@@ -21,6 +21,7 @@ from app.routers.resume import router as resume_router
 from app.routers.resume_documents import router as resume_documents_router
 from app.routers.statistics import router as statistics_router
 from app.routers.study import router as study_router
+from app.routers.speech import router as speech_router
 from app.routers.weekly_reviews import router as weekly_reviews_router
 from app.services.session_service import COOKIE_NAME
 
@@ -44,6 +45,7 @@ app.include_router(directions_router)
 app.include_router(weekly_reviews_router)
 app.include_router(statistics_router, prefix="/api/statistics", tags=["statistics"])
 app.include_router(assistant_router)
+app.include_router(speech_router)
 app.include_router(conversations_router)
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 
+import httpx
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
@@ -22,7 +23,8 @@ from app.models.entities import (
     UserDocument,
 )
 from app.routers.dependencies import get_current_user
-from app.services import planner_service, remedy_service, task_service
+from app.services import diagnosis_service, planner_service, remedy_service, task_service
+from app.services.ai_proxy import CredentialUnavailableError, NoVerifiedApiConfigError, build_client_error
 from app.services.weekly_review_service import _EVIDENCE_SCORE
 
 router = APIRouter()
@@ -204,15 +206,49 @@ def build_overview(session: Session, user_id) -> dict:
         )
     ).all()
     by_day: dict[str, int] = defaultdict(int)
+    # 堆叠柱要按掌握度结果拆开每天的量。result 有 CheckConstraint 限定为
+    # correct/partial/wrong，所以三段之和恒等于 count，前端不用做归一化。
+    by_day_result: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"correct": 0, "partial": 0, "wrong": 0}
+    )
     for row in activity_rows:
         day = _day_of(row.created_at)
         if start <= day <= today:
-            by_day[day.isoformat()] += 1
+            key = day.isoformat()
+            by_day[key] += 1
+            bucket = by_day_result[key]
+            if row.result in bucket:
+                bucket[row.result] += 1
+
+    # 基线下方那根是**独立指标**：当天新收录的错题数，不是作答量的子集。
+    # 单独统计才不会和上面的堆叠段共用一套比例尺（那样 4 条已掌握会画得比
+    # 6 条未掌握还高，等于把数据说反了）。
+    mistake_rows = session.scalars(
+        select(Mistake).where(
+            Mistake.user_id == user_id,
+            Mistake.created_at
+            >= datetime.combine(start, time.min, tzinfo=timezone.utc),
+        )
+    ).all()
+    mistakes_by_day: dict[str, int] = defaultdict(int)
+    for row in mistake_rows:
+        day = _day_of(row.created_at)
+        if start <= day <= today:
+            mistakes_by_day[day.isoformat()] += 1
+
     daily_activity = []
     cursor = start
     while cursor <= today:
         key = cursor.isoformat()
-        daily_activity.append({"date": key, "count": by_day.get(key, 0)})
+        split = by_day_result.get(key) or {"correct": 0, "partial": 0, "wrong": 0}
+        daily_activity.append(
+            {
+                "date": key,
+                "count": by_day.get(key, 0),
+                **split,
+                "mistakes": mistakes_by_day.get(key, 0),
+            }
+        )
         cursor += timedelta(days=1)
 
     mastery_rows = session.execute(
@@ -271,3 +307,29 @@ def statistics_overview_route(
     session: Session = Depends(get_db),
 ) -> JSONResponse:
     return JSONResponse(status_code=200, content=build_overview(session, user.id))
+
+
+@router.get("/diagnosis/latest")
+def latest_diagnosis_route(
+    user: User = Depends(get_current_user), session: Session = Depends(get_db),
+) -> dict:
+    return {"status": "ok", "report": diagnosis_service.latest_diagnosis(session, user.id)}
+
+
+@router.post("/diagnosis")
+async def generate_diagnosis_route(
+    user: User = Depends(get_current_user), session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        report = await diagnosis_service.generate_diagnosis(session, user.id)
+    except (CredentialUnavailableError, NoVerifiedApiConfigError) as error:
+        return JSONResponse(status_code=400, content=build_client_error(error))
+    except diagnosis_service.DiagnosisError as error:
+        return JSONResponse(status_code=400, content={
+            "status": "error", "code": error.code, "message": str(error),
+        })
+    except (httpx.HTTPError, ValueError, TypeError):
+        return JSONResponse(status_code=502, content={
+            "status": "error", "code": "DIAGNOSIS_AI_FAILED", "message": "AI 暂时无法生成诊断报告，请稍后重试",
+        })
+    return JSONResponse(status_code=200, content={"status": "ok", "report": report})

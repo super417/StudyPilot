@@ -22,7 +22,7 @@ export class ApiError extends Error {
   }
 }
 
-interface ErrorPayload {
+export interface ErrorPayload {
   status?: string;
   error?: string;
   code?: string;

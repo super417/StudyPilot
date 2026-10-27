@@ -1,106 +1,128 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiRequest } from '../httpClient';
 import { ASSISTANT_GREETING, startAssistantGreeting } from '../assistantGreeting';
+import { playAssistantSpeech, speechChunks } from '../assistantSpeech';
 
-class Utterance {
-  constructor(public text: string) {}
-  onend: (() => void) | null = null;
-  onerror: ((event: { error: string }) => void) | null = null;
+vi.mock('../httpClient', () => ({ apiRequest: vi.fn() }));
+
+class TestAudio {
+  static instances: TestAudio[] = [];
+  src = '';
+  onended: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  play = vi.fn(() => Promise.resolve());
+  pause = vi.fn();
+  load = vi.fn();
+  removeAttribute = vi.fn();
+  constructor() { TestAudio.instances.push(this); }
 }
 
-const voice = (name: string, lang = 'zh-CN') => ({ name, lang }) as SpeechSynthesisVoice;
+const audioResponse = { voice: 'Xiaoxiao', mimeType: 'audio/mpeg', audioBase64: 'SUQz' };
 
-describe('assistant entrance greeting', () => {
+describe('shared natural voice playback', () => {
   let surface: EventTarget;
-  let synth: EventTarget & {
-    getVoices: ReturnType<typeof vi.fn>;
-    speak: ReturnType<typeof vi.fn>;
-    cancel: ReturnType<typeof vi.fn>;
-  };
-  let cleanup: (() => void) | undefined;
-
+  let cleanups: Array<() => void>;
   beforeEach(() => {
     vi.useFakeTimers();
+    cleanups = [];
+    TestAudio.instances = [];
     surface = new EventTarget();
-    synth = Object.assign(new EventTarget(), {
-      getVoices: vi.fn(() => [voice('Microsoft Huihui')]),
-      speak: vi.fn(),
-      cancel: vi.fn(),
-    });
+    vi.stubGlobal('Audio', TestAudio);
     vi.stubGlobal('window', Object.assign(surface, {
-      speechSynthesis: synth,
-      setTimeout: globalThis.setTimeout,
-      clearTimeout: globalThis.clearTimeout,
+      setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout,
     }));
     vi.stubGlobal('document', { hidden: false });
-    vi.stubGlobal('SpeechSynthesisUtterance', Utterance);
+    vi.mocked(apiRequest).mockReset().mockResolvedValue(audioResponse);
   });
-
   afterEach(() => {
-    cleanup?.();
-    cleanup = undefined;
+    cleanups.forEach((stop) => stop());
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
-  it('waits for entrance and prefers a natural Chinese female voice', () => {
-    const natural = voice('Microsoft Xiaoxiao Online (Natural)');
-    synth.getVoices.mockReturnValue([
-      voice('Microsoft Yunxi Online (Natural)'), voice('Microsoft Huihui'), natural,
-    ]);
-    cleanup = startAssistantGreeting();
-    vi.advanceTimersByTime(249);
-    expect(synth.speak).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(synth.speak).toHaveBeenCalledWith(expect.objectContaining({
-      text: ASSISTANT_GREETING, voice: natural, lang: 'zh-CN',
-    }));
-    synth.dispatchEvent(new Event('voiceschanged'));
-    vi.runAllTimers();
-    expect(synth.speak).toHaveBeenCalledTimes(1);
+  it('plays the cached natural greeting after the character appears', async () => {
+    cleanups.push(startAssistantGreeting());
+    await vi.advanceTimersByTimeAsync(249);
+    expect(apiRequest).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(apiRequest).toHaveBeenCalledWith('/api/speech/greeting', expect.anything());
+    expect(TestAudio.instances[0].src).toBe('data:audio/mpeg;base64,SUQz');
+    expect(TestAudio.instances[0].play).toHaveBeenCalledOnce();
+    expect(ASSISTANT_GREETING).toBe('hi，有什么想和我聊聊的吗？');
   });
 
-  it('waits for asynchronously loaded voices without speaking twice', () => {
-    synth.getVoices.mockReturnValue([]);
-    cleanup = startAssistantGreeting();
+  it('retries blocked greeting audio once on a gesture', async () => {
+    cleanups.push(startAssistantGreeting());
     vi.advanceTimersByTime(250);
-    expect(synth.speak).not.toHaveBeenCalled();
-    synth.getVoices.mockReturnValue([voice('Microsoft Xiaoxiao Online (Natural)')]);
-    synth.dispatchEvent(new Event('voiceschanged'));
-    vi.runAllTimers();
-    expect(synth.speak).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses the browser default if the voice list stays empty', () => {
-    synth.getVoices.mockReturnValue([]);
-    cleanup = startAssistantGreeting();
-    vi.advanceTimersByTime(900);
-    expect(synth.speak).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries a blocked greeting on a user gesture and removes retry listeners', () => {
-    cleanup = startAssistantGreeting();
-    vi.advanceTimersByTime(250);
-    const greeting = synth.speak.mock.calls[0][0] as Utterance;
-    greeting.onerror?.({ error: 'not-allowed' });
+    const audio = TestAudio.instances[0];
+    audio.play.mockRejectedValueOnce(new DOMException('blocked', 'NotAllowedError'));
+    await vi.advanceTimersByTimeAsync(0);
     surface.dispatchEvent(new Event('pointerdown'));
     surface.dispatchEvent(new Event('keydown'));
-    expect(synth.speak).toHaveBeenCalledTimes(2);
-    cleanup();
-    surface.dispatchEvent(new Event('pointerdown'));
-    expect(synth.speak).toHaveBeenCalledTimes(2);
-    expect(synth.cancel).toHaveBeenCalledTimes(1);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(apiRequest).toHaveBeenCalledOnce();
   });
 
-  it('cancels pending speech on exit and welcomes again on the next entrance', () => {
-    cleanup = startAssistantGreeting();
-    cleanup();
-    vi.runAllTimers();
-    expect(synth.speak).not.toHaveBeenCalled();
-    cleanup = startAssistantGreeting();
-    vi.advanceTimersByTime(250);
-    expect(synth.speak).toHaveBeenCalledTimes(1);
-    cleanup();
-    expect(synth.cancel).toHaveBeenCalledTimes(1);
-    cleanup = undefined;
+  it('cancels delayed greeting on exit and welcomes on the next entry', async () => {
+    const stop = startAssistantGreeting();
+    stop();
+    await vi.advanceTimersByTimeAsync(900);
+    expect(apiRequest).not.toHaveBeenCalled();
+    cleanups.push(startAssistantGreeting());
+    await vi.advanceTimersByTimeAsync(250);
+    expect(apiRequest).toHaveBeenCalledOnce();
+  });
+
+  it('reads long replies in order without losing characters', async () => {
+    const text = '学'.repeat(340);
+    const onEnd = vi.fn();
+    cleanups.push(playAssistantSpeech(text, { onEnd }).stop);
+    await vi.advanceTimersByTimeAsync(0);
+    const audio = TestAudio.instances[0];
+    for (let i = 0; i < 3; i++) {
+      audio.onended?.();
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    const spokenText = vi.mocked(apiRequest).mock.calls.map(([, init]) => JSON.parse(init!.body as string).text).join('');
+    expect(spokenText).toBe(text);
+    expect(apiRequest).toHaveBeenCalledTimes(3);
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it('stops previous speech when a different reply starts', async () => {
+    const onEnd = vi.fn();
+    cleanups.push(playAssistantSpeech('第一条', { onEnd }).stop);
+    await vi.advanceTimersByTimeAsync(0);
+    const oldAudio = TestAudio.instances[0];
+    cleanups.push(playAssistantSpeech('第二条').stop);
+    expect(oldAudio.pause).toHaveBeenCalledOnce();
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it('does not play a response arriving after stop', async () => {
+    let resolve!: (value: typeof audioResponse) => void;
+    vi.mocked(apiRequest).mockReturnValue(new Promise((done) => { resolve = done; }));
+    const playback = playAssistantSpeech('取消朗读');
+    playback.stop();
+    resolve(audioResponse);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(TestAudio.instances[0].play).not.toHaveBeenCalled();
+    expect(vi.mocked(apiRequest).mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  it('reports unavailable speech without using the rejected system voice', async () => {
+    vi.mocked(apiRequest).mockRejectedValue(new Error('语音暂未就绪'));
+    const onError = vi.fn();
+    cleanups.push(playAssistantSpeech('朗读', { onError }).stop);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: '语音暂未就绪' }));
+    expect(TestAudio.instances[0].play).not.toHaveBeenCalled();
+  });
+
+  it('keeps Unicode characters intact when splitting', () => {
+    const text = '你好😀。'.repeat(100);
+    const chunks = speechChunks(text);
+    expect(chunks.join('')).toBe(text);
+    expect(chunks.every((chunk) => Array.from(chunk).length <= 160)).toBe(true);
   });
 });

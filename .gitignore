@@ -2,6 +2,7 @@
 backend/.env
 backend/.venv/
 speech/.venv/
+speech/.venv-edge/
 speech/.cache/
 speech/models/
 speech/output/

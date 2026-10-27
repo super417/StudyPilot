@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { FolderOpen, Upload } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { FolderOpen } from 'lucide-react';
 import CardShell from './CardShell';
+import UploadDropzone from './UploadDropzone';
 import { CardEmpty, CardError } from './states';
 import {
   DocumentsApiError,
   deleteDocument,
   fileTypeFromName,
-  uploadDocument,
+  uploadDocumentWithProgress,
 } from '@/lib/documentsApi';
 import { makeSessionDoc, useDocumentsStore } from '@/store/documentsStore';
 
@@ -16,9 +17,7 @@ export interface StudyMaterialsCardProps {
 
 /** 学习资料：GET 水合 + POST 上传 + DELETE 删除。 */
 function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const documents = useDocumentsStore((s) => s.documents);
-  const uploading = useDocumentsStore((s) => s.uploading);
   const hydrating = useDocumentsStore((s) => s.hydrating);
   const hydrated = useDocumentsStore((s) => s.hydrated);
   const lastError = useDocumentsStore((s) => s.lastError);
@@ -37,37 +36,32 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
 
   const recent = documents[0];
 
-  const handlePick = () => inputRef.current?.click();
-
-  const handleFile = async (file: File | undefined) => {
-    if (!file) return;
+  /** 真正的上传：进度由 XHR 的 upload.onprogress 推上来 */
+  const handleUpload = async (file: File, onProgress: (ratio: number) => void) => {
     const fileType = fileTypeFromName(file.name);
     if (!fileType) {
-      setLastError('仅支持 PDF / DOCX / TXT / Markdown');
-      onAction('上传失败：仅支持 PDF、DOCX、TXT、Markdown');
-      return;
+      return { ok: false, message: '仅支持 PDF / DOCX / TXT / Markdown' };
     }
 
     setUploading(true);
     setLastError(null);
     try {
-      const result = await uploadDocument(file);
+      const result = await uploadDocumentWithProgress(file, onProgress);
       addUploaded(makeSessionDoc(result.docId, file.name, fileType, result.chunks));
       onAction(
         result.chunks > 0
           ? `已上传「${file.name}」（${result.chunks} 块），可在助手中选为规划依据`
           : `已上传「${file.name}」，但没有切出可用文字，规划时不会使用`,
       );
+      return { ok: true };
     } catch (error) {
       const message =
-        error instanceof DocumentsApiError
-          ? error.message
-          : '上传失败，请稍后重试';
+        error instanceof DocumentsApiError ? error.message : '上传失败，请稍后重试';
       setLastError(message);
       onAction(`上传失败：${message}`);
+      return { ok: false, message };
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
     }
   };
 
@@ -91,14 +85,6 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
 
   return (
     <CardShell title="学习资料" icon={<FolderOpen size={17} aria-hidden="true" />}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.docx,.txt,.md,application/pdf,text/plain,text/markdown"
-        className="hidden"
-        onChange={(e) => void handleFile(e.target.files?.[0])}
-      />
-
       {lastError ? <CardError message={lastError} /> : null}
 
       {hydrating && documents.length === 0 ? (
@@ -145,30 +131,17 @@ function StudyMaterialsCard({ onAction }: StudyMaterialsCardProps) {
               </li>
             ))}
           </ul>
+          {/* 原来这里是一个「上传资料」药丸按钮，换成了 Bencho 的拖放盒 */}
           <div className="mt-5">
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={handlePick}
-              className="flex items-center gap-1.5 rounded-full bg-brandDark px-3.5 py-1.5 text-sm font-medium text-white transition hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] disabled:opacity-60"
-            >
-              <Upload size={14} aria-hidden="true" />
-              {uploading ? '上传中…' : '上传资料'}
-            </button>
+            <UploadDropzone onUpload={handleUpload} />
           </div>
         </div>
       ) : (
         <div className="flex h-full flex-col">
           <CardEmpty>还没有资料，上传讲义或笔记开始积累吧</CardEmpty>
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={handlePick}
-            className="mt-4 flex items-center justify-center gap-1.5 self-start rounded-full bg-brandDark px-3.5 py-1.5 text-sm font-medium text-white disabled:opacity-60"
-          >
-            <Upload size={14} aria-hidden="true" />
-            {uploading ? '上传中…' : '上传资料'}
-          </button>
+          <div className="mt-4">
+            <UploadDropzone onUpload={handleUpload} />
+          </div>
         </div>
       )}
     </CardShell>
