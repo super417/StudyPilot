@@ -89,7 +89,7 @@ function MarqueeSection() {
   const rowLeft = useTransform(offset, value => -(value - 200));
   return <section className="jack-marquee" ref={sectionRef} aria-label="视觉素材画廊">
     {[REFERENCE_GIFS.slice(0, 11), REFERENCE_GIFS.slice(11)].map((images, row) => <motion.div className="jack-marquee-row" key={row} style={{ x: row === 0 ? rowRight : rowLeft }}>
-      {[...images, ...images, ...images].map((url, index) => <img key={`${row}-${index}`} src={url} loading="lazy" decoding="async" alt="" />)}
+      {[...images, ...images].map((url, index) => <img key={`${row}-${index}`} src={url} loading="lazy" decoding="async" alt="" />)}
     </motion.div>)}
     <span className="jack-marquee-note">视觉素材展示 · 不代表本人作品</span>
   </section>;
