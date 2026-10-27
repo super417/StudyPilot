@@ -723,6 +723,87 @@ body {
   gap: 8px;
   margin-left: auto;
 }
+/* 下沿左侧的快捷指令（开始今天）：比模型入口更「实」一档，仍吃同一套深绿 */
+.assistant-input-cta {
+  flex-shrink: 0;
+  height: 32px;
+  max-width: 260px;
+  overflow: hidden;
+  padding: 0 12px;
+  border: 1px solid rgba(16, 185, 129, 0.38);
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.14);
+  color: #a7f3d0;
+  font-size: 12px;
+  line-height: 30px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+.assistant-input-cta:hover {
+  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.24);
+  color: #d1fae5;
+}
+
+/* 左下角 + 附件按钮（参考 LobeHub composer） */
+.assistant-input-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.95);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+.assistant-input-attach-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* 附件下拉浮层 */
+.assistant-input-attach-popover {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  min-width: 170px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.assistant-input-attach-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #374151;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.assistant-input-attach-row:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.assistant-input-attach-row svg:last-child {
+  margin-left: auto;
+  opacity: 0.5;
+}
 
 /* Mainframe expand landing — scoped so StudyPilot chrome stays untouched */
 .mainframe-page {

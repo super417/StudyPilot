@@ -89,8 +89,8 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const input = useAssistantStore((s) => s.composerDraft);
   const setInput = useAssistantStore((s) => s.setComposerDraft);
   const showPlanForm = context?.type === 'plan';
-  /** 空会话不摆 CTA（首屏只留问候），生成中也不摆，避免连点。 */
-  const showStartCta = messages.length > 0 && !streaming;
+  /** 「开始今天」快捷指令常驻输入条下沿左侧（像参考图那个 Agent 入口），生成中隐藏。 */
+  const showStartCta = !streaming;
   const contentKey = `${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}`;
   const { listRef, onScroll, pinToBottom } = useStickToBottom(true, contentKey);
 
@@ -321,27 +321,26 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           }
         />
         {/*
-          「开始今天」CTA 单独一排（有消息才出现）。
-          模型 · 思考强度入口不在这儿了 —— 它挪进输入条下沿，和发送钮同一行，
-          对齐 LobeHub composer 的控制行。
+          输入条下沿的控制行（对齐 LobeHub 那个 composer）：
+          左边星标 + 「开始今天」快捷指令，右边模型入口 + 发送钮。
         */}
-        {showStartCta ? (
-          <div className="flex min-w-0 shrink-0 justify-end px-4 pb-2">
-            <button
-              type="button"
-              onClick={() => {
-                pinToBottom();
-                send(START_TODAY_PROMPT);
-              }}
-              className="shrink-0 rounded-full bg-brandDark px-4 py-2 text-[12.5px] font-medium text-white shadow-[0_8px_20px_rgba(6,78,59,0.28)] transition-colors hover:bg-[#053b2d]"
-            >
-              {START_TODAY_PROMPT}
-            </button>
-          </div>
-        ) : null}
         <div className="min-w-0 shrink-0 px-4 pb-4">
           <AssistantInput
             variant="stacked"
+            leading={
+              showStartCta ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    pinToBottom();
+                    send(START_TODAY_PROMPT);
+                  }}
+                  className="assistant-input-cta"
+                >
+                  {START_TODAY_PROMPT}
+                </button>
+              ) : null
+            }
             controls={<ModelEffortMenu />}
             value={input}
             onChange={setInput}
