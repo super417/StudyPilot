@@ -72,24 +72,24 @@
 .spp-billing-switch button:first-of-type { min-width: 126px; }
 .spp-billing-switch button:last-of-type { min-width: 126px; }
 .spp-feature-teaser .spp-billing-switch button[aria-pressed='true'] { border-color: #000; background: #e9ffa3; box-shadow: 5px 6px #00000024; }
-.spp-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(5 * var(--spp-u)); align-items: start; }
-.spp-plan { --plan-color: #cff266; min-width: 0; }
+.spp-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(5 * var(--spp-u)); align-items: stretch; }
+.spp-plan { --plan-color: #cff266; display: flex; flex-direction: column; min-width: 0; }
 .spp-plan-coral { --plan-color: #ff9369; }
 .spp-plan-lilac { --plan-color: #d3b8fc; }
 .spp-plan-index { margin-bottom: calc(3 * var(--spp-u)) !important; text-transform: uppercase; font: 500 max(15px, calc(1.5 * var(--spp-u)))/1.3 Spp Mono, monospace; }
-.spp-plan-body { position: relative; margin-right: 10px; border: 1px solid #000; background: var(--plan-color); box-shadow: 16px -12px #000; transition: box-shadow .2s, translate .2s; }
+.spp-plan-body { position: relative; display: flex; flex-direction: column; flex: 1; margin-right: 10px; border: 1px solid #000; background: var(--plan-color); box-shadow: 16px -12px #000; transition: box-shadow .2s, translate .2s; }
 .spp-plan-body::before { content: ''; position: absolute; top: -12px; left: 7px; width: 16px; height: 12px; background: #000; transform: skew(-50deg); }
 .spp-plan-body::after { content: ''; position: absolute; bottom: 0; right: -9px; width: 16px; height: 12px; background: #000; transform: skew(-50deg); }
 .spp-plan-body:hover { translate: 3px -2px; box-shadow: 13px -10px #000; }
-.spp-plan-body > header { position: sticky; z-index: 3; top: 0; padding: calc(2.8 * var(--spp-u)) calc(2.4 * var(--spp-u)) calc(1.8 * var(--spp-u)); background: var(--plan-color); border-bottom: 1px solid #0003; }
+.spp-plan-body > header { position: sticky; z-index: 3; top: 0; margin-bottom: calc(12 * var(--spp-u)); padding: calc(2.8 * var(--spp-u)) calc(2.4 * var(--spp-u)) calc(1.8 * var(--spp-u)); background: var(--plan-color); border-bottom: 1px solid #0003; }
 .spp-plan h3 { margin-bottom: calc(2 * var(--spp-u)); font: 700 max(30px, calc(4 * var(--spp-u)))/1 Spp Panell, Impact, sans-serif; text-transform: uppercase; }
 .spp-price { margin-bottom: calc(2 * var(--spp-u)) !important; white-space: nowrap; }
 .spp-price strong { font: 400 calc(3.5 * var(--spp-u))/1.25714 Spp Denim, Arial, sans-serif; }
 .spp-price > span { font: 400 max(18px, calc(2.3 * var(--spp-u)))/1.44 Spp Denim, Arial, sans-serif; }
 .spp-plan-note { max-width: calc(31 * var(--spp-u)); text-transform: uppercase; font: 500 max(15px, calc(1.5 * var(--spp-u)))/1.3 Spp Mono, monospace; }
-.spp-plan-features { padding: calc(2.8 * var(--spp-u)) calc(2 * var(--spp-u)); border: 10px solid var(--plan-color); background: #fffefc; }
+.spp-plan-features { flex: 1; margin-top: calc(-12 * var(--spp-u)); padding: calc(2.8 * var(--spp-u)) calc(2 * var(--spp-u)); border: 10px solid var(--plan-color); background: #fffefc; }
 .spp-plan-includes { padding: 10px 24px; margin: 0 5px 12px !important; text-transform: uppercase; font: 500 max(15px, calc(1.5 * var(--spp-u)))/1.3 Spp Mono, monospace; }
-.spp-plan-features ul { display: flex; flex-direction: column; gap: 16px; list-style: none; margin: 0; padding: 0; }
+.spp-plan-features ul { display: flex; flex-direction: column; gap: 16px; max-width: calc(32 * var(--spp-u)); list-style: none; margin: 0; padding: 0; }
 .spp-plan-features li { display: flex; align-items: center; gap: 12px; font: 400 max(15px, calc(1.5 * var(--spp-u)))/1.46 Spp Denim, Arial, sans-serif; }
 .spp-plan-features li > span { flex: none; color: #7b8466; font-size: 18px; }
 .spp-plan-bottom { display: flex; justify-content: center; padding: 36px 24px 42px; }
@@ -180,12 +180,12 @@
   .spp-plans { grid-template-columns: 1fr; gap: 48px; }
   .spp-plan-index { margin-bottom: 22px !important; font-size: 12px; }
   .spp-plan-body { box-shadow: 12px -10px #000; }
-  .spp-plan-body > header { position: relative; padding: 24px 20px 16px; }
+  .spp-plan-body > header { position: relative; margin-bottom: 0; padding: 24px 20px 16px; }
   .spp-plan h3 { font-size: 32px; }
   .spp-price strong { font-size: 25px; line-height: 1.4; }
   .spp-price > span { font-size: 18px; }
   .spp-plan-note { font-size: 12px; max-width: 250px; }
-  .spp-plan-features { padding: 24px 20px; border-width: 8px; }
+  .spp-plan-features { margin-top: 0; padding: 24px 20px; border-width: 8px; }
   .spp-plan-includes { font-size: 12px; padding: 8px 5px; margin: 0 0 12px !important; }
   .spp-plan-features li { font-size: 13px; line-height: 1.4; }
   .spp-plan-bottom { padding: 32px 20px; }
