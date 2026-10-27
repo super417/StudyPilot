@@ -717,6 +717,8 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       (data?.dailyActivity ?? []).map((d) => ({
         label: d.date.slice(5), // MM-DD
         short: d.date.slice(5),
+        /* 轴线只显示「N 天前」，所以这里要把完整 ISO 日期带给它 */
+        date: d.date,
         segs: [
           { label: '已掌握', value: d.correct ?? 0 },
           { label: '基本掌握', value: d.partial ?? 0 },

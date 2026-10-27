@@ -1132,13 +1132,14 @@ body {
 
 .stb-sub { font-size: 12px; color: var(--stb-mute); line-height: 16px; font-variant-numeric: tabular-nums; }
 
-/* 原版这个开关在标题右边；本项目标题归外层卡片，就挪到数字右边，
-   靠 margin-left:auto 顶到最右，align-self 把它从基线对齐里拉出来。 */
+/* 原版这个开关在标题右边；本项目标题归外层卡片，就跟着数字走。
+   ⚠️ 不能用 margin-left:auto 顶到最右 —— 页面右下角有个 z-index:9999 的
+   固定悬浮助手（canvas），会把「周视图」整个人盖住，连按钮形状都看不见。 */
 .stb-seg-ctl {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-left: auto;
+  margin-left: 12px;
   align-self: center;
   padding: 2px;
   border-radius: 10px;
@@ -1238,20 +1239,21 @@ body {
   background-color: var(--c);
 }
 
-/* 数量为 0 的段不画扁条，画一个小圆点：占位高度还是 2px，但画出来是圆的。
-   颜色：上面那摞走淡灰（灰点读作「这天没有」）；基线下面的错题柱是另一条
-   序列，保持红色系，0 的时候用淡红，免得一串深红点看着像「天天都有错题」。 */
-.stb-bar[data-zero],
-.stb-esc[data-zero] {
-  border-radius: 50%;
-}
-
+/* 数量为 0 的那一段：仍然是一根圆柱，只是矮成一颗方糖、颜色淡下去。
+   —— 主人要的是「0 也要在图上看得见」，不是把它换成一个圆点；
+   圆角沿用 --stb-r，所以 0 值块和正常段是同一个形状语言。 */
 .stb-bar[data-zero] {
-  background-color: color-mix(in srgb, var(--fill-on, #17181a) 22%, var(--fill-slab, #ffffff));
+  background-color: color-mix(in srgb, var(--c) 36%, var(--fill-slab, #ffffff));
+}
+
+/* 整列一条数据都没有：一根灰方块占位。它没有 --c（不是某一类），
+   所以必须单独给色，否则 color-mix 里的 var(--c) 会让整条声明失效。 */
+.stb-bar[data-empty] {
+  background-color: color-mix(in srgb, var(--fill-on, #17181a) 14%, var(--fill-slab, #ffffff));
 }
 
 .stb-esc[data-zero] {
-  background-color: color-mix(in srgb, var(--stb-alert) 42%, var(--fill-slab, #ffffff));
+  background-color: color-mix(in srgb, var(--stb-alert) 32%, var(--fill-slab, #ffffff));
 }
 
 .stb-esc {
@@ -1276,12 +1278,23 @@ body {
   background-color: color-mix(in srgb, var(--stb-alert) 38%, var(--fill-slab, #ffffff));
 }
 
+/* 0 值那几颗方糖退得更狠：上面两条 scrub 规则特异性更高，会把它们又染深，
+   这里补一条更具体的，保证「其余列退一步」时它们仍然是淡的。 */
+.stb[data-scrub] .stb-col:not([data-on]) .stb-bar[data-zero] {
+  background-color: color-mix(in srgb, var(--c) 13%, var(--fill-slab, #ffffff));
+}
+
+.stb[data-scrub] .stb-col:not([data-on]) .stb-esc[data-zero] {
+  background-color: color-mix(in srgb, var(--stb-alert) 16%, var(--fill-slab, #ffffff));
+}
+
 .stb-ring {
   position: absolute;
   top: 0;
   left: 0;
   box-sizing: border-box;
-  border: 1.5px solid var(--stb-mute);
+  /* 参考图那圈灰环是实打实的 2px，1.5px 在高分屏上会糊成一条浅影 */
+  border: 2px solid var(--stb-mute);
   border-radius: var(--stb-rr);
   pointer-events: none;
   opacity: 0;

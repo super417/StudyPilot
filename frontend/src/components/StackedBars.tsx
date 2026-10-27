@@ -33,13 +33,17 @@ import { animate, motion, useMotionValue } from 'framer-motion';
      往回合，不用另开接口。开关从原版的标题行挪到数字右边（标题归外层卡片）。
    * 标题由外层卡片提供（统计页每张面板共用同一个标题栏），
      组件只负责数字、图、轴。
-   * **每段至少 2px、基线下方那根至少 3px，原版怎么写就怎么写** ——
-     30 天里没作答的日子也要在图上占一格，不能空着。 */
+   * **0 值也是一根圆柱**：不是圆点、不是 2px 扁条，而是一颗圆角方糖
+     （minH = 柱宽 34%，夹在 4–10px），基线上下都算。30 天里没作答的日子
+     照样在图上占一格，一根不少。
+   * 段间距 / 段圆角都按柱宽算（gap ≈ 18%、r ≈ 30%）：柱子窄的时候自动收成
+     胶囊，宽的时候仍然是四角很圆的圆柱 —— 参考图就是这个比例。
+   * 轴线不写日期，写「N 天前 / 今天」（周视图写「N 周前 / 本周」），
+     浮层里再补一句精确的相对天数。 */
 
 const CH = 104; // room above the baseline
 const CH_MAX = 168; // 展开成整行宽时的上限
-const BH = 22; // room below it for the escalated bars
-const SEG_GAP = 2;
+const BH = 34; // room below it for the escalated bars
 const LIFT = 2; // air between the baseline and the bars either side of it
 const TIP_W = 132;
 const SPRING = { type: 'spring' as const, stiffness: 380, damping: 34 };
@@ -53,6 +57,8 @@ export type StackedBar = {
   label: string;
   /** 轴上的短标签 */
   short: string;
+  /** ISO 日期（YYYY-MM-DD），用来算「距今天数」。缺省时轴退回日期。 */
+  date?: string;
   /** 堆叠段，自下而上 */
   segs: StackedSegment[];
   /** 基线下方那根小柱（原版是「被升级的少数」） */
@@ -61,6 +67,25 @@ export type StackedBar = {
 
 const fmt = (v: number) => Math.round(v).toLocaleString('zh-CN');
 const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
+
+/** 某天离今天几天：用本地零点相减，避免时区把天数带偏一天。 */
+function daysBehind(date?: string): number | null {
+  if (!date) return null;
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const then = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((today.getTime() - then.getTime()) / 86_400_000);
+  return Number.isFinite(diff) ? Math.max(0, diff) : null;
+}
+
+/** 浮层里那句「· 3 天前」；当天写「今天」，别写成「0 天前」。 */
+function agoText(date?: string): string {
+  const d = daysBehind(date);
+  if (d === null) return '';
+  return d === 0 ? '今天' : `${d} 天前`;
+}
 
 /** 按周看：把按天的柱子按 7 天一组从末尾往回并，最后剩下的不足一周也单独成柱。
  *  这是原版 Day / Week 那个开关在本项目里的对应物 —— 后端只有按天的量，
@@ -72,6 +97,8 @@ function weekly(bars: StackedBar[]): StackedBar[] {
     out.unshift({
       label: `${chunk[0].label} – ${chunk[chunk.length - 1].label}`,
       short: chunk[0].short,
+      /* 这一个桶代表到「最后一天」为止的那一周，距今天数按最后一天算 */
+      date: chunk[chunk.length - 1].date,
       segs: chunk[0].segs.map((s, k) => ({
         label: s.label,
         value: chunk.reduce((acc, b) => acc + (b.segs[k]?.value ?? 0), 0),
@@ -145,42 +172,56 @@ export function StackedBars({
      但封顶 CH_MAX，别把两列网格那种窄卡也一起拉高。 */
   const ch = Math.round(Math.max(CH, Math.min(CH_MAX, plotW * 0.26)));
   const segCount = Math.max(1, ...shown.map((b) => b.segs.length));
-  const g = n > 1 ? Math.max(1, Math.min(gap, (plotW - 3 * n) / (n - 1))) : 0;
-  const bw = Math.max(1, (plotW - g * Math.max(n - 1, 0)) / Math.max(n, 1));
-  const r = Math.min(2.5, bw / 2);
-  /* 数量为 0 的那个小圆点的直径：柱宽再宽也不超过 6px，柱子窄就跟着窄 */
-  const dot = Math.max(3, Math.min(bw, 6));
+  /* 30 天时柱子按「一格 width/n 减去缝」算，刚好排满；
+     只有几根周柱时柱子封顶 46px，省下来的宽度转给缝（上限 28px），
+     整排居中 —— 否则 5 根 190px 的大色块会把图撑成一排方块。 */
+  const slot = plotW / Math.max(1, n);
+  const bw = Math.max(1, Math.min(46, slot - gap));
+  const g = n > 1 ? Math.max(1, Math.min(28, (plotW - bw * n) / (n - 1))) : 0;
+  const rowW = bw * n + g * Math.max(n - 1, 0);
+  const x0 = Math.max(0, (plotW - rowW) / 2);
+  /* 参考图里每一段都是「四角很圆的圆柱」：小柱子（12px 宽）圆角占到四成，
+     大柱子封在 11px，别让周视图那几根粗柱被圆成一排药丸。 */
+  const r = Math.min(11, Math.max(3, bw * 0.4));
+  /* 段与段之间留一条实打实的缝，柱子越宽缝越明显（参考图约柱宽 15–20%） */
+  const segGap = Math.max(2, Math.min(6, bw * 0.18));
+  /* 数量为 0 的段也要画出来，而且不能是「扁扁的一条」：
+     高度按柱宽的 78% 走（夹在 4–12px），画出来是一颗方糖，
+     比「1 条数据」矮一档，读得出区别，四角照样是圆的。 */
+  const minH = Math.max(4, Math.min(12, bw * 0.78));
+  /* 环与柱子的间隙：参考图那圈灰环比柱子每边宽出 4px */
+  const ringPad = 4;
 
   const { layout, totals } = useMemo(() => {
     const stackTops = shown.map((b) => sum(b.segs.map((s) => s.value)));
     const tops = shown.map((b, i) => stackTops[i] + b.esc);
     const tallest = Math.max(1, ...stackTops);
     const tallestEsc = Math.max(1, ...shown.map((b) => b.esc));
-    const k = (ch - LIFT - 2 - SEG_GAP * (segCount - 1)) / tallest;
+    const k = (ch - LIFT - 2 - segGap * (segCount - 1)) / tallest;
     return {
       totals: tops,
       layout: shown.map((b, i) => {
         let y = 0;
         const segs = b.segs.map((s) => {
-          /* 原版：Math.max(2, v * scale)。0 也占 2px 的位，不能凭空消失；
-             但那 2px 不画成扁条，画成一个小圆点（见下面 zero 分支）。 */
-          const h = Math.max(2, s.value * k);
+          /* 每段至少 minH：0 值那天照样有一个圆角块占位，图表里看得见这一天 */
+          const h = Math.max(minH, s.value * k);
           const box = { bottom: y, h, zero: s.value === 0 };
-          y += h + SEG_GAP;
+          y += h + segGap;
           return box;
         });
         return {
           segs,
-          /* 整列都是 0：不画三颗叠在一起的圆点，只画一颗 */
-          allZero: stackTops[i] === 0,
-          top: Math.max(0, y - SEG_GAP),
-          /* 同理，基线下面那根 0 也画 3px */
-          esc: Math.max(3, (b.esc / tallestEsc) * (BH - LIFT - 2)),
+          /* 整列一条数据都没有（三段全 0、错题也 0）：只画一根灰方块，
+             别把三颗 0 值方糖叠成一根假柱子。 */
+          allZero: stackTops[i] === 0 && b.esc === 0,
+          top: Math.max(0, y - segGap),
+          /* 基线下面那根同样是「有 0 也要有」：最矮就是一颗方糖 */
+          esc: Math.max(minH, (b.esc / tallestEsc) * (BH - LIFT - 6)),
           escZero: b.esc === 0,
         };
       }),
     };
-  }, [shown, segCount, ch]);
+  }, [shown, segCount, ch, segGap, minH]);
 
   /* the headline pops in on a change, Price flow's way: every
      character is keyed by a generation, so a new total is new
@@ -207,12 +248,12 @@ export function StackedBars({
       return;
     }
     const L = layout[at];
-    const left = at * (bw + g);
-    const x = left - 3;
+    const left = x0 + at * (bw + g);
+    const x = left - ringPad;
     const up = seen ? L.top : 0;
     const down = seen ? L.esc : 0;
-    const y = ch - LIFT - up - 3;
-    const h = up + LIFT + 1 + LIFT + down + 6;
+    const y = ch - LIFT - up - ringPad;
+    const h = up + LIFT + 1 + LIFT + down + ringPad * 2;
     /* beside the column: right while it fits there, else left */
     const right = left + bw + 8;
     const tx =
@@ -234,7 +275,9 @@ export function StackedBars({
   const pick = (e: ReactPointerEvent<HTMLDivElement>) => {
     const b = plot.current?.getBoundingClientRect();
     if (!b || b.width === 0) return;
-    const i = Math.floor(((e.clientX - b.left) / b.width) * n);
+    /* 整排可能居中留了白边，先减掉左边距再按「一根柱 + 一条缝」取整 */
+    const rel = e.clientX - b.left - x0;
+    const i = Math.floor(rel / Math.max(1, bw + g));
     setAt(Math.max(0, Math.min(n - 1, i)));
   };
 
@@ -256,7 +299,8 @@ export function StackedBars({
       style={
         {
           ['--stb-r' as string]: `${r}px`,
-          ['--stb-rr' as string]: `${r + 3}px`,
+          /* 环是胶囊形：圆角直接取「环宽的一半」，两端正好半圆 */
+          ['--stb-rr' as string]: `${(bw + ringPad * 2) / 2}px`,
         } as CSSProperties
       }
     >
@@ -291,7 +335,7 @@ export function StackedBars({
               className="stb-tab"
               onClick={() => setMode(m)}
             >
-              {m === 'day' ? '按天' : '按周'}
+              {m === 'day' ? '天视图' : '周视图'}
             </button>
           ))}
         </div>
@@ -328,76 +372,51 @@ export function StackedBars({
             key={i}
             className="stb-col"
             data-on={at === i ? '' : undefined}
-            style={{ left: i * (bw + g), width: bw, ['--i' as string]: i } as CSSProperties}
+            style={{ left: x0 + i * (bw + g), width: bw, ['--i' as string]: i } as CSSProperties}
           >
+            {/* 整列一条数据都没有：一根灰方块占位，看得见这一天，也不假装有量 */}
             {layout[i].allZero ? (
-              /* 整天都是 0：一颗小圆，不画三颗叠在一起的圆点 */
               <span
                 className="stb-bar"
-                data-zero=""
+                data-empty=""
                 style={
                   {
-                    left: '50%',
-                    right: 'auto',
-                    width: dot,
-                    height: seen ? dot : 0,
-                    marginLeft: -dot / 2,
-                    /* 底边贴着堆叠的起点，别压到基线上 */
                     bottom: BH + 1 + LIFT,
+                    height: seen ? minH : 0,
                   } as CSSProperties
                 }
               />
             ) : (
-              layout[i].segs.map((s, k) => (
+              <>
+                {/* 每一段都画，包括 0：0 只是矮成一颗方糖，不能从图里消失 */}
+                {layout[i].segs.map((s, k) => (
+                  <span
+                    key={k}
+                    className="stb-bar"
+                    data-zero={s.zero ? '' : undefined}
+                    style={
+                      {
+                        ['--c' as string]: `var(--stb-c${Math.min(k + 1, 6)})`,
+                        bottom: BH + 1 + LIFT + (seen ? s.bottom : 0),
+                        height: seen ? s.h : 0,
+                      } as CSSProperties
+                    }
+                  />
+                ))}
                 <span
-                  key={k}
-                  className="stb-bar"
-                  data-zero={s.zero ? '' : undefined}
-                  style={
-                    s.zero
-                      ? /* 这一天有数据、只是这一段是 0：也画小圆点。位置仍按那
-                           2px 的槽算，圆心落在槽中间，整列高度不变。 */
-                        ({
-                          left: '50%',
-                          right: 'auto',
-                          width: dot,
-                          height: seen ? dot : 0,
-                          marginLeft: -dot / 2,
-                          bottom: BH + 1 + LIFT + s.bottom,
-                        } as CSSProperties)
-                      : ({
-                          ['--c' as string]: `var(--stb-c${Math.min(k + 1, 6)})`,
-                          bottom: BH + 1 + LIFT + (seen ? s.bottom : 0),
-                          height: seen ? s.h : 0,
-                        } as CSSProperties)
-                  }
+                  className="stb-esc"
+                  data-zero={layout[i].escZero ? '' : undefined}
+                  style={{ top: ch + 1 + LIFT, height: seen ? layout[i].esc : 0 }}
                 />
-              ))
+              </>
             )}
-            <span
-              className="stb-esc"
-              data-zero={layout[i].escZero ? '' : undefined}
-              style={
-                layout[i].escZero
-                  ? ({
-                      left: '50%',
-                      right: 'auto',
-                      width: dot,
-                      height: seen ? dot : 0,
-                      marginLeft: -dot / 2,
-                      /* 顶边和红柱同一个起点，稳稳落在基线下面 */
-                      top: ch + 1 + LIFT,
-                    } as CSSProperties)
-                  : { top: ch + 1 + LIFT, height: seen ? layout[i].esc : 0 }
-              }
-            />
           </div>
         ))}
 
         <motion.span
           className="stb-ring"
           aria-hidden
-          style={{ x: ringX, y: ringY, height: ringH, width: bw + 6 }}
+          style={{ x: ringX, y: ringY, height: ringH, width: bw + ringPad * 2 }}
         />
 
         <motion.div
@@ -408,7 +427,10 @@ export function StackedBars({
           {cur && (
             <>
               <div className="stb-tip-head">
-                <span>{cur.label}</span>
+                <span>
+                  {cur.label}
+                  {agoText(cur.date) ? ` · ${agoText(cur.date)}` : ''}
+                </span>
                 <b>{fmt(totals[at!])}</b>
               </div>
               {rows.map((row) => (
@@ -436,8 +458,12 @@ export function StackedBars({
       </div>
 
       <div className="stb-axis">
-        <span>{shown[0].short}</span>
-        <span>{shown[n - 1].short}</span>
+        <span>
+          {mode === 'week'
+            ? `${Math.max(1, Math.ceil((daysBehind(shown[0].date) ?? n * 7) / 7))} 周前`
+            : `${Math.max(1, daysBehind(shown[0].date) ?? n - 1)} 天前`}
+        </span>
+        <span>{mode === 'week' ? '本周' : '今天'}</span>
       </div>
     </div>
   );
