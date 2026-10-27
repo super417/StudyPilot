@@ -171,10 +171,11 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
       exit={{ opacity: 0, x: -24 }}
       transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
       style={{ width: panelWidth }}
-      className="pointer-events-none fixed inset-y-0 left-0 z-20 max-w-[100vw] pt-24 pb-16 pl-6 pr-3"
+      className="pointer-events-none fixed inset-y-0 left-0 z-20 max-w-[100vw] pt-[136px] pb-6 pl-6 pr-3"
     >
       {/*
-        pointer-events：外层这圈 padding（上 96px / 下 64px）是留给顶部导航和底部呼吸空间的，必须让点击穿过去。
+        pointer-events：外层这圈 padding（上 136px / 下 24px）是留给顶部导航和底边的，必须让点击穿过去。
+        上下加起来固定 160px：卡片高度不变，整块贴着页面底部压下去。
         不透传的话，聊天框一开，左上角的 logo 和导航链接就全点不动了 —— 而且看不出原因。
       */}
       <div className="liquid-glass pointer-events-auto relative flex h-full min-w-0 flex-col rounded-[28px]">
@@ -371,7 +372,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
         alt=""
         aria-hidden="true"
         draggable={false}
-        className="pointer-events-none absolute bottom-16 hidden select-none md:block"
+        className="pointer-events-none absolute bottom-6 hidden select-none md:block"
         style={{
           left: '100%',
           height: 'clamp(200px, 30vh, 280px)',
