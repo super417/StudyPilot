@@ -150,7 +150,7 @@ function ModelEffortMenu() {
         <div
           role="menu"
           aria-label="模型与思考强度"
-          className="absolute bottom-[calc(100%+8px)] left-0 z-30 w-[304px] max-w-[calc(100vw-32px)] rounded-2xl border border-[rgba(6,78,59,0.75)] bg-[#04150e] p-3 text-[#d1fae5] shadow-[0_18px_44px_rgba(0,0,0,0.45)]"
+          className="absolute bottom-[calc(100%+8px)] right-0 z-30 w-[304px] max-w-[calc(100vw-32px)] rounded-2xl border border-[rgba(6,78,59,0.75)] bg-[#04150e] p-3 text-[#d1fae5] shadow-[0_18px_44px_rgba(0,0,0,0.45)]"
         >
           <p className="px-1 text-[11px] font-medium uppercase tracking-[0.08em] text-[#6ee7b7]/70">
             Model

@@ -28,7 +28,7 @@ import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
-import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
+import { displayAssistantName, fetchBasicProfile, getBasicProfile } from '@/lib/profilePrefs';
 import ningning from '@/assets/chat-girl-idle.png';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
@@ -46,6 +46,15 @@ const PANEL_ABS_MAX_W = 1680;
 
 /** 与原总览页「开始今天的学习」同一句话，保证助手拿到的是同一条指令。 */
 const START_TODAY_PROMPT = '开始今天 60 分钟学习';
+
+/** 空会话时的问候语，按本机时间分档（对齐 LobeHub 首屏那句 Good afternoon）。 */
+function greetingWord(hour: number): string {
+  if (hour < 5) return '凌晨好';
+  if (hour < 11) return '早上好';
+  if (hour < 13) return '中午好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
 
 function panelMaxWidth(viewport = typeof window !== 'undefined' ? window.innerWidth : 1280): number {
   return Math.min(PANEL_ABS_MAX_W, Math.floor(viewport * PANEL_MAX_RATIO));
@@ -80,6 +89,8 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const input = useAssistantStore((s) => s.composerDraft);
   const setInput = useAssistantStore((s) => s.setComposerDraft);
   const showPlanForm = context?.type === 'plan';
+  /** 空会话不摆 CTA（首屏只留问候），生成中也不摆，避免连点。 */
+  const showStartCta = messages.length > 0 && !streaming;
   const contentKey = `${messages.length}:${messages[messages.length - 1]?.content.length ?? 0}`;
   const { listRef, onScroll, pinToBottom } = useStickToBottom(true, contentKey);
 
@@ -89,11 +100,21 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   const [assistantTitle, setAssistantTitle] = useState(() =>
     displayAssistantName(getBasicProfile().assistantName),
   );
+  const [nickname, setNickname] = useState(() => getBasicProfile().nickname);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   useEffect(() => {
     // 资料页改名后本地缓存已更新；全屏聊天挂载时同步标题（不另发 GET）。
-    setAssistantTitle(displayAssistantName(getBasicProfile().assistantName));
+    const profile = getBasicProfile();
+    setAssistantTitle(displayAssistantName(profile.assistantName));
+    setNickname(profile.nickname);
+    // 首次进站时缓存可能还没落盘（问候语会少个名字）：补一次带 dedupe 的拉取。
+    void fetchBasicProfile()
+      .then((next) => {
+        setAssistantTitle(displayAssistantName(next.assistantName));
+        setNickname(next.nickname);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -247,13 +268,17 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           className="min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto px-5 py-4"
         >
           {messages.length === 0 ? (
-            <p className="pt-10 text-center text-[13px] leading-relaxed text-brandDark/45">
-              问点学习相关的，或者说说你想怎么调整复习计划
-              <br />
-              <span className="mt-2 inline-block text-[12px]">
+            <div className="pt-3">
+              <h2 className="font-display text-[30px] font-semibold leading-tight text-brandDark">
+                {greetingWord(new Date().getHours())}
+                {nickname ? `，${nickname}` : ''}
+              </h2>
+              <p className="mt-2.5 max-w-[52ch] text-[13px] leading-relaxed text-brandDark/50">
+                问点学习相关的，或者说说你想怎么调整复习计划。
+                <br />
                 支持知识库摘录 · 规划 Agent · 引用溯源
-              </span>
-            </p>
+              </p>
+            </div>
           ) : null}
 
           {messages.map((m) => (
@@ -296,12 +321,12 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           }
         />
         {/*
-          输入条上沿的一排：左边「模型 · 思考强度」折叠入口，右边「开始今天学习」CTA。
-          输入条本身（深色胶囊）一个像素都不改，只跟着面板变宽。
+          「开始今天」CTA 单独一排（有消息才出现）。
+          模型 · 思考强度入口不在这儿了 —— 它挪进输入条下沿，和发送钮同一行，
+          对齐 LobeHub composer 的控制行。
         */}
-        <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-4 pb-2">
-          <ModelEffortMenu />
-          {messages.length > 0 && !streaming ? (
+        {showStartCta ? (
+          <div className="flex min-w-0 shrink-0 justify-end px-4 pb-2">
             <button
               type="button"
               onClick={() => {
@@ -312,10 +337,12 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
             >
               {START_TODAY_PROMPT}
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
         <div className="min-w-0 shrink-0 px-4 pb-4">
           <AssistantInput
+            variant="stacked"
+            controls={<ModelEffortMenu />}
             value={input}
             onChange={setInput}
             onSend={handleSend}
