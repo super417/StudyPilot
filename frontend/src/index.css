@@ -831,6 +831,86 @@ body {
   opacity: 0.5;
 }
 
+/* 输入条外壳：包住「附件胶囊 + 输入条」，菜单与胶囊共用同一个定位祖先 */
+.assistant-input-shell {
+  position: relative;
+  width: 100%;
+}
+
+/* 附件胶囊：上传中显示百分比、成功后显示「已入库」、失败显示原因 */
+.assistant-input-uploads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.assistant-input-upload-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 6px 5px 9px;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 185, 129, 0.38);
+  background: rgba(4, 21, 14, 0.88);
+  color: #a7f3d0;
+  font-size: 11.5px;
+  line-height: 1;
+}
+.assistant-input-upload-chip.is-error {
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+.assistant-input-upload-name {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-input-upload-meta {
+  flex-shrink: 0;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-input-upload-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.assistant-input-upload-x:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 一级菜单项：二级浮层的 hover 锚点 */
+.assistant-input-attach-group {
+  position: relative;
+}
+/* 二级浮层紧贴一级右侧（left:100% 无缝），鼠标移进去不会触发一级的 mouseleave */
+.assistant-input-attach-submenu {
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  z-index: 30;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.assistant-input-attach-submenu .assistant-input-attach-row {
+  white-space: nowrap;
+}
+
 /* Mainframe expand landing — scoped so StudyPilot chrome stays untouched */
 .mainframe-page {
   font-family: var(--font-body);
