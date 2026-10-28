@@ -52,6 +52,20 @@
 - **「进入我的总览」入口**：顶部导航与段落 CTA 统一滚到 `#overview-content`（`scrollToLearningOverview`），不切 Tab、不刷新页面；明信片内部的回退路径指向 `#learning-overview`。两处锚点都在，入口定位以内容区为准。
 - **返回顶部按钮**：`OverviewBackToTop` 挂在除演示首屏外的所有业务页（总览 / Roadmap / 习题本 / 数据统计 / 我的简历 / 个人中心 / 两个简历子页）。行为是**下滑隐藏、上滑显示、距顶 24px 内隐藏**；点击回到顶部并尊重 `prefers-reduced-motion`。个人中心是三栏独立滚动，点击时会同时把带 `data-back-to-top-scroll` 的内部滚动容器归零。
 
+### 明信片动画字标（2026-10-28）
+
+总览右上信件卡片的字标已从 `MAILERB` 更新为 `STUDYPIL`，后接原有小人偶（作为 O）和末尾 T。
+
+- 资源文件：`frontend/public/postcards/animation/mailerbot-heros.riv`。直接修改 Rive 矢量轮廓，无 CSS 遮罩、DOM 贴字或 canvas 覆盖。
+- 字母统一字高与基线，笔画在首版基础上加粗 25%，主要转角圆润化，并按实际字形宽度调整间距；小人偶（含眼睛）与末尾 T 整体纵向居中。
+- 保留原有对象、层级和引用；未增删对象，文件长度仍为 **1,186,524 字节**，对象数仍为 **15,022**。桌面 `built` 与移动端 `built_mobile` 共用修改后的卡片资源，原状态机及 `scroll` 绑定保留。
+- 已验证完整对象流可解析、对象与属性偏移不变；各轮字节差异仅位于授权的字标顶点/切线及两个居中用的组 Y 坐标。最终加粗轮次中，人偶和末尾 T 的字节及截图区域保持一致。
+- 已用 `@rive-app/canvas` 探针加载 `built`、`built_mobile`、`mailerbot-postcard`，均触发 `onLoad`，无 `onLoadError`，探针记录无 error/warn，并核对了改前、改后截图。完整滚动效果仍需在实际页面与参考录屏对照验收。
+
+本次资源 SHA-256：`b3adf7942745e221ad469c1c13ba22fed4165028496b19f3c19b24a6dcc6b484`。
+
+本地查看：启动前端，打开 `#/` 总览并强制刷新，滚动到右上信件卡片，检查拼写 `STUDYPIL` + 小人偶 + T、纵向对齐和随卡片运动的效果；再用移动端宽度复核。调试探针和备份不属于产品交付文件。
+
 ## API 配置与同步
 
 **唯一事实来源是个人中心**「API 调用与模型配置」，接口 `/api/api-config`（`GET / POST / PUT / PATCH / DELETE`，外加 `POST /api/api-config/models`）。
