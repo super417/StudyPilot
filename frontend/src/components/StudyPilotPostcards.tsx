@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import PostcardsRoute from './PostcardsRoute';
+import PricingPostcardStack from './overview/PricingPostcardStack';
 import 'lenis/dist/lenis.css';
 import './StudyPilotPostcards.css';
 
@@ -217,9 +218,9 @@ function StudyPilotPostcards() {
         </div>
       </section>
 
-      <section className="spp-ending" aria-labelledby="spp-ending-heading">
+      <section className="spp-ending spp-ending-pricing" aria-labelledby="spb-heading">
         <CardDeck className="spp-ending-deck spp-ending-deck-top" decorative /><CardDeck className="spp-ending-deck spp-ending-deck-bottom" decorative /><div className="spp-ending-scrim" aria-hidden="true" />
-        <div className="spp-ending-copy"><h2 id="spp-ending-heading">Ready to Automate<br />your direct mail?</h2><p>Start sending in minutes. No monthly fees, no minimums.</p><div><button className="spp-button spp-button-lime" type="button" onClick={() => goTo('learning-overview')}>CREATE FREE ACCOUNT <Arrow /></button><button className="spp-button spp-button-dark" type="button" onClick={() => goTo('learning-overview')}>TALK TO SALES</button></div></div>
+        <PricingPostcardStack />
       </section>
       <footer className="spp-footer"><div className="spp-container spp-footer-grid"><div><span className="spp-footer-logo">STUDYPILOT</span><h3>Automate your direct mail at scale.</h3><p>Create, personalize, and send postcards, letters, and invoices through a powerful API or intuitive dashboard.</p><small>© 2026 StudyPilot. All rights reserved.<br />Privacy Policy | Terms of Service | Cookie preferences</small></div><div className="spp-footer-links"><div><span>INDUSTRIES</span>{['Retail', 'Nonprofit', 'Home Services', 'Startups and Digital Nomads'].map((label) => <button type="button" key={label} onClick={() => goTo('learning-overview')}>{label}</button>)}</div><div><span>STUDYPILOT</span>{['Blog', 'API Docs', 'Integrations'].map((label) => <button type="button" key={label} onClick={() => goTo('learning-overview')}>{label}</button>)}</div><div className="spp-connect"><span>CONNECT</span><p>contact@mailerbot.com</p><div className="spp-socials"><span>in</span><span>𝕏</span><span>◎</span></div></div></div></div></footer>
     </section>
