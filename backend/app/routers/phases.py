@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.entities import Phase, Plan, User
 from app.routers.dependencies import get_current_user
-from app.services import planner_service, task_service
+from app.services import direction_service, planner_service, task_service
 from app.services.planner_service import PhaseNotFoundError
 from app.services.task_service import TaskNotFoundError
 
@@ -135,9 +135,7 @@ def phase_detail_route(
                     "weekLabel": task.week_label,
                     "estimatedMinutes": task.estimated_minutes,
                     "phaseId": str(task.phase_id),
-                    "resourceUrl": task.resource_url,
-                    "chapterTitle": task.chapter_title,
-                    "sectionTitle": task.section_title,
+                    **direction_service.task_resource_fields(task),
                 }
                 for task in tasks
             ],

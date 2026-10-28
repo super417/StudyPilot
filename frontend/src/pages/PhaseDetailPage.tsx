@@ -3,6 +3,7 @@
  * 左：勾选任务模块；右：所选任务的学习路线与课程资源，各自独立小卡片。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { isConcreteResourceUrl } from '@/lib/resourceLinks';
 import { ArrowLeft, BookOpen, ExternalLink, Map } from 'lucide-react';
 import { ApiError } from '@/lib/httpClient';
 import { fetchPhaseDetail, type PhaseDetailResponse } from '@/lib/phasesApi';
@@ -68,7 +69,7 @@ export function LearningModuleCard({
           <BookOpen className="h-4 w-4 text-emerald-600" aria-hidden="true" />
           课程资源
         </div>
-        {task.resourceUrl ? (
+        {isConcreteResourceUrl(task.resourceUrl) ? (
           <div>
             <a
               href={task.resourceUrl}

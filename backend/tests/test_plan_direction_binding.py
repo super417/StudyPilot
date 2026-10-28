@@ -264,24 +264,16 @@ class _DatabaseCase(unittest.IsolatedAsyncioTestCase):
     def _assert_links_follow_task_top_k(self, fields: dict) -> None:
         """Every written URL belongs to its own task's Top-K ∩ offered set."""
         offered = set(offered_course_ids(fields))
-        by_url = {
-            item["url"]: item["courseId"]
-            for item in planner_service._target_course_candidates(fields)
-        }
-        self.assertTrue(offered)
         for description, url in self._tasks().items():
             if url is None:
                 continue
-            self.assertIn(url, by_url, f"{description} 的链接不在本次候选里")
-            self.assertIn(
-                by_url[url],
-                task_top_k(description, fields),
-                f"{description} 的链接不在该任务 Top-K 里",
-            )
+            matches = direction_service.task_resource_candidates(description, fields.get("directionId"))
+            self.assertIn(url, [item["url"] for item in matches])
+
 
 
 class GenerateScopeTests(_DatabaseCase):
-    async def test_offered_candidate_outside_task_top_k_is_dropped(self) -> None:
+    async def test_wrong_course_is_replaced_by_task_match(self) -> None:
         fields = goal()
         self.assertIn("c-python", offered_course_ids(fields))
         self.assertNotIn("c-python", task_top_k(SQL_TASK, fields))
@@ -290,9 +282,9 @@ class GenerateScopeTests(_DatabaseCase):
             return structure([single_task(SQL_TASK, PY_URL)])
 
         await generate_plan(self.session, self.user.id, fields, [], generator)
-        self.assertIsNone(self._tasks()[SQL_TASK])
+        self.assertEqual(self._tasks()[SQL_TASK], SQL_URL)
 
-    async def test_task_top_k_course_outside_offered_set_is_dropped(self) -> None:
+    async def test_task_match_outside_goal_shortlist_is_kept(self) -> None:
         fields = goal()
         self.assertIn("c-sql", task_top_k(SQL_TASK, fields))
         self.assertNotIn("c-sql", offered_course_ids(fields))
@@ -301,16 +293,16 @@ class GenerateScopeTests(_DatabaseCase):
             return structure([single_task(SQL_TASK, SQL_URL)])
 
         await generate_plan(self.session, self.user.id, fields, [], generator)
-        self.assertIsNone(self._tasks()[SQL_TASK])
+        self.assertEqual(self._tasks()[SQL_TASK], SQL_URL)
 
-    async def test_catalogue_course_never_ranked_is_dropped(self) -> None:
+    async def test_catalogue_course_outside_goal_shortlist_is_kept(self) -> None:
         fields = goal()
 
         def generator(fields_, used_docs, context_text, instruction):
             return structure([single_task("Tableau 仪表盘发布练习", EXTRA_URL)])
 
         await generate_plan(self.session, self.user.id, fields, [], generator)
-        self.assertIsNone(self._tasks()["Tableau 仪表盘发布练习"])
+        self.assertEqual(self._tasks()["Tableau 仪表盘发布练习"], EXTRA_URL)
 
     async def test_matching_task_link_survives_and_every_link_is_in_top_k(self) -> None:
         fields = goal()
@@ -359,7 +351,7 @@ class GenerateScopeTests(_DatabaseCase):
                 ],
             )
         self.assertEqual(self._tasks()[PY_TASK], PY_CHAPTER_URL)
-        self.assertIsNone(self._tasks()["Python 函数定义练习"])
+        self.assertEqual(self._tasks()["Python 函数定义练习"], PY_CHAPTER_URL)
 
     async def test_task_api_exposes_matched_titles_and_empty_when_unmatched(self) -> None:
         fields = goal()
@@ -384,7 +376,7 @@ class GenerateScopeTests(_DatabaseCase):
         self.assertIsNone(by_description["占位任务 2"]["chapterTitle"])
         self.assertIsNone(by_description["占位任务 2"]["sectionTitle"])
 
-    async def test_rank_returning_empty_offers_nothing_and_writes_no_url(self) -> None:
+    async def test_empty_goal_ranking_does_not_hide_task_outline_match(self) -> None:
         fields = goal()
 
         def generator(fields_, used_docs, context_text, instruction):
@@ -400,13 +392,10 @@ class GenerateScopeTests(_DatabaseCase):
         self.assertEqual(result.phases, 2)
         tasks = self._tasks()
         self.assertIn(PY_TASK, tasks)
-        self.assertTrue(all(url is None for url in tasks.values()))
-        self.assertTrue(
-            all(
-                task.chapter_title is None and task.section_title is None
-                for task in self.session.scalars(select(DailyTask))
-            )
-        )
+        self.assertEqual(tasks[PY_TASK], PY_URL)
+        task = self.session.scalar(select(DailyTask).where(DailyTask.description == PY_TASK))
+        self.assertIsNotNone(task.chapter_title)
+        self.assertIsNotNone(task.section_title)
 
     async def test_model_message_lists_only_ranked_candidates(self) -> None:
         """With ranking empty the catalog message must vanish, not fall back."""
@@ -455,10 +444,10 @@ class GenerateScopeTests(_DatabaseCase):
             for url in (PY_URL, EXCEL_URL, SQL_URL, EXTRA_URL):
                 self.assertNotIn(url, message["content"])
 
-    async def test_no_direction_keeps_sanitize_only_behaviour(self) -> None:
+    async def test_no_direction_uses_task_catalog_evidence(self) -> None:
         fields = goal(directionId=None)
         self.assertEqual(planner_service._target_course_candidates(fields), [])
-        self.assertIsNone(planner_service._course_url_scope(fields, []))
+        self.assertIn(PY_URL, planner_service._course_url_scope(fields, [])(PY_TASK))
 
         def generator(fields_, used_docs, context_text, instruction):
             return structure(
@@ -470,7 +459,7 @@ class GenerateScopeTests(_DatabaseCase):
 
         await generate_plan(self.session, self.user.id, fields, [], generator)
         tasks = self._tasks()
-        self.assertEqual(tasks[PY_TASK], BILIBILI)
+        self.assertEqual(tasks[PY_TASK], PY_URL)
         self.assertIsNone(tasks["自造链接任务"])
         plan = self.session.scalar(select(Plan))
         self.assertIsNone(plan.direction_id)
@@ -492,7 +481,7 @@ class DirectionPersistenceTests(_DatabaseCase):
 
         plan = self.session.scalar(select(Plan).where(Plan.id == result.plan_id))
         self.assertEqual(plan.direction_id, DIRECTION)
-        self.assertIsNone(self._tasks()[SQL_TASK])
+        self.assertEqual(self._tasks()[SQL_TASK], SQL_URL)
 
     async def test_regenerate_keeps_direction_and_its_url_gate(self) -> None:
         def first(fields_, used_docs, context_text, instruction):
@@ -509,7 +498,7 @@ class DirectionPersistenceTests(_DatabaseCase):
         )
         plan = self.session.scalar(select(Plan).where(Plan.id == created.plan_id))
         self.assertEqual(plan.direction_id, DIRECTION)
-        self.assertIsNone(self._tasks()[SQL_TASK])
+        self.assertEqual(self._tasks()[SQL_TASK], SQL_URL)
 
     async def test_regenerate_applies_explicit_direction_override(self) -> None:
         def generator(fields_, used_docs, context_text, instruction):
@@ -564,7 +553,7 @@ class DirectionPersistenceTests(_DatabaseCase):
             self.session, self.user.id, plan.id, "换成 bilibili", None, [], generator
         )
         self.assertIsNone(self.session.scalar(select(Plan)).direction_id)
-        self.assertEqual(self._tasks()[PY_TASK], BILIBILI)
+        self.assertEqual(self._tasks()[PY_TASK], PY_URL)
 
 
 if __name__ == "__main__":

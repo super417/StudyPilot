@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.entities import DailyTask, User
 from app.routers.dependencies import get_current_user
-from app.services import checkin_service, metrics_service, task_service
+from app.services import checkin_service, direction_service, metrics_service, task_service
 from app.services.checkin_service import CheckInValidationError
 from app.services.task_service import NoPlanError, TaskNotFoundError, TaskStatusValidationError
 
@@ -86,9 +86,7 @@ def _task_result(task: DailyTask) -> dict:
         "description": task.description,
         "status": task.status,
         "dueCarried": task.status == "carried" or task.carried_from_id is not None,
-        "resourceUrl": task.resource_url,
-        "chapterTitle": task.chapter_title,
-        "sectionTitle": task.section_title,
+        **direction_service.task_resource_fields(task),
         "estimatedMinutes": task.estimated_minutes,
     }
 

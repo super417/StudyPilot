@@ -171,7 +171,7 @@ def _fragment_url(fragment: dict) -> str:
     chapter_url = resource_links.sanitize_resource_url(fragment.get("chapter_url"))
     if chapter_url:
         return chapter_url
-    return str(course.get("url") or "").strip()
+    return resource_links.sanitize_resource_url(course.get("url")) or ""
 
 
 def _chapter_label(fragment: dict) -> str | None:
@@ -180,6 +180,37 @@ def _chapter_label(fragment: dict) -> str | None:
     if title and isinstance(index, int) and not re.match(r"^第\s*[\d一二三四五六七八九十]+\s*章", title):
         return f"第 {index} 章 {title}"
     return title or None
+
+
+
+def _topic_terms(text: str) -> set[str]:
+    generic = r"学习|课程|基础|练习|完成|了解|掌握|理解|复习|入门|知识|内容|方法|^学"
+    return {term for term in retrieval.tokenize(re.sub(generic, " ", text)) if not term.isdigit()}
+
+
+def _task_topic(description: str) -> str:
+    # Match the knowledge topic, not trailing deliverables such as print/orders.
+    first = re.split(r"[，,。；;\n]", description, maxsplit=1)[0]
+    parts = re.split(r"[：:]", first, maxsplit=1)
+    topic = " ".join(parts) if re.search(r"[A-Za-z]", parts[0]) else parts[-1]
+    return re.sub(r"的区别|区别|以及|及其|与|和", " ", topic).strip()
+
+
+def _matches_topic(task_terms: set[str], course_terms: set[str], outline_terms: set[str]) -> bool:
+    specific_terms = task_terms - course_terms
+    if specific_terms:
+        latin = {term for term in specific_terms if term.isascii() and not term.isdigit()}
+        if latin and not latin.intersection(outline_terms):
+            return False
+        return len(specific_terms & outline_terms) / len(specific_terms) >= 0.5
+    return bool(task_terms & course_terms)
+
+
+def matches_task_outline(description: str, item: dict) -> bool:
+    """Conservative topic comparison with stored metadata, not a live check."""
+    outline = " ".join(str(item.get(key) or "") for key in ("chapterTitle", "sectionTitle", "section"))
+    return _matches_topic(_topic_terms(_task_topic(description)), _topic_terms(str(item.get("name") or "")), _topic_terms(outline))
+
 
 
 def rank_courses(
@@ -219,6 +250,8 @@ def rank_courses(
         course_id = fragment.get("course_id") or ""
         if not course_id or course_id in seen:
             continue
+        if not _fragment_url(fragment):
+            continue
         seen.add(course_id)
         course = fragment.get("course") or {}
         ranked.append(
@@ -237,6 +270,73 @@ def rank_courses(
             }
         )
     return ranked
+
+
+_resource_catalog: dict | None = None
+_resource_matches: dict[tuple[str, str | None], list[dict]] = {}
+_resource_index: list[tuple[dict, set[str], set[str], str]] = []
+
+
+def task_resource_candidates(description: str, direction_id: str | None = None) -> list[dict]:
+    """Search indexed public outlines by task, independent of goal shortlist."""
+    global _resource_catalog
+    courses_data = load_courses()
+    if courses_data is not _resource_catalog:
+        _resource_catalog = courses_data
+        _resource_matches.clear()
+        _resource_index.clear()
+        for direction in courses_data.get("directions") or []:
+            for fragment in _course_fragments(direction):
+                url = _fragment_url(fragment)
+                if not url:
+                    continue
+                course = fragment["course"]
+                item = {
+                    "url": url, "courseId": fragment["course_id"],
+                    "name": course.get("name", ""),
+                    "chapterTitle": _chapter_label(fragment),
+                    "sectionTitle": fragment.get("section") or None,
+                    "section": fragment.get("section") or None,
+                }
+                outline = " ".join(str(item.get(key) or "") for key in ("chapterTitle", "sectionTitle"))
+                _resource_index.append((item, _topic_terms(item["name"]), _topic_terms(outline), direction.get("id", "")))
+    cache_key = (description, direction_id)
+    if cache_key in _resource_matches:
+        return _resource_matches[cache_key]
+    terms = _topic_terms(_task_topic(description))
+    matches = []
+    for item, title_terms, outline_terms, current_id in _resource_index:
+        if _matches_topic(terms, title_terms, outline_terms):
+            score = len(terms & outline_terms) * 2 + len(terms & title_terms)
+            matches.append(({**item, "score": score}, current_id == direction_id))
+    matches.sort(key=lambda row: (-row[0]["score"], not row[1], row[0]["courseId"]))
+    result = []
+    seen = set()
+    for item, _ in matches:
+        if item["url"] not in seen:
+            seen.add(item["url"])
+            result.append(item)
+    if len(_resource_matches) >= 256:
+        _resource_matches.clear()
+    _resource_matches[cache_key] = result
+    return result
+
+
+def task_resource_fields(task: Any) -> dict:
+    """Enrich visible legacy tasks without changing stored rows or snapshots."""
+    stored = resource_links.sanitize_resource_url(task.resource_url)
+    if stored:
+        match = {}
+        if not task.chapter_title and not task.section_title:
+            match = next((item for item in task_resource_candidates(str(task.description or "")) if item["url"] == stored), {})
+        return {"resourceUrl": stored, "chapterTitle": task.chapter_title or match.get("chapterTitle"), "sectionTitle": task.section_title or match.get("sectionTitle")}
+    matches = task_resource_candidates(str(task.description or ""))
+    match = matches[0] if matches else {}
+    return {
+        "resourceUrl": match.get("url"),
+        "chapterTitle": match.get("chapterTitle"),
+        "sectionTitle": match.get("sectionTitle"),
+    }
 
 
 def parse_known(raw: str | None) -> list[str]:

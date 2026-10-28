@@ -332,7 +332,7 @@ class PlanCourseBindingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_desc["学财务 Python 基础"].resource_url, self.course_url)
         # Host-allow-listed but not a candidate: URL dropped, task kept.
         self.assertIn("练习数据清洗", by_desc)
-        self.assertIsNone(by_desc["练习数据清洗"].resource_url)
+        self.assertEqual(by_desc["练习数据清洗"].resource_url, self.course_url)
         urls = [task.resource_url for task in tasks if task.resource_url]
         self.assertIn(self.course_url, urls)
         for url in urls:

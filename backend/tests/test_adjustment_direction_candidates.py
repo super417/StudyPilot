@@ -420,7 +420,7 @@ class DirectionCandidateMessageTests(_PreviewCase):
 class PreviewUrlAndLabelTests(_PreviewCase):
     """4/5/6/7: URLs, direction persistence, and course labels."""
 
-    async def test_non_candidate_allow_listed_url_survives_preview_and_confirm(self) -> None:
+    async def test_non_candidate_url_without_title_evidence_is_omitted(self) -> None:
         offered = {item["url"] for item in self.candidates()}
         self.assertNotIn(BILIBILI, offered)
 
@@ -428,8 +428,8 @@ class PreviewUrlAndLabelTests(_PreviewCase):
             return structure(url=BILIBILI)
 
         preview = await self.preview(generator=generator)
-        self.assertEqual(
-            preview.proposal["phases"][0]["daily_tasks"][0]["resource_url"], BILIBILI
+        self.assertIsNone(
+            preview.proposal["phases"][0]["daily_tasks"][0]["resource_url"]
         )
         adjustment_service.confirm_adjustment(
             self.session,
@@ -440,7 +440,7 @@ class PreviewUrlAndLabelTests(_PreviewCase):
         )
         task = self.task_by_description("新安排P1D0")
         self.assertIsNotNone(task)
-        self.assertEqual(task.resource_url, BILIBILI)
+        self.assertIsNone(task.resource_url)
 
     async def test_direction_id_is_unchanged_by_preview_and_confirm(self) -> None:
         def generator(fields, used_docs, context_text, instruction):
@@ -505,7 +505,7 @@ class PreviewUrlAndLabelTests(_PreviewCase):
         self.assertIsNone(self.task_by_description("将来可替换"))
         rewritten = self.task_by_description("新安排P1D0")
         self.assertIsNotNone(rewritten)
-        self.assertEqual(rewritten.resource_url, course_url)
+        self.assertIsNone(rewritten.resource_url)  # Generic task has no topic evidence.
         self.assertIsNone(rewritten.chapter_title)
         self.assertIsNone(rewritten.section_title)
         for task in self.session.scalars(

@@ -1,19 +1,9 @@
-"""Host-whitelisted public study links for daily tasks.
-
-Product stance (see ``DEPLOY.md``): StudyPilot never invents addresses. A model
-may name real public platforms, but a URL it returns is only persisted when its
-host is on the curated allow-list below. Anything else is dropped while the task
-description survives — a task without a link is fine, a task pointing at a
-made-up page is not.
-
-The allow-list holds platform domains, not deep paths. A course page under
-``bilibili.com`` is accepted; ``bilibili.com.evil.example`` is not, because
-matching is on label boundaries only.
-"""
+"""Concrete public resource pages. Path validation does not prove page content."""
 
 from __future__ import annotations
 
-from urllib.parse import urlsplit
+import re
+from urllib.parse import unquote, urlsplit
 
 # Matches the ``daily_tasks.resource_url`` column width.
 URL_MAX = 500
@@ -65,9 +55,21 @@ def sanitize_resource_url(value: object) -> str | None:
     text = "" if value is None else str(value).strip()
     if not text or len(text) > URL_MAX or any(char.isspace() for char in text):
         return None
-    parts = urlsplit(text)
+    try:
+        parts = urlsplit(text)
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        return None
     if parts.scheme not in ("http", "https"):
         return None
-    if not is_allowed_host(parts.hostname or ""):
+    if not is_allowed_host(host) or parts.username or parts.password or port not in (None, 80, 443):
         return None
-    return text
+    path = unquote(parts.path)
+    if any(segment in (".", "..") for segment in path.split("/")) or "\\" in path:
+        return None
+    if host.lower().rstrip(".") == "bilibili.com" or host.lower().rstrip(".").endswith(".bilibili.com"):
+        concrete = re.fullmatch(r"/video/(?:BV[0-9A-Za-z]+|av[0-9]+)/?", path)
+    else:
+        concrete = re.fullmatch(r"/(?:video|course|courses|training|courseHome|learn|lecture|lesson)/[^/]+(?:/[^/]+)*/?", path)
+    return text if concrete else None

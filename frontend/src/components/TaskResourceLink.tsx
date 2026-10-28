@@ -1,14 +1,14 @@
 import { ExternalLink } from 'lucide-react';
 import type { DailyTask } from '@/mocks/types';
+import { isConcreteResourceUrl } from '@/lib/resourceLinks';
 
 /**
  * TaskResourceLink — 每日任务附带的公开学习链接。
  *
- * 链接由后端按域名白名单（`services/resource_links.py`）校验后才入库，
- * 所以这里只负责展示，不做二次判断；没有链接时整块不渲染。
+ * 后端校验新链接；此处也过滤旧任务中保存的平台首页。
  */
 function TaskResourceLink({ task }: { task: DailyTask }) {
-  if (!task.resourceUrl) return null;
+  if (!isConcreteResourceUrl(task.resourceUrl)) return null;
   const location = [task.chapterTitle?.trim(), task.sectionTitle?.trim()].filter(Boolean).join(' · ');
 
   return (

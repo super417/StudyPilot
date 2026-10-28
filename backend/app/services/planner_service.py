@@ -494,24 +494,23 @@ resource_url 是可选字段：只有确定是真实存在的公开平台地址�
 bilibili.com、icourse163.org、xuetangx.com、zhihuishu.com、chaoxing.com、open.163.com、
 coursera.org、zhihu.com、kaoyan.com、kaoyan365.cn、exam8.com、koolearn.com、chsi.com.cn、
 smartedu.cn、rymooc.com，
-或高校/科研机构域名（edu.cn、ac.cn、mit.edu）。不确定具体课程页时填平台首页；拿不准就省略该
+或高校/科研机构域名（edu.cn、ac.cn、mit.edu）。找不到具体资源页就留空、不给链接；拿不准就省略该
 字段或留空字符串——不要编造链接地址。后端会丢弃不在名单内的链接，编造没有收益。
 """
 
-# Two wordings for the same sentence. The strict one is the default and keeps
-# generation byte-identical. The soft one is only used by the adjustment preview,
-# where the shortlist is a hint rather than a closed set.
+# Generation and adjustment both require catalog evidence before persistence.
+# Adjustment keeps its advisory wording, but cannot bypass the concrete-page gate.
 _COURSE_LINKS_STRICT = (
     "若本次另有一条「平台课程库候选」消息，则 resource_url 只能从该消息给出的 url 中原样选择，"
     "不得填平台首页。"
 )
 _COURSE_LINKS_SOFT = (
     "若本次另有一条「平台课程库候选」消息，填写 resource_url 时优先从该消息给出的 url 中选择，"
-    "不要自造链接；也允许使用其他真实存在的公开平台地址。"
+    "不要自造链接；没有标题/目录匹配依据时留空，禁止填平台首页。"
 )
 _PLAN_SYSTEM_PROMPT_TAIL = """
 用户问「推荐课程 / 找资料 / 学习网站」时，在 description 里写清推荐的教材、课程名或平台名，
-resource_url 填对应平台地址即可，不要因为「没有上传资料」而拒绝规划。"""
+resource_url 只能填写已核对标题/目录与任务知识点匹配的具体课程或视频页，找不到具体资源页就留空，不要因为「没有上传资料」而拒绝规划。"""
 
 _PLAN_SYSTEM_PROMPT = (
     _PLAN_SYSTEM_PROMPT_HEAD + _COURSE_LINKS_STRICT + _PLAN_SYSTEM_PROMPT_TAIL
@@ -543,7 +542,7 @@ def _course_catalog_message(candidates: list[dict], *, soft: bool = False) -> st
     """Separate user message: platform courses, never mixed into retrieval text.
 
     ``soft`` is for the adjustment preview, where the shortlist is advice — a
-    link outside it is still allowed as long as it passes the host check.
+    returned links still require task-specific catalog title/outline evidence.
     """
     lines = [
         _COURSE_CATALOG_HEAD
@@ -565,15 +564,15 @@ def _resolve_task_resource_url(
 ) -> str | None:
     """Sanitize, then optionally require membership in this run's course set.
 
-    ``None`` means no direction was selected (sanitize-only). An empty mapping
-    means a direction was selected but the task query ranked no course — drop
-    every URL.
+    An empty mapping means no matching title/outline evidence: drop every URL.
+    ``None`` is reserved for internal callers that only validate page structure;
+    generation and adjustment always supply an evidence-scoped mapping.
     """
     url = resource_links.sanitize_resource_url(raw)
-    if url is None:
-        return None
-    if allowed_course_urls is not None and url not in allowed_course_urls:
-        return None
+    if allowed_course_urls is not None:
+        if url in allowed_course_urls:
+            return url
+        return next(iter(allowed_course_urls), None)
     return url
 
 
@@ -596,28 +595,15 @@ def _task_query(description: str, fields: dict[str, object]) -> str:
 
 def _course_url_scope(
     fields: dict[str, object], candidates: list[dict]
-) -> CourseUrlScope | None:
-    """Build the per-task URL gate for one generation run.
-
-    ``None`` when no direction was selected: links then only go through the host
-    check. Otherwise a task's URL must be both one of the courses offered to the
-    model and a hit of that task's own query — membership in ``courses.json``
-    alone is not enough. A direction whose ranking came back empty yields an
-    empty set, never ``None``.
-    """
+) -> CourseUrlScope:
+    """Resolve this task against catalog metadata, beyond the goal shortlist."""
     direction_id = _direction_id_from_fields(fields)
-    if not direction_id:
-        return None
-    offered = frozenset(item["url"] for item in candidates if item.get("url"))
 
     def allowed(description: str) -> dict[str, dict]:
-        ranked = direction_service.rank_courses(
-            direction_id, _task_query(description, fields)
-        )
         return {
             item["url"]: item
-            for item in ranked
-            if item.get("url") in offered
+            for item in direction_service.task_resource_candidates(description, direction_id)
+            if resource_links.sanitize_resource_url(item.get("url"))
         }
 
     return allowed
@@ -776,8 +762,8 @@ async def _generate_structure_via_ai_proxy(
     those links and nothing else from the catalogue. Unusable model output
     raises :class:`PlanGenerationError` — no silent skeleton substitute.
 
-    ``soft_course_links`` relaxes the two "only from this list" wordings for the
-    adjustment preview. Without candidates both prompts stay byte-identical to
+    ``soft_course_links`` uses advisory wording for adjustment previews; the
+    returned URLs still pass the same evidence gate. Without candidates prompts stay identical to
     the generation path.
 
     ``mastery_note`` is the adjustment preview's weekly mastery summary. ``None``

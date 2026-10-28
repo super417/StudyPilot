@@ -348,18 +348,21 @@ class MasteryAdjustmentPreviewTests(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(after, before)
 
-    async def test_url_rules_are_unchanged_by_the_note(self) -> None:
+    async def test_note_does_not_supply_missing_course_title_evidence(self) -> None:
         self._evidence(self.base_phase, "partial", error_tag="概念")
         allowed = "https://www.bilibili.com/video/BV1xx411c7mD"
-        preview, bodies = await self._preview(_model_structure(allowed))
+        structure = _model_structure(allowed)
+        for phase in structure["phases"]:
+            phase["daily_tasks"][0]["description"] = "外星晶体量子魔法"
+        preview, bodies = await self._preview(structure)
         kept = preview.proposal["phases"][0]["daily_tasks"][0]["resource_url"]
-        self.assertEqual(kept, allowed)
+        self.assertIsNone(kept)  # A model URL alone is not title/outline evidence.
         note = self._note(bodies[0])
         assert note is not None
         self.assertNotIn("bilibili", note)
 
         preview_off, _ = await self._preview(
-            _model_structure("https://example.com/not-allowed")
+            {**structure, "phases": [{**phase, "daily_tasks": [{**phase["daily_tasks"][0], "resource_url": "https://example.com/not-allowed"}]} for phase in structure["phases"]]}
         )
         dropped = preview_off.proposal["phases"][0]["daily_tasks"][0]["resource_url"]
         self.assertIsNone(dropped)

@@ -37,12 +37,10 @@ def _today():
 class ResourceLinkWhitelistTests(unittest.TestCase):
     def test_platform_hosts_and_subdomains_allowed(self) -> None:
         for url in (
-            "https://bilibili.com",
-            "https://www.bilibili.com",
+            "https://bilibili.com/video/BV1Ti421v7Ey/",
+            "https://www.bilibili.com/video/BV1n1SCBLE3a/",
             "https://www.icourse163.org/course/XIT-1002",
-            "https://yz.chsi.com.cn",
-            "https://www.tsinghua.edu.cn/yz/",
-            "http://kaoyan.com",
+            "https://www.tsinghua.edu.cn/course/math",
         ):
             with self.subTest(url=url):
                 self.assertEqual(resource_links.sanitize_resource_url(url), url)
@@ -186,7 +184,7 @@ def _goal_payload() -> dict:
 
 
 class ResourceLinkPersistenceTests(_DatabaseTestCase):
-    async def test_generate_keeps_allowed_link_and_drops_invented_one(self) -> None:
+    async def test_generate_drops_homepage_and_invented_link(self) -> None:
         self._add_verified_config()
 
         def generator(fields, used_docs, context_text, instruction):
@@ -196,12 +194,12 @@ class ResourceLinkPersistenceTests(_DatabaseTestCase):
 
         tasks = list(self.session.scalars(select(DailyTask)))
         by_description = {task.description: task.resource_url for task in tasks}
-        self.assertEqual(by_description["数学：极限与连续"], BILIBILI)
+        self.assertIsNone(by_description["数学：极限与连续"])
         # The untrustworthy host is dropped, the task itself survives.
         self.assertIsNone(by_description["数学：导数定义"])
         self.assertNotIn("made-up-course.example.com", str(list(by_description.values())))
 
-    async def test_missing_resource_url_stays_none(self) -> None:
+    async def test_missing_unmatched_resource_url_stays_none(self) -> None:
         self._add_verified_config()
 
         def generator(fields, used_docs, context_text, instruction):
@@ -241,7 +239,8 @@ class ResourceLinkPersistenceTests(_DatabaseTestCase):
             self.session, self.user.id, result.plan_id
         )
         self.assertEqual(len(revisions), 1)
-        self.assertIn('"resourceUrl": "https://www.bilibili.com"', revisions[0].snapshot)
+        self.assertIn('"resourceUrl": null', revisions[0].snapshot)
+        self.assertNotIn(BILIBILI, revisions[0].snapshot)
 
     async def test_carry_overdue_task_keeps_its_link(self) -> None:
         today = _today()
@@ -370,4 +369,36 @@ class ResourceLinkRouteTests(_DatabaseTestCase):
         self.assertEqual(response.status_code, 200, response.text)
         tasks = response.json()["tasks"]
         self.assertEqual(len(tasks), 1)
-        self.assertEqual(tasks[0]["resourceUrl"], BILIBILI)
+        self.assertIsNone(tasks[0]["resourceUrl"])
+        self.assertNotEqual(tasks[0]["resourceUrl"], BILIBILI)
+
+    def test_legacy_pandas_resources_enriched_in_daily_and_phase_api_without_write(self) -> None:
+        today = _today()
+        plan = Plan(user_id=self.user.id, goal_name="数据学习", start_date=today, goal_date=today + timedelta(days=20), current_level="入门", daily_minutes=60, total_phases=2)
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(plan_id=plan.id, phase_index=1, name="数据入门", start_date=today, end_date=today, is_current=True)
+        self.session.add(phase)
+        self.session.flush()
+        tasks = [DailyTask(plan_id=plan.id, phase_id=phase.id, task_date=today, week_label="W01", description=description, status="pending", resource_url=url) for description, url in [("Pandas 入门", None), ("学习 Series·DataFrame", "https://www.bilibili.com/")]]
+        self.session.add_all(tasks)
+        self.session.commit()
+        task_ids = [task.id for task in tasks]
+        for path in (f"/api/daily-tasks?date={today.isoformat()}", f"/api/phases/{phase.id}/detail", f"/api/phases/{phase.id}/tasks"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, response.text)
+            rows = response.json()["tasks"]
+            self.assertEqual(len(rows), 2)
+            for row in rows:
+                self.assertTrue(resource_links.sanitize_resource_url(row["resourceUrl"]))
+                self.assertTrue(row["chapterTitle"] or row["sectionTitle"])
+        self.session.expire_all()
+        self.assertIsNone(self.session.get(DailyTask, task_ids[0]).resource_url)
+        self.assertEqual(self.session.get(DailyTask, task_ids[1]).resource_url, "https://www.bilibili.com/")
+
+        other = User(username=f"res-other-{os.urandom(8).hex()}", password_hash="x" * 20)
+        self.session.add(other)
+        self.session.flush()
+        plan.user_id = other.id
+        self.session.commit()
+        self.assertEqual(self.client.get(f"/api/phases/{phase.id}/detail").status_code, 404)

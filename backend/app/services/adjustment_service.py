@@ -865,7 +865,7 @@ async def create_preview(
         chunks, query, render_prompt
     )
     # Same shortlist as the generation path, scoped by the saved direction. The
-    # preview only advises; URLs still pass the host check alone.
+    # preview also gates URLs against task-specific title/outline evidence.
     candidates = planner_service._target_course_candidates(fields)
     generator = planner_service._resolve_plan_generator(
         session,
@@ -882,6 +882,12 @@ async def create_preview(
     today = local_today()
     preview_goal = _preview_goal(fields, plan)
     apply_phases, date_note = _exact_apply_phases(phases_data, today, preview_goal)
+    resource_scope = planner_service._course_url_scope(fields, candidates)
+    for phase in apply_phases:
+        for task in phase.get("daily_tasks", []):
+            task["resource_url"] = planner_service._resolve_task_resource_url(
+                task.get("resource_url"), resource_scope(str(task.get("description") or ""))
+            )
     fingerprint = basis_fingerprint(session, plan)
     diff = _build_diff(session, plan, today, apply_phases)
     diff["planChanges"] = _plan_field_changes(plan, fields)
