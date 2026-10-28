@@ -1,3 +1,18 @@
+.practice-grading.card {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.48),
+    rgba(234, 248, 239, 0.24)
+  );
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  backdrop-filter: blur(18px) saturate(125%);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow:
+    0 12px 36px rgba(34, 83, 62, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(210, 235, 220, 0.22);
+}
+
 .practice-grading .radio-input {
   display: flex;
   height: 144px;
