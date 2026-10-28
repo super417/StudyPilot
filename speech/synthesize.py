@@ -12,6 +12,8 @@ async def synthesize():
     text = sys.stdin.buffer.read(4096).decode('utf-8').strip()
     if not text or len(text) > 300:
         raise ValueError('invalid speech text length')
+    streaming = '--stream' in sys.argv[1:]
+    emitted = False
     for attempt in range(3):
         try:
             audio = bytearray()
@@ -25,15 +27,20 @@ async def synthesize():
                         audio.extend(chunk['data'])
                         if len(audio) > 8 * 1024 * 1024:
                             raise RuntimeError('audio exceeds size limit')
+                        if streaming:
+                            sys.stdout.buffer.write(chunk['data'])
+                            sys.stdout.buffer.flush()
+                            emitted = True
             if not audio:
                 raise NoAudioReceived('empty speech audio')
-            sys.stdout.buffer.write(audio)
+            if not streaming:
+                sys.stdout.buffer.write(audio)
             return
         except (aiohttp.ClientError, OSError, EdgeTTSException):
-            if attempt == 2:
+            if emitted or attempt == 2:
                 raise
             await asyncio.sleep(0.25)
 
 
 if __name__ == '__main__':
-    asyncio.run(asyncio.wait_for(synthesize(), timeout=20))
+    asyncio.run(asyncio.wait_for(synthesize(), timeout=45))

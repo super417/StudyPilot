@@ -5,6 +5,8 @@ import {
   MoreHorizontal,
   RefreshCw,
   Volume2,
+  Loader2,
+  Square,
 } from 'lucide-react';
 import { AssistantMarkdown, stripAssistantMarkup } from '@/lib/assistantMarkdown';
 import { extractChatPractice } from '@/lib/chatPracticeExtract';
@@ -42,6 +44,8 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
   const removeMessage = useAssistantStore((s) => s.removeMessage);
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const [preparingSpeech, setPreparingSpeech] = useState(false);
+  const [speechStartupMs, setSpeechStartupMs] = useState<number | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const speechPlayback = useRef<SpeechPlayback | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -127,19 +131,26 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
     setSpeechError(null);
     if (speechPlayback.current?.blocked) {
       setSpeaking(true);
+      setPreparingSpeech(true);
       speechPlayback.current.retry();
       return;
     }
     if (speaking) {
       speechPlayback.current?.stop();
       setSpeaking(false);
+      setPreparingSpeech(false);
       return;
     }
     setSpeaking(true);
+    setPreparingSpeech(true);
+    setSpeechStartupMs(null);
+    // 仅读正文；下方资料来源来自 message.citations，不传给语音服务。
     speechPlayback.current = playAssistantSpeech(plainAssistant(message.content), {
-      onEnd: () => setSpeaking(false),
-      onError: (error) => { setSpeaking(false); setSpeechError(error.message); },
-      onBlocked: () => { setSpeaking(false); setSpeechError('请再点一下朗读按钮播放'); },
+      onPreparing: () => setPreparingSpeech(true),
+      onPlaying: (startupMs) => { setPreparingSpeech(false); setSpeechStartupMs(startupMs); },
+      onEnd: () => { setSpeaking(false); setPreparingSpeech(false); },
+      onError: (error) => { setSpeaking(false); setPreparingSpeech(false); setSpeechError(error.message); },
+      onBlocked: () => { setSpeaking(false); setPreparingSpeech(false); setSpeechError('请再点一下朗读按钮播放'); },
     });
   };
 
@@ -276,12 +287,14 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
           </button>
           <button
             type="button"
-            aria-label={speaking ? '停止朗读' : '朗读'}
-            title={speaking ? '停止朗读' : '朗读'}
+            aria-label={speaking ? (preparingSpeech ? '取消准备语音' : '停止朗读') : '朗读'}
+            title={speaking ? (preparingSpeech ? '正在准备语音，点击取消' : '停止朗读') : '朗读'}
             onClick={speak}
             className={`${iconBtn} ${speaking ? 'text-brand' : ''}`}
           >
-            <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {preparingSpeech ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+              : speaking ? <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
           </button>
           <button
             type="button"
@@ -329,6 +342,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
         </div>
       )}
       {speechError && <p role="status" className="mt-1 text-xs text-brandDark/60">{speechError}</p>}
+      {speaking && <p role="status" data-speech-start-ms={speechStartupMs ?? undefined} className="mt-1 text-xs text-brandDark/60">{preparingSpeech ? '正在准备语音…' : '正在朗读，点击方块停止'}</p>}
       {tip
         ? createPortal(
             <div

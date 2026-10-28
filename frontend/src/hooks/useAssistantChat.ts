@@ -16,6 +16,8 @@ import { isPauseRequest } from '@/lib/pauseRequest';
 import { resolvePlanTargetId } from '@/lib/planTarget';
 import { ApiError } from '@/lib/httpClient';
 import { useAuthStore } from '@/store/authStore';
+import { stripAssistantMarkup } from '@/lib/assistantMarkdown';
+import { prewarmAssistantSpeech } from '@/lib/assistantSpeech';
 
 function replyError(err: unknown, fallback: string, pushAssistant: (text: string) => void) {
   if (err instanceof ApiError && (err.status === 401 || err.code === 'UNAUTHENTICATED')) {
@@ -275,6 +277,7 @@ export function useAssistantChat(acceptQueued = true) {
         let sawToken = false;
         let sawError = false;
         let completed = false;
+        let replyBody = '';
         try {
           await streamAssistantChat(
             text,
@@ -294,6 +297,7 @@ export function useAssistantChat(acceptQueued = true) {
               onToken: (delta) => {
                 if (ac.signal.aborted || abortReasonRef.current === 'pause') return;
                 sawToken = true;
+                replyBody += delta;
                 appendStreamChunk(delta);
               },
               onError: (code, message) => {
@@ -329,7 +333,10 @@ export function useAssistantChat(acceptQueued = true) {
         } finally {
           if (abortRef.current === ac) {
             stopStreaming();
-            if (completed && !ac.signal.aborted) markReplyCompleted();
+            if (completed && !ac.signal.aborted) {
+              markReplyCompleted();
+              void prewarmAssistantSpeech(stripAssistantMarkup(replyBody));
+            }
           }
         }
       })();
