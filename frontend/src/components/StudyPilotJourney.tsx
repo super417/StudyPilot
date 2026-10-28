@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import './StudyPilotJourney.css';
+import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
 const assetRoot = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/';
 const images = {
@@ -203,10 +204,13 @@ function StudyPilotJourney() {
     };
   }, []);
 
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({
+  const scrollTo = (id: string) => {
+    if (id === 'overview-content') return scrollToLearningOverview();
+    document.getElementById(id)?.scrollIntoView({
     behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
     block: 'start',
-  });
+    });
+  };
 
   return (
     <div ref={rootRef} id="study-journey" className="spj-root">

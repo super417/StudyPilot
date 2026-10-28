@@ -26,7 +26,6 @@ const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 const MainframePage = lazy(() => import('@/pages/MainframePage'));
 const StudyPilotHero = lazy(() => import('@/components/StudyPilotHero'));
 const StudyPilotJourney = lazy(() => import('@/components/StudyPilotJourney'));
-const StudyPilotPostcards = lazy(() => import('@/components/StudyPilotPostcards'));
 const PersonalWebsiteResume = lazy(() => import('@/pages/PersonalWebsiteResume'));
 
 const PAGE_FALLBACK = (
@@ -227,10 +226,7 @@ function App() {
                     <StudyPilotHero onNavigate={changeTab} overlap={heroOverlap} />
                     <StudyPilotJourney />
                     <div id="overview-content" className="spj-overview-bridge scroll-mt-6">
-                      <StudyPilotPostcards />
-                      <div id="learning-overview" className="scroll-mt-6 pt-16">
-                        <OverviewPage onNavigate={changeTab} />
-                      </div>
+                      <OverviewPage onNavigate={changeTab} />
                     </div>
                   </>
                 ) : activeTab === 'weekly' ? (

@@ -1,0 +1,49 @@
+.spp-dialog { box-sizing: border-box; width: min(640px, calc(100vw - 40px)); max-height: 85dvh; margin: auto; padding: 28px; overflow: auto; border: 1px solid #000; border-radius: 0; background: #fffefc; color: #000; box-shadow: 12px -10px #000; font: 16px/1.55 Arial, 'Microsoft YaHei', sans-serif; }
+.spp-dialog::backdrop { background: #0006; backdrop-filter: blur(5px); }
+.spp-dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 20px; }
+.spp-dialog h2 { margin: 0; font-size: 24px; line-height: 1.3; }
+.spp-dialog-heading > button { flex: none; width: 34px; height: 34px; border: 1px dashed #000; background: #ece7e0; font-size: 25px; cursor: pointer; }
+.spp-dialog p { margin: 12px 0; }
+.spp-dialog button:focus-visible, .spp-dialog input:focus-visible { outline: 2px solid #7554a3; outline-offset: 3px; }
+.spp-dialog .spp-button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; margin: 8px 8px 4px 0; padding: 11px 18px; border: 1px dashed #000; border-radius: 0; background: #ece7e0; color: #000; box-shadow: 5px 6px #00000024; white-space: normal; font: 14px/1.4 Arial, 'Microsoft YaHei', sans-serif; cursor: pointer; }
+.spp-dialog .spp-button-lime { background: #e9ffa3; }
+.spp-dialog .spp-button:hover { transform: translate(3px, 3px); box-shadow: 2px 3px #00000024; }
+.spp-dialog .spp-dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.spp-dialog fieldset { min-width: 0; margin: 22px 0; padding: 0; border: 0; }
+.spp-dialog legend { margin-bottom: 10px; font-weight: 700; }
+.spp-dialog .spp-time-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.spp-dialog .spp-time-options button { padding: 8px 12px; border: 1px dashed #000; background: #ece7e0; cursor: pointer; }
+.spp-dialog .spp-time-options button[aria-pressed=true] { background: #e9ffa3; box-shadow: 3px 3px #0003; }
+.spp-dialog .spp-custom-time { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.spp-dialog .spp-custom-time input { width: 84px; padding: 6px 10px; border: 1px solid #000; background: #fff; }
+.spp-dialog .spp-task-choice { display: flex; align-items: flex-start; gap: 12px; padding: 12px; margin: 8px 0; border: 1px solid #dad1c5; background: #fffefc; cursor: pointer; overflow-wrap: anywhere; }
+.spp-dialog .spp-task-choice input { flex: none; width: 18px; height: 18px; margin-top: 3px; accent-color: #7753b2; }
+.spp-dialog .spp-daily-task-list { box-sizing: border-box; height: 200px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; scroll-snap-type: y mandatory; scroll-padding-top: 2px; padding: 2px 4px; }
+.spp-dialog .spp-daily-task-list .spp-task-choice { box-sizing: border-box; height: 60px; margin: 0 0 8px; align-items: center; min-width: 0; scroll-snap-align: start; }
+.spp-dialog .spp-daily-task-list input { margin-top: 0; }
+.spp-dialog .spp-daily-task-text { min-width: 0; flex: 1; }
+.spp-dialog .spp-daily-task-summary { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spp-dialog .spp-daily-task-text small { display: block; color: #626262; font-size: 11px; line-height: 1.4; }
+.spp-dialog .spp-daily-task-list:focus-visible { outline: 2px solid #7554a3; outline-offset: 2px; }
+.spp-dialog .spp-muted { color: #626262; font-size: 14px; }
+.spp-dialog [role=alert] { color: #a12626; }
+.spp-dialog button:disabled { cursor: default; opacity: .5; }
+.spp-dialog .spp-detail-list { padding-left: 22px; }
+.spp-dialog .spp-detail-list li { margin: 14px 0; }
+.spp-dialog .spp-feedback-form { display: grid; gap: 18px; margin-top: 22px; }
+.spp-dialog .spp-feedback-form label { display: grid; gap: 7px; }
+.spp-dialog .spp-feedback-form input, .spp-dialog .spp-feedback-form select, .spp-dialog .spp-feedback-form textarea { width: 100%; padding: 8px; border: 1px solid #dad1c5; background: #fff; color: #000; font: inherit; }
+.spp-dialog .spp-message { padding: 10px 12px; border-left: 3px solid #7554a3; background: #ece7e0; }
+@media (max-width: 767px) { .spp-dialog { padding: 20px; box-shadow: 7px -6px #000; } .spp-dialog h2 { font-size: 21px; } }
+.spp-daily-start-dialog { max-height: calc(100dvh - 32px); padding: 20px; overflow: hidden; }
+.spp-daily-start-dialog[open] { display: flex; flex-direction: column; }
+.spp-daily-start-dialog > * { flex-shrink: 0; }
+.spp-daily-start-dialog > form { display: flex; flex-direction: column; min-height: 0; flex-shrink: 1; }
+.spp-daily-start-dialog fieldset { margin: 12px 0; flex-shrink: 0; }
+.spp-daily-start-dialog .spp-daily-task-fieldset { display: flex; flex-direction: column; flex-shrink: 1; min-height: 0; }
+.spp-daily-start-dialog .spp-daily-task-list { flex-shrink: 0; }
+.spp-daily-start-dialog form > p, .spp-daily-start-dialog .spp-dialog-actions { flex-shrink: 0; }
+.spp-daily-start-dialog .spp-dialog-actions { margin-top: 12px; }
+.spp-daily-start-dialog .spp-daily-task-fieldset { margin: 12px 0; }
+.spp-daily-start-dialog .spp-daily-task-fieldset h3 { flex-shrink: 0; margin: 0 0 10px; font-size: 16px; font-weight: 700; }
+.spp-daily-start-dialog .spp-daily-task-fieldset > p { flex-shrink: 0; }

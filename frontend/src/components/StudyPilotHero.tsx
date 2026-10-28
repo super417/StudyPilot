@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TabKey } from '@/components/TabNav';
 import './StudyPilotHero.css';
+import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
 const SKY_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260912_111243_26a0a351-0bff-4c24-9872-14c77a2726f6.mp4';
 const PROJECTOR = 'https://soft-zoom-63098134.figma.site/_assets/v11/83aecec75c5d8511dbb24e3a6369d7380e3f2278.png';
@@ -117,12 +118,7 @@ function StudyPilotHero({ onNavigate, overlap }: StudyPilotHeroProps) {
     };
   }, [motionEnabled]);
 
-  const goToOverview = () => {
-    document.getElementById('overview-content')?.scrollIntoView({
-      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-      block: 'start',
-    });
-  };
+  const goToOverview = scrollToLearningOverview;
   const goToJourney = () => {
     document.getElementById('study-journey')?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',

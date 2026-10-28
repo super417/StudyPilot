@@ -38,9 +38,14 @@ import {
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
+import StudyPilotPostcards from '@/components/StudyPilotPostcards';
+import DailyStartDialog from '@/components/overview/DailyStartDialog';
+import OverviewDetailsDialog from '@/components/overview/OverviewDetailsDialog';
+import type { OverviewAction, PostcardsOverview } from '@/lib/postcardsOverview';
 
 export interface OverviewPageProps {
   onNavigate?: (tab: TabKey) => void;
+  presentation?: 'legacy' | 'postcards';
 }
 
 /** 无 Plan GET 时，用 metrics 拼展示用规划卡（不伪造 AI 内容）。 */
@@ -60,7 +65,7 @@ function planFromMetrics(metrics: Metrics, today: string): Plan | null {
   };
 }
 
-function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
+function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPageProps = {}) {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
@@ -80,6 +85,9 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [checkInMsg, setCheckInMsg] = useState<string | null>(null);
   const [addingToday, setAddingToday] = useState(false);
+  const [unavailable, setUnavailable] = useState<string[]>([]);
+  const [dialog, setDialog] = useState<'goal' | 'tasks' | 'checkin' | 'mastery' | 'weekly' | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -87,16 +95,18 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
     try {
       const [metricsRes, tasksRes, weeklyRes, mistakesRes, latestPlan] = await Promise.all([
         fetchOverviewMetrics(today),
-        fetchDailyTasks(today).catch(() => ({ status: 'ok', tasks: [] as DailyTask[] })),
+        fetchDailyTasks(today).catch(() => ({ status: 'ok', tasks: [] as DailyTask[], unavailable: true })),
         fetchLatestWeeklyReview().catch(() => ({
           status: 'ok',
           review: null,
           empty: true,
+          unavailable: true,
         })),
         listMistakes().catch(() => ({
           status: 'ok',
           pendingCount: 0,
           dueCount: 0,
+          unavailable: true,
           mistakes: [] as Array<{
             id: string;
             question: string;
@@ -115,6 +125,11 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
       ]);
 
       const nextMetrics = toMetrics(metricsRes);
+      setUnavailable([
+        ...('unavailable' in tasksRes ? ['tasks'] : []),
+        ...('unavailable' in weeklyRes ? ['review'] : []),
+        ...('unavailable' in mistakesRes ? ['mistakes'] : []),
+      ]);
       setMetrics(nextMetrics);
       setTodayTasks(tasksRes.tasks ?? []);
       setReview(
@@ -158,6 +173,9 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
       setError(e instanceof ApiError ? e.message : '指标加载失败，请稍后重试');
       setMetrics(null);
       setPlan(null);
+      setTodayTasks([]);
+      setReview(null);
+      setUnavailable(['tasks', 'review', 'mistakes']);
     } finally {
       setLoading(false);
     }
@@ -189,6 +207,7 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
       if (plan.id !== 'derived-latest') setActivePlanId(plan.id);
       setPendingAdjustment(preview);
       openAssistantWithContext({ type: 'free', hint: '查看补救预览' });
+      setDialog(null);
       setCheckInMsg('已生成补救预览，确认前不会改正式计划');
     } catch (e) {
       setCheckInMsg(e instanceof ApiError ? e.message : '没有可安排的待补任务');
@@ -249,6 +268,30 @@ function OverviewPage({ onNavigate }: OverviewPageProps = {}) {
     [metrics, review, todayTasks],
   );
   const weekLabel = isoWeekLabel();
+
+  const overview: PostcardsOverview = { ready: !loading, error, plan, metrics, tasks: todayTasks, review, insights, pendingMistakeCount, dueMistakeCount, unavailable };
+  const handleAction = (action: OverviewAction) => {
+    setCheckInMsg(null);
+    if (action === 'start') { setDialog(null); setStarting(true); }
+    else if (action === 'plan') { setDialog(null); openAssistantWithContext({ type: 'plan', hint: '制定学习规划' }); }
+    else if (action === 'goal' || action === 'tasks' || action === 'checkin' || action === 'mastery') setDialog(action);
+    else if (action === 'backlog') { setDialog('weekly'); void handleArrangeBacklog(); }
+    else {
+      setDialog(null);
+      if (action === 'mistakes' && dueMistakeCount > 0) requestMistakeFilter('due');
+      go(action === 'weekly' ? 'weekly' : action === 'mistakes' ? 'mistakes' : action === 'profile' ? 'profile' : 'roadmap');
+    }
+  };
+
+  if (presentation === 'postcards') return <div id="learning-overview" ref={pageRef}>
+    <StudyPilotPostcards overview={overview} onAction={handleAction} />
+    {starting && <DailyStartDialog defaultMinutes={Math.min(plan?.dailyMinutes || 30, 30)} onClose={() => setStarting(false)} onConfirm={(prompt) => {
+      setStarting(false);
+      openAssistantWithContext({ type: 'free', hint: prompt });
+      useAssistantStore.getState().queuePrompt(prompt);
+    }} />}
+    {dialog && <OverviewDetailsDialog key={dialog} mode={dialog} data={overview} message={checkInMsg} addingToday={addingToday} onClose={() => setDialog(null)} onAction={handleAction} onToggleTask={handleToggleTask} onAddToday={handleAddToday} onCheckIn={handleCheckIn} />}
+  </div>;
 
   return (
     <motion.div ref={pageRef} style={{ backgroundColor }} className="rounded-[40px]">
