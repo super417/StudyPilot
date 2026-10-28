@@ -48,8 +48,37 @@ function MistakeBookPage() {
   const [recognizing, setRecognizing] = useState(false);
   const [board, setBoard] = useState<'practice' | 'mistakes'>('mistakes');
   const [gradingControlsTarget, setGradingControlsTarget] = useState<HTMLDivElement | null>(null);
+  const practiceNavRef = useRef<HTMLElement>(null);
+  const [sidebarSticky, setSidebarSticky] = useState<'group' | 'card' | 'none'>('none');
   const [practiceTab, setPracticeTab] = useState<'today' | 'review'>('today');
   const [mistakeFilter, setMistakeFilter] = useState<QueueFilter | 'today'>('all');
+
+  useEffect(() => {
+    const nav = practiceNavRef.current;
+    const card = gradingControlsTarget?.firstElementChild;
+    if (board !== 'practice' || practiceTab !== 'today' || !nav || !card) {
+      setSidebarSticky('none');
+      return;
+    }
+    const measure = () => {
+      // Leave 24px above and below; short viewports retain normal document flow.
+      const available = window.innerHeight - 48;
+      const cardHeight = card.getBoundingClientRect().height + 16;
+      const groupHeight = nav.getBoundingClientRect().height + 16 + cardHeight;
+      setSidebarSticky(window.innerWidth < 1024 ? 'none'
+        : groupHeight <= available ? 'group'
+        : cardHeight <= available ? 'card' : 'none');
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    observer.observe(card);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [board, practiceTab, gradingControlsTarget]);
 
   const [cameraOpen, setCameraOpen] = useState(false);
   const captureInputRef = useRef<HTMLInputElement>(null);
@@ -480,8 +509,8 @@ function MistakeBookPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <nav className="card mb-4 space-y-3 p-4" aria-label="习题本分区">
+        <div className={`lg:col-span-1 ${sidebarSticky === 'group' ? 'lg:sticky lg:top-6 lg:self-start' : ''}`}>
+          <nav ref={practiceNavRef} className="card mb-4 space-y-3 p-4" aria-label="习题本分区">
             <div>
               <button type="button" className={`pressable-card rounded-lg px-2 py-1 text-sm font-semibold ${board === 'practice' ? 'text-brand' : 'text-brandDark'}`} onClick={() => setBoard('practice')}>
                 习题
@@ -518,7 +547,7 @@ function MistakeBookPage() {
               </div>
             </div>
           </nav>
-          <div ref={setGradingControlsTarget} />
+          <div ref={setGradingControlsTarget} className={sidebarSticky === 'card' ? 'lg:sticky lg:top-6' : undefined} />
           {board === 'mistakes' ? (
             loading ? (
               <section className="card p-6 text-sm text-gray-400">加载错题队列…</section>
