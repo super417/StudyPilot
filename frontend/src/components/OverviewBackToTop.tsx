@@ -5,8 +5,13 @@ function OverviewBackToTop() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const update = () => setVisible(window.scrollY > 24);
-    update();
+    let previousY = Math.max(0, window.scrollY);
+    const update = () => {
+      const currentY = Math.max(0, window.scrollY);
+      if (currentY <= 24) setVisible(false);
+      else if (currentY !== previousY) setVisible(currentY < previousY);
+      previousY = currentY;
+    };
     window.addEventListener('scroll', update, { passive: true });
     return () => window.removeEventListener('scroll', update);
   }, []);
