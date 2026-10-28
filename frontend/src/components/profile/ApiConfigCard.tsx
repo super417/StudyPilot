@@ -22,6 +22,10 @@ import {
   type StrengthId,
 } from '@/lib/modelPrefs';
 import { isValidBaseUrl, normalizeClientBaseUrl } from '@/lib/baseUrl';
+import {
+  clearResumeAiConfig,
+  syncResumeAiConfigFromPersonal,
+} from '@/lib/resumeAiConfigBridge';
 
 export interface ApiConfigCardProps {
   onToast: (message: string) => void;
@@ -171,12 +175,14 @@ function ApiConfigCard({ onToast }: ApiConfigCardProps) {
         }
         setEditingKey(false);
         setConn(cfg.isVerified ? 'success' : 'configured');
+        syncResumeAiConfigFromPersonal(cfg);
         void fetchModels({ preferStored: true });
       })
       .catch((error) => {
         if (!active) return;
         if (error instanceof ApiConfigApiError && error.code === 'NO_API_CONFIG') {
           setConn('unconfigured');
+          clearResumeAiConfig();
         } else {
           setConn('unconfigured');
           setFeedback({ kind: 'err', text: messageForError(error) });
@@ -227,6 +233,7 @@ function ApiConfigCard({ onToast }: ApiConfigCardProps) {
     setShowKey(false);
     setEditingKey(false);
     setConn('success');
+    syncResumeAiConfigFromPersonal(cfg);
     void fetchModels({ preferStored: true });
   };
 
@@ -315,6 +322,7 @@ function ApiConfigCard({ onToast }: ApiConfigCardProps) {
         setModelsError(null);
         setEditingKey(true);
         setConn('unconfigured');
+        clearResumeAiConfig();
         setFeedback({ kind: 'ok', text: '配置已清除' });
         onToast('配置已清除');
       })
@@ -364,190 +372,4 @@ function ApiConfigCard({ onToast }: ApiConfigCardProps) {
 
   return (
     <CardShell
-      title="API 调用与模型配置"
-      icon={<KeyRound size={17} aria-hidden="true" />}
-      action={statusBadge()}
-      hoverable={false}
-      className="border-2 border-brandFaint"
-    >
-      {conn === 'loading' ? (
-        <div className="h-24 animate-pulse rounded-2xl bg-brandFaint/60" aria-label="读取配置中" />
-      ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="space-y-4">
-            {conn === 'unconfigured' ? (
-              <p className="rounded-2xl bg-bg px-4 py-3 text-sm text-gray-500">
-                尚未配置调用凭据。填写 API Key 与 Base URL 后，右侧将自动加载该 API 可用的模型列表。DeepSeek 官方 Base URL 请填 https://api.deepseek.com（不要填 platform.deepseek.com 控制台地址）。
-              </p>
-            ) : null}
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-brandDark">API Key</label>
-              {existing && !editingKey ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex-1 truncate rounded-full bg-bg px-3.5 py-2.5 font-mono text-sm text-gray-500">
-                    {existing.apiKeyMasked}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingKey(true);
-                      setApiKey('');
-                    }}
-                    className="rounded-full bg-bg px-3 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint"
-                  >
-                    编辑
-                  </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    autoComplete="off"
-                    spellCheck={false}
-                    className="w-full rounded-full border border-brandFaint bg-white px-3.5 py-2.5 pr-10 font-mono text-sm text-brandDark outline-none transition focus:border-brand"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    aria-label={showKey ? '隐藏 API Key' : '显示 API Key'}
-                    className="absolute inset-y-0 right-3 flex items-center text-gray-400 transition hover:text-brandDark"
-                  >
-                    {showKey ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-                  </button>
-                </div>
-              )}
-              {existing && editingKey ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingKey(false);
-                    setApiKey('');
-                    setShowKey(false);
-                    void fetchModels({ preferStored: true });
-                  }}
-                  className="mt-1 text-xs text-gray-400 transition hover:text-brandDark"
-                >
-                  取消编辑，保留原密钥
-                </button>
-              ) : null}
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-brandDark">Base URL</label>
-              <input
-                type="url"
-                value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
-                onBlur={() => {
-                  const corrected = normalizeClientBaseUrl(baseUrl);
-                  if (corrected && corrected !== baseUrl.trim()) {
-                    setBaseUrl(corrected);
-                    onToast(`已自动纠正为 API 地址：${corrected}`);
-                  }
-                }}
-                placeholder="https://api.deepseek.com"
-                className="w-full rounded-full border border-brandFaint bg-white px-3.5 py-2.5 text-sm text-brandDark outline-none transition focus:border-brand"
-              />
-              {/platform\.deepseek\.com/i.test(baseUrl) ? (
-                <p role="alert" className="mt-1.5 text-xs text-dangerText">
-                  这是控制台网页地址，不能用来调 API。请改为 https://api.deepseek.com（失焦或保存时会自动纠正）。
-                </p>
-              ) : !baseUrl.trim() ? (
-                <p className="mt-1.5 text-xs text-gray-400">
-                  DeepSeek 官方 API：https://api.deepseek.com（不要填 platform.deepseek.com）
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleTest}
-                className="flex items-center gap-1.5 rounded-full bg-bg px-3.5 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint disabled:opacity-50"
-              >
-                <PlugZap size={15} aria-hidden="true" />
-                测试连接
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleSave}
-                className="flex items-center gap-1.5 rounded-full bg-brandDark px-3.5 py-2 text-sm font-medium text-white transition hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] disabled:opacity-50"
-              >
-                <Save size={15} aria-hidden="true" />
-                {existing ? '更新' : '保存'}
-              </button>
-              {existing ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={handleDelete}
-                  className="flex items-center gap-1.5 rounded-full bg-danger px-3.5 py-2 text-sm font-medium text-dangerText transition hover:brightness-95 disabled:opacity-50"
-                >
-                  <Trash2 size={15} aria-hidden="true" />
-                  清除
-                </button>
-              ) : null}
-            </div>
-
-            {busy ? <p className="text-sm text-gray-400">处理中…</p> : null}
-            {feedback ? (
-              <p
-                role={feedback.kind === 'err' ? 'alert' : 'status'}
-                className={`flex items-center gap-1.5 text-sm ${
-                  feedback.kind === 'ok' ? 'text-brand' : 'text-dangerText'
-                }`}
-              >
-                {feedback.kind === 'ok' ? (
-                  <CheckCircle2 size={15} aria-hidden="true" />
-                ) : (
-                  <XCircle size={15} aria-hidden="true" />
-                )}
-                {feedback.text}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-5 lg:border-l lg:border-brandFaint lg:pl-6">
-            <div className="space-y-2">
-              <ModelSelect
-                value={model || modelType}
-                options={modelOptions}
-                onChange={handleModelChange}
-                loading={modelsLoading}
-                error={modelsError}
-                emptyHint={
-                  editingKey
-                    ? '请先填写 API Key 与 Base URL，将自动加载可用模型'
-                    : '点击下方刷新以加载可用模型'
-                }
-              />
-              <button
-                type="button"
-                disabled={modelsLoading || busy}
-                onClick={handleRefreshModels}
-                className="flex items-center gap-1.5 text-xs font-medium text-brandDark transition hover:text-brand disabled:opacity-50"
-              >
-                <RefreshCw size={12} className={modelsLoading ? 'animate-spin' : ''} aria-hidden="true" />
-                刷新模型列表
-              </button>
-            </div>
-            <StrengthSlider value={strength} onChange={handleStrengthChange} />
-            {!existing ? (
-              <p className="text-xs text-gray-400">
-                填写 API 后可在此选择模型；推理强度会作用于助手对话与规划生成。
-              </p>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </CardShell>
-  );
-}
-
-export default ApiConfigCard;
+      title=API

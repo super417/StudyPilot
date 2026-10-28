@@ -25,6 +25,7 @@ import AssistantInput from '@/components/chat/AssistantInput';
 import AssistantMessage from '@/components/chat/AssistantMessage';
 import ModelEffortMenu from '@/components/chat/ModelEffortMenu';
 import UserMessage from '@/components/chat/UserMessage';
+import DailyStartDialog from '@/components/overview/DailyStartDialog';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
@@ -45,9 +46,6 @@ const PANEL_DEFAULT_RATIO = 0.55;
 const PANEL_MAX_RATIO = 0.85;
 /** 超宽屏别把面板拉到荒唐的宽度，留一点上限。 */
 const PANEL_ABS_MAX_W = 1680;
-
-/** 与原总览页「开始今天的学习」同一句话，保证助手拿到的是同一条指令。 */
-const START_TODAY_PROMPT = '开始今天 60 分钟学习';
 
 /** 空会话时的问候语，按本机时间分档（对齐 LobeHub 首屏那句 Good afternoon）。 */
 function greetingWord(hour: number): string {
@@ -79,6 +77,7 @@ export interface ChatPanelProps {
 }
 
 function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
+  const [startingToday, setStartingToday] = useState(false);
   const context = useAssistantStore((s) => s.context);
   const messages = useAssistantStore(selectActiveMessages);
   const setContext = useAssistantStore((s) => s.setContext);
@@ -334,13 +333,10 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
               showStartCta ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    pinToBottom();
-                    send(START_TODAY_PROMPT);
-                  }}
+                  onClick={() => setStartingToday(true)}
                   className="assistant-input-cta"
                 >
-                  {START_TODAY_PROMPT}
+                  开始今天的学习
                 </button>
               ) : null
             }
@@ -360,6 +356,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           />
         </div>
       </div>
+      {startingToday && <DailyStartDialog onClose={() => setStartingToday(false)} onConfirm={(prompt) => { setStartingToday(false); pinToBottom(); send(prompt); }} />}
     </motion.aside>
   );
 }

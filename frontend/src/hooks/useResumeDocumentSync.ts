@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ApiConfigApiError, getApiConfig } from '@/lib/apiConfigApi';
+import {
+  clearResumeAiConfig,
+  syncResumeAiConfigFromPersonal,
+} from '@/lib/resumeAiConfigBridge';
 import { fetchResumeDocument, saveResumeDocument } from '@/lib/resumeDocumentApi';
 import { mergeResumePayloads, RESUME_STORAGE_KEY } from '@/lib/resumeStorage';
 
@@ -23,11 +28,26 @@ function writeLocal(payload: string): void {
   }
 }
 
+/** 进入简历页时把个人中心 API 状态投影到简历侧 ai-config-storage（须在 iframe 挂载前完成）。 */
+async function syncPersonalAiIntoResumeStorage(): Promise<void> {
+  try {
+    const cfg = await getApiConfig();
+    syncResumeAiConfigFromPersonal(cfg);
+  } catch (error) {
+    if (error instanceof ApiConfigApiError && error.code === 'NO_API_CONFIG') {
+      clearResumeAiConfig();
+      return;
+    }
+    // 网络/鉴权失败时不盲目清空，避免短暂离线把本地已同步配置冲掉。
+  }
+}
+
 /**
  * 把内嵌简历编辑器（同源 iframe，数据存在 localStorage）与账号侧快照对齐。
  *
  * 时序很关键：先把云端快照合并进 localStorage，再挂载 iframe，
  * 否则编辑器会用旧数据覆盖掉刚合并的结果。
+ * AI 配置同理：个人中心投影必须在 iframe 读取 ai-config-storage 之前完成。
  */
 export function useResumeDocumentSync() {
   const [ready, setReady] = useState(false);
@@ -58,6 +78,8 @@ export function useResumeDocumentSync() {
     let cancelled = false;
     void (async () => {
       try {
+        await syncPersonalAiIntoResumeStorage();
+        if (cancelled) return;
         const remote = await fetchResumeDocument();
         if (cancelled) return;
         const local = readLocal();

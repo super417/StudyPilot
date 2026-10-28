@@ -19,6 +19,7 @@ from app.routers.practice import router as practice_router
 from app.routers.profile import router as profile_router
 from app.routers.resume import router as resume_router
 from app.routers.resume_documents import router as resume_documents_router
+from app.routers.resume_ai import router as resume_ai_router
 from app.routers.statistics import router as statistics_router
 from app.routers.study import router as study_router
 from app.routers.speech import router as speech_router
@@ -31,6 +32,7 @@ app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(resume_router)
 app.include_router(resume_documents_router)
+app.include_router(resume_ai_router)
 app.include_router(api_config_router)
 app.include_router(documents_router)
 app.include_router(materials_router)
