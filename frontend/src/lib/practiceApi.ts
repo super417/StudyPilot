@@ -16,6 +16,7 @@ export interface PracticeQuestion {
   answer: string;
   explanation: string;
   status: 'pending' | 'correct' | 'wrong';
+  latestGrade?: { answerText: string; result: 'correct' | 'partial' | 'wrong'; reason: string | null } | null;
   createdAt: string;
   sourceTaskId?: string | null;
   sourceMistakeId?: string | null;

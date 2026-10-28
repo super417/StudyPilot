@@ -115,14 +115,32 @@ def list_practice(session: Session, user_id: uuid.UUID, day: date) -> dict:
             .order_by(PracticeQuestion.created_at)
         )
     )
+    latest = {}
+    if rows:
+        evidence_rows = session.scalars(
+            select(MasteryEvidence)
+            .where(
+                MasteryEvidence.user_id == user_id,
+                MasteryEvidence.question_id.in_([row.id for row in rows]),
+                MasteryEvidence.evidence_type == "quiz",
+            )
+            .order_by(MasteryEvidence.created_at.desc(), MasteryEvidence.id.desc())
+        )
+        for evidence in evidence_rows:
+            latest.setdefault(evidence.question_id, {
+                "answerText": evidence.answer_text or "",
+                "result": evidence.result,
+                "reason": evidence.grade_reason,
+            })
     questions = []
     review = []
     for row in rows:
         created = row.created_at.astimezone(timezone.utc).date() if row.created_at.tzinfo else row.created_at.date()
+        item = {**_question_json(row), "latestGrade": latest.get(row.id)}
         if created == day:
-            questions.append(_question_json(row))
+            questions.append(item)
         elif row.status == "pending" and created < day:
-            review.append(_question_json(row))
+            review.append(item)
     return {"questions": questions, "review": review}
 
 

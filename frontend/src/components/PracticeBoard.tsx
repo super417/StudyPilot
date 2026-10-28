@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import CameraCapture from '@/components/CameraCapture';
 import { ApiError } from '@/lib/httpClient';
 import { recognizeQuestionImage } from '@/lib/mistakesApi';
@@ -7,7 +7,6 @@ import {
   deletePractice,
   explainPractice,
   generatePractice,
-  gradePractice,
   listPractice,
   setPracticeStatus,
   type ExplanationReview,
@@ -15,6 +14,7 @@ import {
   type PracticeSourceRef,
 } from '@/lib/practiceApi';
 import { practiceDayISO } from '@/lib/dates';
+import { gradePracticeBatch } from '@/lib/practiceBatch';
 
 export interface PracticeBoardProps {
   tab: 'today' | 'review';
@@ -58,13 +58,30 @@ function PracticeCard({
   item,
   onChanged,
   onWrong,
+  answerText,
+  onAnswer,
+  gradeNote,
+  onGrade,
+  locked,
+  onBusy,
+  selecting,
+  selected,
+  onSelect,
 }: {
   item: PracticeQuestion;
   onChanged: () => void;
   onWrong: () => void;
+  answerText: string;
+  onAnswer: (value: string) => void;
+  gradeNote?: string;
+  onGrade: () => void;
+  locked: boolean;
+  onBusy: (value: boolean) => void;
+  selecting: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const [showAnswer, setShowAnswer] = useState(false);
-  const [answerText, setAnswerText] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [explainOpen, setExplainOpen] = useState(false);
@@ -73,28 +90,8 @@ function PracticeCard({
   const [explainReview, setExplainReview] = useState<ExplanationReview | null>(null);
   const [explainCounted, setExplainCounted] = useState(false);
 
-  const grade = async () => {
-    if (busy) return;
-    if (!answerText.trim()) {
-      setNote('请先写下你的作答');
-      return;
-    }
-    setBusy(true);
-    setNote(null);
-    try {
-      const body = await gradePractice(item.id, answerText.trim());
-      const verdict = body.result === 'correct' ? '答对' : body.result === 'partial' ? '部分正确' : '答错';
-      setNote(`${verdict}。${body.reason ?? ''}`);
-      onChanged();
-    } catch (err) {
-      setNote(err instanceof ApiError ? err.message : '判分失败，没有写入掌握度证据');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const explain = async () => {
-    if (busy) return;
+    if (busy || locked) return;
     if (!explainText.trim()) {
       setExplainNote('请先写下你的口述');
       setExplainReview(null);
@@ -102,6 +99,7 @@ function PracticeCard({
       return;
     }
     setBusy(true);
+    onBusy(true);
     setExplainNote(null);
     setExplainReview(null);
     setExplainCounted(false);
@@ -121,12 +119,14 @@ function PracticeCard({
       setExplainNote(err instanceof ApiError ? err.message : '口述评分失败，没有写入掌握度证据');
     } finally {
       setBusy(false);
+      onBusy(false);
     }
   };
 
   const mark = async (status: 'wrong') => {
-    if (busy) return;
+    if (busy || locked) return;
     setBusy(true);
+    onBusy(true);
     setNote(null);
     try {
       await setPracticeStatus(item.id, status);
@@ -139,6 +139,7 @@ function PracticeCard({
       setNote(err instanceof ApiError ? err.message : '标记失败');
     } finally {
       setBusy(false);
+      onBusy(false);
     }
   };
 
@@ -146,107 +147,111 @@ function PracticeCard({
 
   return (
     <article className="pressable-card rounded-3xl bg-card p-4 text-brandDark">
-      <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.question}</p>
-      {showAnswer ? (
-        <>
-          <div className="mt-3 rounded-2xl bg-brandFaint px-3 py-2 text-sm">
-            <p>答案：{item.answer || '（无）'}</p>
-            {item.explanation ? (
-              <p className="mt-1 text-gray-600">解析：{item.explanation}</p>
+      {selecting ? <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={selected} disabled={locked} onChange={onSelect} />选择此题</label> : null}
+      <fieldset disabled={locked || busy} className="min-w-0">
+        <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.question}</p>
+        {showAnswer ? (
+          <>
+            <div className="mt-3 rounded-2xl bg-brandFaint px-3 py-2 text-sm">
+              <p>答案：{item.answer || '（无）'}</p>
+              {item.explanation ? (
+                <p className="mt-1 text-gray-600">解析：{item.explanation}</p>
+              ) : null}
+            </div>
+            {showSources ? (
+              <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                {item.sourceRefs!.map((ref) => (
+                  <li key={`${ref.docId}-${ref.chunkIndex}`}>
+                    <details>
+                      <summary className="cursor-pointer text-slate-600 underline decoration-slate-400 underline-offset-2">
+                        {sourceRefSummary(ref)}
+                      </summary>
+                      <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-600">
+                        {ref.snippet}
+                      </pre>
+                    </details>
+                  </li>
+                ))}
+              </ul>
             ) : null}
-          </div>
-          {showSources ? (
-            <ul className="mt-2 space-y-1 text-xs text-slate-500">
-              {item.sourceRefs!.map((ref) => (
-                <li key={`${ref.docId}-${ref.chunkIndex}`}>
-                  <details>
-                    <summary className="cursor-pointer text-slate-600 underline decoration-slate-400 underline-offset-2">
-                      {sourceRefSummary(ref)}
-                    </summary>
-                    <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-3 font-mono text-xs text-slate-600">
-                      {ref.snippet}
-                    </pre>
-                  </details>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </>
-      ) : null}
-      <label className="mt-3 block text-xs text-gray-500">
-        我的作答
-        <textarea
-          value={answerText}
-          onChange={(event) => setAnswerText(event.target.value)}
-          rows={3}
-          className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
-        />
-      </label>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" className="rounded-full bg-white px-3 py-1 text-xs ring-1 ring-brand/30" onClick={() => setShowAnswer((v) => !v)}>
-          {showAnswer ? '隐藏答案' : '显示答案'}
-        </button>
-        <button type="button" disabled={busy} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void grade()}>
-          提交判分
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          className="rounded-full bg-white px-3 py-1 text-xs text-brandDark ring-1 ring-brand/30 disabled:opacity-60"
-          onClick={() => {
-            setExplainOpen((v) => !v);
-            setExplainNote(null);
-            setExplainReview(null);
-            setExplainCounted(false);
-          }}
-        >
-          讲给 AI 听
-        </button>
-        <button type="button" disabled={busy} className="rounded-full bg-brandDark px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void mark('wrong')}>
-          做错了
-        </button>
-        <button
-          type="button"
-          className="rounded-full px-3 py-1 text-xs text-dangerText"
-          onClick={() => void deletePractice(item.id).then(onChanged).catch(() => setNote('删除失败'))}
-        >
-          删除
-        </button>
-      </div>
-      {note ? <p className="mt-2 text-xs text-brandDark">{note}</p> : null}
-      {explainOpen ? (
-        <div className="mt-3 rounded-2xl bg-brandFaint/60 px-3 py-3">
-          <label className="block text-xs text-gray-500">
-            用文字讲一遍（不做语音）
-            <textarea
-              value={explainText}
-              onChange={(event) => setExplainText(event.target.value)}
-              rows={4}
-              className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
-            />
-          </label>
+          </>
+        ) : null}
+        <label className="mt-3 block text-xs text-gray-500">
+          我的作答
+          <textarea
+            value={answerText}
+            onChange={(event) => onAnswer(event.target.value)}
+            rows={3}
+            className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
+          />
+        </label>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" className="rounded-full bg-white px-3 py-1 text-xs ring-1 ring-brand/30" onClick={() => setShowAnswer((v) => !v)}>
+            {showAnswer ? '隐藏答案' : '显示答案'}
+          </button>
+          <button type="button" disabled={busy || (!!item.latestGrade && answerText.trim() === item.latestGrade.answerText.trim())} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => { if (!answerText.trim()) { setNote('请先写下你的作答'); return; } setNote(null); onGrade(); }}>
+            {item.latestGrade ? '重新判分' : '提交判分'}
+          </button>
           <button
             type="button"
             disabled={busy}
-            className="mt-2 rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60"
-            onClick={() => void explain()}
+            className="rounded-full bg-white px-3 py-1 text-xs text-brandDark ring-1 ring-brand/30 disabled:opacity-60"
+            onClick={() => {
+              setExplainOpen((v) => !v);
+              setExplainNote(null);
+              setExplainReview(null);
+              setExplainCounted(false);
+            }}
           >
-            提交口述
+            讲给 AI 听
           </button>
-          {explainNote ? <p className="mt-2 text-xs text-brandDark">{explainNote}</p> : null}
-          {explainReview ? (
-            <div className="mt-1">
-              <ReviewList title="讲对了什么" items={explainReview.covered} />
-              <ReviewList title="漏了什么" items={explainReview.missing} />
-              <ReviewList title="错在哪" items={explainReview.wrong} />
-            </div>
-          ) : null}
-          {explainCounted ? (
-            <p className="mt-2 text-xs text-slate-600">已计入掌握度证据</p>
-          ) : null}
+          <button type="button" disabled={busy} className="rounded-full bg-brandDark px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => void mark('wrong')}>
+            做错了
+          </button>
+          <button
+            type="button"
+            className="rounded-full px-3 py-1 text-xs text-dangerText"
+            onClick={() => { onBusy(true); void deletePractice(item.id).then(onChanged).catch(() => setNote('删除失败')).finally(() => onBusy(false)); }}
+          >
+            删除
+          </button>
         </div>
-      ) : null}
+        {gradeNote ? <p className="mt-2 text-xs text-brandDark" role="status">{gradeNote}</p> : null}
+        {note ? <p className="mt-2 text-xs text-brandDark">{note}</p> : null}
+        {explainOpen ? (
+          <div className="mt-3 rounded-2xl bg-brandFaint/60 px-3 py-3">
+            <label className="block text-xs text-gray-500">
+              用文字讲一遍（不做语音）
+              <textarea
+                value={explainText}
+                onChange={(event) => setExplainText(event.target.value)}
+                rows={4}
+                className="mt-1 w-full rounded-2xl bg-white px-3 py-2 text-sm text-brandDark ring-1 ring-brand/20"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={busy}
+              className="mt-2 rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60"
+              onClick={() => void explain()}
+            >
+              提交口述
+            </button>
+            {explainNote ? <p className="mt-2 text-xs text-brandDark">{explainNote}</p> : null}
+            {explainReview ? (
+              <div className="mt-1">
+                <ReviewList title="讲对了什么" items={explainReview.covered} />
+                <ReviewList title="漏了什么" items={explainReview.missing} />
+                <ReviewList title="错在哪" items={explainReview.wrong} />
+              </div>
+            ) : null}
+            {explainCounted ? (
+              <p className="mt-2 text-xs text-slate-600">已计入掌握度证据</p>
+            ) : null}
+          </div>
+        ) : null}
+      </fieldset>
     </article>
   );
 }
@@ -261,6 +266,20 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
   const [busy, setBusy] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
 
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [failed, setFailed] = useState<string[]>([]);
+  const [grading, setGrading] = useState(false);
+  const operation = useRef(false);
+  const [cardBusy, setCardBusy] = useState(false);
+  const lockCard = (value: boolean) => {
+    operation.current = value;
+    setCardBusy(value);
+  };
+  const locked = busy || grading || cardBusy;
+
   const reload = useCallback(async () => {
     const res = await listPractice(practiceDay);
     setQuestions(res.questions);
@@ -274,6 +293,8 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
   }, [reload]);
 
   const generate = async () => {
+    if (operation.current) return;
+    operation.current = true;
     setBusy(true);
     setMessage(null);
     try {
@@ -287,13 +308,15 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
     } catch (err) {
       setMessage(err instanceof ApiError ? err.message : '生成失败');
     } finally {
+      operation.current = false;
       setBusy(false);
     }
   };
 
   const uploadText = async (text: string) => {
     const question = text.trim();
-    if (!question) return;
+    if (!question || operation.current) return;
+    operation.current = true;
     setBusy(true);
     setMessage(null);
     try {
@@ -304,14 +327,49 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
     } catch (err) {
       setMessage(err instanceof ApiError ? err.message : '上传失败');
     } finally {
+      operation.current = false;
       setBusy(false);
     }
   };
 
+  const gradeQuestions = async (ids: string[]) => {
+    if (operation.current || busy || cameraOpen) return;
+    operation.current = true;
+    setGrading(true);
+    const source = [...questions, ...review];
+    try {
+      const summary = await gradePracticeBatch(source, ids, answers, {
+        progress: (done, total) => setMessage(`正在判分：${done} / ${total}`),
+        success: (item, answer, body) => {
+          const latestGrade = { answerText: answer, result: body.result, reason: body.reason };
+          const update = (rows: PracticeQuestion[]) => rows.map((row) => (
+            row.id === item.id ? { ...row, latestGrade } : row
+          ));
+          setQuestions(update);
+          setReview(update);
+          const verdict = body.result === 'correct' ? '答对' : body.result === 'partial' ? '部分正确' : '答错';
+          setNotes((prev) => ({ ...prev, [item.id]: `${verdict}。${body.reason ?? ''}` }));
+        },
+        failure: (item, err) => setNotes((prev) => ({
+          ...prev,
+          [item.id]: err instanceof ApiError ? err.message : '判分失败，请重试',
+        })),
+      });
+      setFailed((previous) => [...previous.filter((id) => !ids.includes(id)), ...summary.failed]);
+      setMessage(`判分完成 ${summary.total} / ${summary.total}：成功 ${summary.success} 题，失败 ${summary.failed.length} 题；跳过未作答 ${summary.blank} 题、已判分且未修改 ${summary.unchanged} 题。`);
+    } finally {
+      operation.current = false;
+      setGrading(false);
+    }
+  };
+
   const rows = tab === 'today' ? questions : review;
+  const selectedIds = selected.filter((id) => questions.some((item) => item.id === id));
+  const failedIds = failed.filter((id) => questions.some((item) => item.id === id));
 
   return (
     <section className="space-y-4">
+      <fieldset disabled={locked} className="min-w-0 space-y-4">
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy} onClick={() => void generate()} className="rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60">
           {busy ? '处理中…' : '生成今日练习'}
@@ -337,10 +395,73 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
           上传
         </button>
       </form>
-      {message ? <p className="text-sm text-brandDark">{message}</p> : null}
+      </fieldset>
+      {message ? <p role="status" aria-live="polite" className="text-sm text-brandDark">{message}</p> : null}
+      {tab === 'today' && rows.length > 0 ? (
+        <div className="rounded-2xl bg-brandFaint/60 p-3 text-brandDark">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={locked || cameraOpen}
+              onClick={() => void gradeQuestions(questions.map((q) => q.id))}
+              className="rounded-full bg-brand px-4 py-2 text-sm text-white disabled:opacity-60"
+            >
+              全部判分
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => {
+                setSelecting(!selecting);
+                setSelected([]);
+              }}
+              className="rounded-full bg-white px-4 py-2 text-sm disabled:opacity-60"
+            >
+              {selecting ? '退出选择' : '选择题目'}
+            </button>
+            {selecting ? (
+              <button
+                type="button"
+                disabled={locked || !selectedIds.length}
+                onClick={() => void gradeQuestions(selectedIds)}
+                className="rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60"
+              >
+                判分所选（{selectedIds.length}）
+              </button>
+            ) : null}
+            {failedIds.length ? (
+              <button
+                type="button"
+                disabled={locked || cameraOpen}
+                onClick={() => void gradeQuestions(failedIds)}
+                className="rounded-full bg-white px-4 py-2 text-sm disabled:opacity-60"
+              >
+                重试失败题（{failedIds.length}）
+              </button>
+            ) : null}
+          </div>
+          <p className="mt-2 text-xs">
+            仅判分已作答且尚未判分或答案已修改的题目，空白题不会算错。
+          </p>
+        </div>
+      ) : null}
       {rows.length === 0 ? <p className="text-sm text-gray-500">{tab === 'today' ? '今天还没有练习题' : '没有待复习的练习题'}</p> : null}
       {rows.map((item) => (
-        <PracticeCard key={item.id} item={item} onChanged={() => void reload()} onWrong={onWrong} />
+        <PracticeCard
+          key={item.id}
+          item={item}
+          onChanged={() => void reload().catch(() => setMessage('同步失败，请刷新重试'))}
+          onWrong={onWrong}
+          answerText={answers[item.id] ?? item.latestGrade?.answerText ?? ''}
+          onAnswer={(value) => setAnswers((prev) => ({ ...prev, [item.id]: value }))}
+          gradeNote={notes[item.id] ?? (item.latestGrade ? `已判分：${item.latestGrade.result === 'correct' ? '答对' : item.latestGrade.result === 'partial' ? '部分正确' : '答错'}。${item.latestGrade.reason ?? ''}` : undefined)}
+          onGrade={() => void gradeQuestions([item.id])}
+          locked={locked || cameraOpen}
+          onBusy={lockCard}
+          selecting={tab === 'today' && selecting}
+          selected={selected.includes(item.id)}
+          onSelect={() => setSelected((prev) => prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id])}
+        />
       ))}
       {cameraOpen ? (
         <CameraCapture
