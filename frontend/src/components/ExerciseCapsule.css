@@ -1,5 +1,7 @@
 /* Shared only by the named exercise-book navigation and creation actions. */
 .exercise-capsule {
+  --exercise-glow: #10b981;
+  --exercise-glow-rgb: 16 185 129;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -7,9 +9,14 @@
   isolation: isolate;
   border-radius: 9999px;
   transition:
-    transform 180ms ease,
-    box-shadow 240ms ease,
-    text-shadow 240ms ease;
+    transform 0.5s ease,
+    box-shadow 0.5s ease,
+    text-shadow 0.5s ease;
+}
+
+.exercise-capsule.bg-brandDark {
+  --exercise-glow: #064e3b;
+  --exercise-glow-rgb: 6 78 59;
 }
 
 .exercise-capsule::before,
@@ -23,11 +30,12 @@
 }
 
 .exercise-capsule::before {
-  border: 1px solid currentColor;
+  outline: 0.1em solid transparent;
+  outline-offset: 0.2em;
 }
 
 .exercise-capsule::after {
-  background: currentColor;
+  box-shadow: 0 0 1em 0 var(--exercise-glow);
   z-index: -1;
 }
 
@@ -43,31 +51,36 @@
 
 @media (hover: hover) and (pointer: fine) {
   .exercise-capsule:not(:disabled):not([aria-disabled='true']):hover {
-    box-shadow: 0 0 14px rgba(58, 144, 101, 0.22);
-    text-shadow: 0 1px 4px rgba(46, 111, 79, 0.24);
+    box-shadow: 0 0 1em 0 var(--exercise-glow);
+    text-shadow: 0.14em 0.14em 0.14em rgb(var(--exercise-glow-rgb) / 0.4);
   }
 
   .exercise-capsule:not(:disabled):not([aria-disabled='true']):hover::before {
-    animation: exercise-capsule-ripple 1800ms ease-out infinite;
+    opacity: 1;
+    animation: exercise-capsule-ripple 1s linear infinite;
   }
 
   .exercise-capsule:not(:disabled):not([aria-disabled='true']):hover::after {
-    animation: exercise-capsule-breathe 2200ms ease-in-out infinite;
+    animation: exercise-capsule-breathe 1s ease-in-out infinite;
   }
 
   .exercise-capsule:not(:disabled):not([aria-disabled='true']):hover > svg {
-    filter: drop-shadow(0 1px 2px rgba(46, 111, 79, 0.3));
+    filter: drop-shadow(0.14em 0.14em 0.14em rgb(var(--exercise-glow-rgb) / 0.4));
   }
 }
 
 @keyframes exercise-capsule-ripple {
   0% {
-    transform: scale(1);
-    opacity: 0.3;
+    outline: 0 solid transparent;
+    outline-offset: -0.1em;
+  }
+  50% {
+    outline: 0.2em solid rgb(var(--exercise-glow-rgb) / 0.25);
+    outline-offset: 0.2em;
   }
   100% {
-    transform: scale(1.08, 1.16);
-    opacity: 0;
+    outline: 0.4em solid transparent;
+    outline-offset: 0.4em;
   }
 }
 
@@ -77,7 +90,7 @@
     opacity: 0;
   }
   50% {
-    opacity: 0.07;
+    opacity: 0.35;
   }
 }
 
@@ -91,5 +104,6 @@
   .exercise-capsule::before,
   .exercise-capsule::after {
     animation: none !important;
+    opacity: 0 !important;
   }
 }
