@@ -55,23 +55,23 @@ function MistakeBookPage() {
 
   useEffect(() => {
     const nav = practiceNavRef.current;
-    const card = gradingControlsTarget?.firstElementChild;
-    if (board !== 'practice' || practiceTab !== 'today' || !nav || !card) {
+    const card = practiceTab === 'today' ? gradingControlsTarget?.firstElementChild : null;
+    if (board !== 'practice' || !nav || (practiceTab === 'today' && !card)) {
       setSidebarSticky('none');
       return;
     }
     const measure = () => {
       // Leave 24px above and below; short viewports retain normal document flow.
       const available = window.innerHeight - 48;
-      const cardHeight = card.getBoundingClientRect().height + 16;
+      const cardHeight = card ? card.getBoundingClientRect().height + 16 : 0;
       const groupHeight = nav.getBoundingClientRect().height + 16 + cardHeight;
       setSidebarSticky(window.innerWidth < 1024 ? 'none'
         : groupHeight <= available ? 'group'
-        : cardHeight <= available ? 'card' : 'none');
+        : card && cardHeight <= available ? 'card' : 'none');
     };
     const observer = new ResizeObserver(measure);
     observer.observe(nav);
-    observer.observe(card);
+    if (card) observer.observe(card);
     window.addEventListener('resize', measure);
     measure();
     return () => {
