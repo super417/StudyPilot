@@ -1,0 +1,115 @@
+.practice-grading .radio-input {
+  display: flex;
+  height: 144px;
+  align-items: center;
+}
+.practice-grading .glass {
+  z-index: 2;
+  height: 110%;
+  width: 52px;
+  flex-shrink: 0;
+  margin-right: 14px;
+  padding: 5px;
+  background: rgba(190, 189, 189, 0.5);
+  border-radius: 24px;
+  box-shadow:
+    rgba(50, 50, 93, 0.2) 0 25px 50px -10px,
+    rgba(0, 0, 0, 0.25) 0 10px 30px -15px,
+    rgba(10, 37, 64, 0.26) 0 -2px 6px inset;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.practice-grading .glass-inner {
+  width: 100%;
+  height: 100%;
+  border: 6px solid rgba(245, 245, 245, 0.45);
+  border-radius: 20px;
+}
+.practice-grading .selector {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.practice-grading .choice {
+  margin: 7px 0;
+  display: flex;
+  align-items: center;
+}
+.practice-grading .choice > div {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-right: 10px;
+  z-index: 0;
+}
+.practice-grading .choice-circle {
+  appearance: none;
+  display: block;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 6px solid rgba(245, 245, 245, 0.45);
+  cursor: pointer;
+  box-shadow:
+    0 0 20px -13px gray,
+    0 0 20px -14px gray inset;
+}
+.practice-grading .ball {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform: translateX(-66px);
+  border-radius: 50%;
+  background: rgb(232, 232, 232);
+  pointer-events: none;
+  transition: transform 800ms cubic-bezier(1, -0.4, 0, 1.4);
+  box-shadow:
+    0 -10px 10px inset rgba(0, 0, 0, 0.17),
+    0 -15px 15px inset rgba(0, 0, 0, 0.15),
+    0 -40px 20px inset rgba(0, 0, 0, 0.1),
+    0 2px 1px rgba(0, 0, 0, 0.06),
+    0 4px 2px rgba(0, 0, 0, 0.09),
+    0 8px 4px rgba(0, 0, 0, 0.09),
+    0 16px 8px rgba(0, 0, 0, 0.09),
+    0 32px 16px rgba(0, 0, 0, 0.09);
+}
+.practice-grading .choice-circle:checked + .ball {
+  transform: translateX(0);
+}
+.practice-grading .choice-circle:focus-visible {
+  outline: 2px solid #228b68;
+  outline-offset: 4px;
+}
+.practice-grading .choice-name {
+  color: rgb(177, 176, 176);
+  font: 900 15px monospace;
+  cursor: pointer;
+}
+.practice-grading .choice-circle:checked {
+  outline: 2px solid #6da58b;
+  outline-offset: 2px;
+}
+.practice-grading .choice:has(:checked) .choice-name {
+  color: #285943;
+}
+.practice-grading fieldset:disabled {
+  opacity: 0.6;
+}
+.practice-grading .grading-action {
+  display: block;
+  border-radius: 999px;
+  background: #285943;
+  color: white;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.practice-grading .grading-action:disabled {
+  opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .practice-grading .ball {
+    transition: none;
+  }
+}

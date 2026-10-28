@@ -47,6 +47,7 @@ function MistakeBookPage() {
   const [correctUnderstanding, setCorrectUnderstanding] = useState('');
   const [recognizing, setRecognizing] = useState(false);
   const [board, setBoard] = useState<'practice' | 'mistakes'>('mistakes');
+  const [gradingControlsTarget, setGradingControlsTarget] = useState<HTMLDivElement | null>(null);
   const [practiceTab, setPracticeTab] = useState<'today' | 'review'>('today');
   const [mistakeFilter, setMistakeFilter] = useState<QueueFilter | 'today'>('all');
 
@@ -517,6 +518,7 @@ function MistakeBookPage() {
               </div>
             </div>
           </nav>
+          <div ref={setGradingControlsTarget} />
           {board === 'mistakes' ? (
             loading ? (
               <section className="card p-6 text-sm text-gray-400">加载错题队列…</section>
@@ -542,7 +544,7 @@ function MistakeBookPage() {
         <div className="lg:col-span-2">
           {board === 'practice' ? (
             <div className="space-y-4">
-              <PracticeBoard tab={practiceTab} onWrong={() => void reloadList()} />
+              <PracticeBoard controlsTarget={gradingControlsTarget} tab={practiceTab} onWrong={() => void reloadList()} />
               {practiceTab === 'review' ? (
                 <MistakeList
                   mistakes={mistakes.filter((item) => item.due)}

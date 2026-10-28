@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import PracticeGradingControls, { type GradingMode } from './PracticeGradingControls';
+import { completePracticeQuestion, pendingPracticeIds, validBatchSize } from '@/lib/practiceAutoQueue';
 import CameraCapture from '@/components/CameraCapture';
 import { ApiError } from '@/lib/httpClient';
 import { recognizeQuestionImage } from '@/lib/mistakesApi';
@@ -17,6 +20,7 @@ import { practiceDayISO } from '@/lib/dates';
 import { gradePracticeBatch } from '@/lib/practiceBatch';
 
 export interface PracticeBoardProps {
+  controlsTarget?: HTMLElement | null;
   tab: 'today' | 'review';
   onWrong: () => void;
 }
@@ -67,6 +71,9 @@ function PracticeCard({
   selecting,
   selected,
   onSelect,
+  onComplete,
+  completed,
+  completionDisabled,
 }: {
   item: PracticeQuestion;
   onChanged: () => void;
@@ -80,6 +87,9 @@ function PracticeCard({
   selecting: boolean;
   selected: boolean;
   onSelect: () => void;
+  onComplete?: () => void;
+  completed: boolean;
+  completionDisabled: boolean;
 }) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -190,9 +200,20 @@ function PracticeCard({
           <button type="button" className="rounded-full bg-white px-3 py-1 text-xs ring-1 ring-brand/30" onClick={() => setShowAnswer((v) => !v)}>
             {showAnswer ? '隐藏答案' : '显示答案'}
           </button>
+          {onComplete ? (
+            <button type="button" disabled={completionDisabled || completed || (!!item.latestGrade && answerText.trim() === item.latestGrade.answerText.trim())} onClick={() => {
+              if (!answerText.trim()) { setNote('请先写下你的作答'); return; }
+              setNote(null);
+              onComplete();
+            }} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60">
+              {completed ? '已完成，等待判分' : '完成本题'}
+            </button>
+          ) : null}
+          {!onComplete ? (
           <button type="button" disabled={busy || (!!item.latestGrade && answerText.trim() === item.latestGrade.answerText.trim())} className="rounded-full bg-brand px-3 py-1 text-xs text-white disabled:opacity-60" onClick={() => { if (!answerText.trim()) { setNote('请先写下你的作答'); return; } setNote(null); onGrade(); }}>
             {item.latestGrade ? '重新判分' : '提交判分'}
           </button>
+          ) : null}
           <button
             type="button"
             disabled={busy}
@@ -256,7 +277,7 @@ function PracticeCard({
   );
 }
 
-function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
+function PracticeBoard({ tab, onWrong, controlsTarget }: PracticeBoardProps) {
   // 必须与后端 list_practice 的 UTC 日分桶对齐，不能用本地 todayISO()
   const practiceDay = practiceDayISO();
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
@@ -268,7 +289,23 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [selecting, setSelecting] = useState(false);
+  const [mode, setMode] = useState<GradingMode>('all');
+  const [batchSize, setBatchSize] = useState('5');
+  const [queued, setQueued] = useState<string[]>([]);
+  const queueRef = useRef<string[]>([]);
+  const updateQueue = (ids: string[]) => {
+    queueRef.current = ids;
+    setQueued(ids);
+  };
+  const size = validBatchSize(batchSize);
+  const selecting = mode === 'selected';
+
+  useEffect(() => {
+    if (tab !== 'today') {
+      queueRef.current = [];
+      setQueued([]);
+    }
+  }, [tab]);
   const [selected, setSelected] = useState<string[]>([]);
   const [failed, setFailed] = useState<string[]>([]);
   const [grading, setGrading] = useState(false);
@@ -335,6 +372,7 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
   const gradeQuestions = async (ids: string[]) => {
     if (operation.current || busy || cameraOpen) return;
     operation.current = true;
+    updateQueue(queueRef.current.filter((id) => !ids.includes(id)));
     setGrading(true);
     const source = [...questions, ...review];
     try {
@@ -363,12 +401,44 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
     }
   };
 
+  const complete = (id: string) => {
+    if (tab !== 'today' || mode !== 'auto' || !size || operation.current || cameraOpen) return;
+    const next = completePracticeQuestion(queueRef.current, id, size, questions, answers);
+    updateQueue(next.queue);
+    if (next.batch.length) void gradeQuestions(next.batch);
+  };
+
   const rows = tab === 'today' ? questions : review;
   const selectedIds = selected.filter((id) => questions.some((item) => item.id === id));
   const failedIds = failed.filter((id) => questions.some((item) => item.id === id));
 
+  const pendingIds = pendingPracticeIds(queued, questions, answers);
+  const controls = tab === 'today' ? (
+    <PracticeGradingControls
+      mode={mode}
+      onMode={(next) => {
+        if (operation.current) return;
+        setMode(next);
+        setSelected([]);
+        updateQueue([]);
+      }}
+      disabled={locked || cameraOpen}
+      size={batchSize}
+      onSize={(value) => { setBatchSize(value); updateQueue([]); }}
+      validSize={size !== null}
+      pending={pendingIds.length}
+      selected={selectedIds.length}
+      failed={failedIds.length}
+      total={questions.length}
+      onGrade={() => void gradeQuestions(mode === 'selected' ? selectedIds : questions.map((item) => item.id))}
+      onFinish={() => { if (size) void gradeQuestions(pendingIds); }}
+      onRetry={() => void gradeQuestions(failedIds)}
+    />
+  ) : null;
+
   return (
     <section className="space-y-4">
+      {controlsTarget ? createPortal(controls, controlsTarget) : controls}
       <fieldset disabled={locked} className="min-w-0 space-y-4">
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy} onClick={() => void generate()} className="rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60">
@@ -397,54 +467,6 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
       </form>
       </fieldset>
       {message ? <p role="status" aria-live="polite" className="text-sm text-brandDark">{message}</p> : null}
-      {tab === 'today' && rows.length > 0 ? (
-        <div className="rounded-2xl bg-brandFaint/60 p-3 text-brandDark">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={locked || cameraOpen}
-              onClick={() => void gradeQuestions(questions.map((q) => q.id))}
-              className="rounded-full bg-brand px-4 py-2 text-sm text-white disabled:opacity-60"
-            >
-              全部判分
-            </button>
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                setSelecting(!selecting);
-                setSelected([]);
-              }}
-              className="rounded-full bg-white px-4 py-2 text-sm disabled:opacity-60"
-            >
-              {selecting ? '退出选择' : '选择题目'}
-            </button>
-            {selecting ? (
-              <button
-                type="button"
-                disabled={locked || !selectedIds.length}
-                onClick={() => void gradeQuestions(selectedIds)}
-                className="rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60"
-              >
-                判分所选（{selectedIds.length}）
-              </button>
-            ) : null}
-            {failedIds.length ? (
-              <button
-                type="button"
-                disabled={locked || cameraOpen}
-                onClick={() => void gradeQuestions(failedIds)}
-                className="rounded-full bg-white px-4 py-2 text-sm disabled:opacity-60"
-              >
-                重试失败题（{failedIds.length}）
-              </button>
-            ) : null}
-          </div>
-          <p className="mt-2 text-xs">
-            仅判分已作答且尚未判分或答案已修改的题目，空白题不会算错。
-          </p>
-        </div>
-      ) : null}
       {rows.length === 0 ? <p className="text-sm text-gray-500">{tab === 'today' ? '今天还没有练习题' : '没有待复习的练习题'}</p> : null}
       {rows.map((item) => (
         <PracticeCard
@@ -453,11 +475,17 @@ function PracticeBoard({ tab, onWrong }: PracticeBoardProps) {
           onChanged={() => void reload().catch(() => setMessage('同步失败，请刷新重试'))}
           onWrong={onWrong}
           answerText={answers[item.id] ?? item.latestGrade?.answerText ?? ''}
-          onAnswer={(value) => setAnswers((prev) => ({ ...prev, [item.id]: value }))}
+          onAnswer={(value) => {
+            setAnswers((prev) => ({ ...prev, [item.id]: value }));
+            updateQueue(queueRef.current.filter((id) => id !== item.id));
+          }}
           gradeNote={notes[item.id] ?? (item.latestGrade ? `已判分：${item.latestGrade.result === 'correct' ? '答对' : item.latestGrade.result === 'partial' ? '部分正确' : '答错'}。${item.latestGrade.reason ?? ''}` : undefined)}
           onGrade={() => void gradeQuestions([item.id])}
           locked={locked || cameraOpen}
           onBusy={lockCard}
+          onComplete={tab === 'today' && mode === 'auto' ? () => complete(item.id) : undefined}
+          completed={pendingIds.includes(item.id)}
+          completionDisabled={!size}
           selecting={tab === 'today' && selecting}
           selected={selected.includes(item.id)}
           onSelect={() => setSelected((prev) => prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id])}
