@@ -23,7 +23,7 @@ Built for students taking AI micro-majors or general AI courses — non-CS backg
 | Auth & sessions | Register / login / logout, server-side cookie session, bcrypt-hashed passwords |
 | AI configuration | Enter API Key / Base URL / model in the profile page; keys stored AES-256-GCM encrypted, model list pulled live from the provider's `/models` |
 | Study material | Upload PDF / DOCX / TXT / MD; parsed server-side and used for planning and Q&A retrieval |
-| Goal & planning | Conversational goal intake → SSE-streamed plan generation (clarify / notice / done events); full regeneration and per-phase editing |
+| Goal & planning | Conversational goal intake → SSE-streamed plan generation (clarify / notice / done events); full regeneration and per-phase editing; "撤销最近一次已确认调整" only shows when the plan really has a confirmed adjustment to undo, sits inside the chat preview's "计划操作" disclosure, and stays hidden if the availability read fails |
 | Overview | Hero + scroll-narrated study loop + postcard-style overview, all reading real endpoints; the "进入我的总览" entry scrolls to the content block instead of switching tabs |
 | Roadmap | Latest plan's phases and progress; toggle this week's task states; daily tasks can carry a link that opens a concrete course/video page |
 | Daily tasks & check-ins | Today's task list, time logging, and three today-states (未反馈 / 已安排 / 已完成) |
@@ -51,6 +51,20 @@ The `#/` overview is four layers:
 - **Real data only**: the overview reads `/api/metrics/overview`, `/api/plans/latest`, `/api/daily-tasks`, `/api/weekly-reviews/latest` and `/api/mistakes`. A module that fails to load shows `—` and is marked unavailable — no mock filler.
 - **"进入我的总览" entry**: both the top nav and the section CTAs scroll to `#overview-content` (`scrollToLearningOverview`) — no tab switch, no reload. Postcard-internal fallbacks point at `#learning-overview`; both anchors exist, the content block is the canonical target.
 - **Back-to-top button**: `OverviewBackToTop` is mounted on every business page except the demo landing (overview / roadmap / mistakes / statistics / resume / profile / both resume sub-pages). It **hides on scroll down, shows on scroll up, and hides within 24px of the top**; clicking scrolls to top and respects `prefers-reduced-motion`. The profile page scrolls three independent columns, so the click also resets any container marked `data-back-to-top-scroll`.
+
+### Postcard wordmark (2026-10-28)
+
+The wordmark on the top-right letter card is now `STUDYPIL` instead of `MAILERB`, followed by the existing little figure (as the O) and a trailing T.
+
+- Asset: `frontend/public/postcards/animation/mailerbot-heros.riv`. The Rive vector outlines were edited directly — no CSS mask, no DOM overlay text, no canvas substitute.
+- Letters share one cap height and baseline; strokes are 25% heavier than the first pass, the main corners are rounded, and spacing follows the actual ink width. The figure (eyes included) and the trailing T are vertically centred.
+- Original objects, hierarchy and references are preserved: no object added or removed, the file is still **1,186,524 bytes** with **15,022** objects. Desktop `built` and mobile `built_mobile` share the edited card; the original state machine and `scroll` binding are untouched.
+- Verified that the full object stream still parses and that object/property offsets are unchanged; per-round byte diffs stay inside the authorised wordmark vertices/tangents and the two group Y values used for centring. In the final weighting pass the figure and trailing T were byte- and pixel-identical.
+- A `@rive-app/canvas` probe loaded `built`, `built_mobile` and `mailerbot-postcard`, all firing `onLoad` with no `onLoadError` and no error/warn records; before/after screenshots were compared. The full scroll effect still needs checking against the reference recording on the real page.
+
+Asset SHA-256: `b3adf7942745e221ad469c1c13ba22fed4165028496b19f3c19b24a6dcc6b484`.
+
+To inspect locally: start the frontend, open the `#/` overview with a hard refresh, scroll to the top-right letter card and check the `STUDYPIL` + figure + T spelling, vertical alignment and motion with the card; repeat at mobile width. Debug probes and backups are not product deliverables.
 
 ## API configuration and sync
 
