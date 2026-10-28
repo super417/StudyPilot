@@ -133,3 +133,39 @@ def test_routes_failure_is_safe_and_keeps_previous_report(db, failure, expected)
             assert client.post('/api/statistics/diagnosis').json()['code'] == 'NO_PRACTICE_DATA'
     finally:
         app.dependency_overrides.clear()
+
+
+def test_history_order_ownership_and_persistent_rename(db):
+    from datetime import datetime, timezone
+    from uuid import UUID
+
+    session, user, other = db
+    evidence(session, user)
+    app.dependency_overrides[get_db] = lambda: session
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        with TestClient(app) as client, patch.object(service, '_generate', AsyncMock(return_value='诊断正文')):
+            with patch.object(service, 'utc_now', return_value=datetime(2026, 10, 27, tzinfo=timezone.utc)):
+                older = client.post('/api/statistics/diagnosis').json()['report']
+            with patch.object(service, 'utc_now', return_value=datetime(2026, 10, 28, tzinfo=timezone.utc)):
+                newer = client.post('/api/statistics/diagnosis').json()['report']
+            conversation = session.scalar(select(Conversation).where(Conversation.id == UUID(newer['id'])))
+            session.add(ChatMessage(conversation_id=conversation.id, role='assistant', content='损坏记录',
+                                    citations=json.dumps([{'kind': service.KIND, 'evidence': {}}]), position=1))
+            session.add(Conversation(user_id=user.id, title='普通会话', context_type='free'))
+            session.commit()
+            before = session.scalar(select(func.count()).select_from(ChatMessage))
+            history = client.get('/api/statistics/diagnosis/history').json()['reports']
+            assert [item['id'] for item in history] == [newer['id'], older['id']]
+            assert session.scalar(select(func.count()).select_from(ChatMessage)) == before
+            renamed = client.patch(f"/api/conversations/{older['id']}", json={'title': '  边界条件复习  '})
+            assert renamed.status_code == 200
+            history = client.get('/api/statistics/diagnosis/history').json()['reports']
+            assert history[1]['title'] == '边界条件复习'
+            assert history[1]['content'] == older['content']
+            assert history[1]['evidence'] == older['evidence']
+            app.dependency_overrides[get_current_user] = lambda: other
+            assert client.get('/api/statistics/diagnosis/history').json()['reports'] == []
+            assert client.patch(f"/api/conversations/{older['id']}", json={'title': '跨用户改名'}).status_code == 404
+    finally:
+        app.dependency_overrides.clear()

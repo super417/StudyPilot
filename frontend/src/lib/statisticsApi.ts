@@ -73,6 +73,7 @@ export function fetchStatisticsOverview(): Promise<StatisticsOverview> {
 
 export interface DiagnosisReport {
   id: string;
+  title?: string;
   content: string;
   generatedAt: string;
   evidence: {
@@ -86,6 +87,10 @@ export interface DiagnosisReport {
 
 export function fetchLatestDiagnosis(): Promise<{ report: DiagnosisReport | null }> {
   return apiRequest('/api/statistics/diagnosis/latest');
+}
+
+export function fetchDiagnosisHistory(): Promise<{ reports: DiagnosisReport[] }> {
+  return apiRequest('/api/statistics/diagnosis/history');
 }
 
 export function generateDiagnosis(): Promise<{ report: DiagnosisReport }> {

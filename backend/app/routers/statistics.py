@@ -316,6 +316,13 @@ def latest_diagnosis_route(
     return {"status": "ok", "report": diagnosis_service.latest_diagnosis(session, user.id)}
 
 
+@router.get("/diagnosis/history")
+def diagnosis_history_route(
+    user: User = Depends(get_current_user), session: Session = Depends(get_db),
+) -> dict:
+    return {"status": "ok", "reports": diagnosis_service.list_diagnoses(session, user.id)}
+
+
 @router.post("/diagnosis")
 async def generate_diagnosis_route(
     user: User = Depends(get_current_user), session: Session = Depends(get_db),

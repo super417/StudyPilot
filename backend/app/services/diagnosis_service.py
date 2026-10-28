@@ -105,12 +105,13 @@ async def generate_diagnosis(session, user_id):
     return {"id": str(conversation.id), "content": content, "generatedAt": _iso(now), "evidence": evidence}
 
 
-def latest_diagnosis(session, user_id):
-    rows = session.execute(select(ChatMessage, Conversation.id).join(
+def list_diagnoses(session, user_id):
+    rows = session.execute(select(ChatMessage, Conversation.id, Conversation.title).join(
         Conversation, Conversation.id == ChatMessage.conversation_id,
     ).where(Conversation.user_id == user_id, ChatMessage.role == "assistant",
             ChatMessage.citations.contains(KIND)).order_by(ChatMessage.created_at.desc(), ChatMessage.id)).all()
-    for message, conversation_id in rows:
+    reports = []
+    for message, conversation_id, title in rows:
         try:
             metadata = json.loads(message.citations)
         except (ValueError, TypeError):
@@ -132,6 +133,21 @@ def latest_diagnosis(session, user_id):
                             raise ValueError()
                 except (KeyError, ValueError, TypeError):
                     continue
-                return {"id": str(conversation_id), "content": message.content,
-                        "generatedAt": item["generatedAt"], "evidence": item["evidence"]}
-    return None
+                reports.append({"id": str(conversation_id), "title": title or "学习诊断报告",
+                                "content": message.content,
+                                "generatedAt": item["generatedAt"], "evidence": item["evidence"]})
+                break
+    def generated_at(report):
+        moment = datetime.fromisoformat(report["generatedAt"])
+        return moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment
+    reports.sort(key=generated_at, reverse=True)
+    # A conversation's original report remains one history item if its transcript was saved again.
+    seen = set()
+    return [report for report in reports if not (report["id"] in seen or seen.add(report["id"]))]
+
+
+def latest_diagnosis(session, user_id):
+    reports = list_diagnoses(session, user_id)
+    if not reports:
+        return None
+    return {key: value for key, value in reports[0].items() if key != "title"}
