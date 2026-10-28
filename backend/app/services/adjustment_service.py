@@ -1618,6 +1618,24 @@ def _assert_undo_still_safe(
             raise AdjustmentConflictError("阶段仍有后续任务，不能撤销")
 
 
+def has_confirmed_adjustment(
+    session: Session, user_id: uuid.UUID, plan_id: uuid.UUID
+) -> bool:
+    """Read-only visibility hint; undo still performs its full safety checks."""
+    planner_service._owned_plan(session, user_id, plan_id)
+    status = session.scalar(
+        select(PlanAdjustment.status)
+        .where(
+            PlanAdjustment.plan_id == plan_id,
+            PlanAdjustment.user_id == user_id,
+            PlanAdjustment.status.in_(("confirmed", "undone")),
+        )
+        .order_by(PlanAdjustment.updated_at.desc(), PlanAdjustment.created_at.desc())
+        .limit(1)
+    )
+    return status == "confirmed"
+
+
 def undo_latest(
     session: Session,
     user_id: uuid.UUID,

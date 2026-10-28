@@ -400,6 +400,12 @@ export function rejectPlanAdjustment(planId: string, adjustmentId: string) {
   ).then((body) => body.adjustment);
 }
 
+export function getAdjustmentUndoAvailability(planId: string) {
+  return apiRequest<{ status: string; hasConfirmedAdjustment: boolean }>(
+    `/api/plans/${encodeURIComponent(planId)}/adjustments/undo-availability`,
+  );
+}
+
 export function undoPlanAdjustment(planId: string) {
   return apiRequest<{ status: string; adjustment: { decisionSummary?: string; status: string } }>(
     `/api/plans/${encodeURIComponent(planId)}/adjustments/undo`,

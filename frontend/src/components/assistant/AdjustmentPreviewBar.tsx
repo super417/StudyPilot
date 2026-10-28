@@ -16,6 +16,7 @@ import {
 } from '@/lib/adjustmentPreviewActions';
 import {
   confirmPlanAdjustment,
+  getAdjustmentUndoAvailability,
   openOwnedChunk,
   rejectPlanAdjustment,
   revisePlanAdjustment,
@@ -67,6 +68,25 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
   const setPending = usePlanSessionStore((s) => s.setPendingAdjustment);
   const bumpPlanData = usePlanSessionStore((s) => s.bumpPlanDataEpoch);
   const [busy, setBusy] = useState(false);
+  const planDataEpoch = usePlanSessionStore((s) => s.planDataEpoch);
+  const [confirmedPlanId, setConfirmedPlanId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setConfirmedPlanId(null);
+    if (undoPlanId) {
+      void getAdjustmentUndoAvailability(undoPlanId)
+        .then((result) => {
+          if (!cancelled && result.hasConfirmedAdjustment) setConfirmedPlanId(undoPlanId);
+        })
+        .catch(() => {
+          /* A failed read must not offer an unverified undo action. */
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [undoPlanId, planDataEpoch]);
   const [keptActionIds, setKeptActionIds] = useState<string[]>(() =>
     proposedActionIds(pending),
   );
@@ -106,7 +126,7 @@ function AdjustmentPreviewBar({ onNotice }: Props) {
   return (
     <AdjustmentPreviewView
       pending={pending}
-      showUndo={Boolean(undoPlanId)}
+      showUndo={Boolean(undoPlanId && confirmedPlanId === undoPlanId)}
       busy={busy}
       keptActionIds={keptActionIds}
       minuteTexts={minuteTexts}

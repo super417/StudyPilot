@@ -717,6 +717,28 @@ async def regenerate_plan_route(
     return StreamingResponse(_guarded(stream()), media_type=SSE_MEDIA_TYPE)
 
 
+@router.get("/{plan_id}/adjustments/undo-availability")
+def adjustment_undo_availability_route(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> JSONResponse:
+    try:
+        available = adjustment_service.has_confirmed_adjustment(
+            session, user.id, uuid.UUID(plan_id)
+        )
+    except (ValueError, AttributeError, TypeError, PlanNotFoundError):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "code": PlanNotFoundError.code,
+                "message": "规划不存在",
+            },
+        )
+    return JSONResponse(content={"status": "ok", "hasConfirmedAdjustment": available})
+
+
 @router.post("/{plan_id}/adjustments/undo")
 def undo_adjustment_route(
     plan_id: str,

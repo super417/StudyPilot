@@ -412,14 +412,19 @@ export function AdjustmentPreviewView({
         </>
       ) : null}
       {showUndo ? (
-        <button
-          type="button"
-          disabled={busy}
-          className="text-left text-brandDark/70 underline-offset-2 hover:underline disabled:opacity-50"
-          onClick={onUndo}
-        >
-          撤销最近一次已确认调整
-        </button>
+        <details key={pending?.id ?? 'plan-actions'} className="relative">
+          <summary className="cursor-pointer select-none text-brandDark/70">计划操作</summary>
+          <div className="mt-2 rounded-lg border border-brand/20 bg-white p-2">
+            <button
+              type="button"
+              disabled={busy}
+              className="text-left text-brandDark/70 underline-offset-2 hover:underline disabled:opacity-50"
+              onClick={onUndo}
+            >
+              撤销最近一次已确认调整
+            </button>
+          </div>
+        </details>
       ) : null}
     </div>
   );
