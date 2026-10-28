@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import PracticeGradingControls, { type GradingMode } from './PracticeGradingControls';
 import { completePracticeQuestion, pendingPracticeIds, validBatchSize } from '@/lib/practiceAutoQueue';
 import CameraCapture from '@/components/CameraCapture';
+import './ExerciseCapsule.css';
 import { ApiError } from '@/lib/httpClient';
 import { recognizeQuestionImage } from '@/lib/mistakesApi';
 import {
@@ -441,10 +442,10 @@ function PracticeBoard({ tab, onWrong, controlsTarget }: PracticeBoardProps) {
       {controlsTarget ? createPortal(controls, controlsTarget) : controls}
       <fieldset disabled={locked} className="min-w-0 space-y-4">
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} onClick={() => void generate()} className="rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60">
+        <button type="button" disabled={busy} onClick={() => void generate()} className="exercise-capsule rounded-full bg-brandDark px-4 py-2 text-sm text-white disabled:opacity-60">
           {busy ? '处理中…' : '生成今日练习'}
         </button>
-        <button type="button" onClick={() => setCameraOpen(true)} className="rounded-full bg-white px-4 py-2 text-sm text-brandDark ring-1 ring-brand/30">
+        <button type="button" onClick={() => setCameraOpen(true)} className="exercise-capsule rounded-full bg-white px-4 py-2 text-sm text-brandDark ring-1 ring-brand/30">
           拍照识题
         </button>
       </div>

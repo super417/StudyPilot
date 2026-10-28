@@ -6,6 +6,7 @@ import { latestExplainReply } from '@/lib/explainFill';
 
 import MistakeList from '@/components/MistakeList';
 import PracticeBoard from '@/components/PracticeBoard';
+import '@/components/ExerciseCapsule.css';
 import MistakeDetail from '@/components/MistakeDetail';
 import CameraCapture from '@/components/CameraCapture';
 import type { Mistake, ReviewStatus } from '@/mocks/types';
@@ -368,7 +369,7 @@ function MistakeBookPage() {
             type="button"
             disabled={recognizing}
             onClick={openCamera}
-            className="inline-flex items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint disabled:opacity-60"
+            className="exercise-capsule inline-flex items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark disabled:opacity-60"
           >
             <Camera size={16} aria-hidden="true" />
             拍照识题
@@ -384,7 +385,8 @@ function MistakeBookPage() {
             onChange={handleImage}
           />
           <label
-            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark transition hover:bg-brandFaint ${recognizing ? 'pointer-events-none opacity-60' : ''}`}
+            aria-disabled={recognizing}
+            className={`exercise-capsule inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-brandDark/20 bg-white px-4 py-2 text-sm font-medium text-brandDark ${recognizing ? 'pointer-events-none opacity-60' : ''}`}
           >
             <ImageUp size={16} aria-hidden="true" />
             {recognizing ? '识别中…' : '上传图片'}
@@ -399,7 +401,7 @@ function MistakeBookPage() {
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="exercise-capsule inline-flex items-center gap-1.5 rounded-full bg-brandDark px-4 py-2 text-sm font-medium text-white"
           >
             {showForm ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
             {showForm ? '收起表单' : '记录一道错题'}
@@ -516,8 +518,8 @@ function MistakeBookPage() {
                 习题
               </button>
               <div className="mt-1 flex flex-wrap gap-1.5">
-                <button type="button" className="rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('today'); }}>今日练习</button>
-                <button type="button" className="rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('review'); }}>今日复习</button>
+                <button type="button" className="exercise-capsule rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('today'); }}>今日练习</button>
+                <button type="button" className="exercise-capsule rounded-full bg-brandFaint px-2.5 py-0.5 text-xs text-brandDark" onClick={() => { setBoard('practice'); setPracticeTab('review'); }}>今日复习</button>
               </div>
             </div>
             <div>
@@ -535,7 +537,7 @@ function MistakeBookPage() {
                   <button
                     key={id}
                     type="button"
-                    className={`rounded-full px-2.5 py-0.5 text-xs ${board === 'mistakes' && mistakeFilter === id ? 'bg-brandDark text-white' : 'bg-brandFaint text-brandDark'}`}
+                    className={`exercise-capsule rounded-full px-2.5 py-0.5 text-xs ${board === 'mistakes' && mistakeFilter === id ? 'bg-brandDark text-white' : 'bg-brandFaint text-brandDark'}`}
                     onClick={() => {
                       setBoard('mistakes');
                       setMistakeFilter(id);
