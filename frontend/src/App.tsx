@@ -173,6 +173,7 @@ function App() {
     return (
       <Suspense fallback={PAGE_FALLBACK}>
         <PracticalResumePage onBack={() => openResumeRoute('/resume')} />
+        <OverviewBackToTop />
       </Suspense>
     );
   }
@@ -181,6 +182,7 @@ function App() {
     return (
       <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#0c0c0c] text-sm text-white">正在载入个人网站简历…</main>}>
         <PersonalWebsiteResume onBack={() => openResumeRoute('/resume')} />
+        <OverviewBackToTop />
       </Suspense>
     );
   }
@@ -241,7 +243,7 @@ function App() {
           </AnimatePresence>
         </main>
       </div>
-      {activeTab === 'overview' && <OverviewBackToTop />}
+      <OverviewBackToTop key={activeTab} />
       <Suspense fallback={null}>
         <AssistantWidget overviewEntrance={activeTab === 'overview'} />
       </Suspense>

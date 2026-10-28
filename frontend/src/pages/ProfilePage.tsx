@@ -122,7 +122,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps = {}) {
           </div>
 
           {/* 左栏自己的滚动容器（柔光垫在它外面，不被它裁） */}
-          <div className="lg:h-full lg:overflow-y-auto lg:pr-1">
+          <div data-back-to-top-scroll className="lg:h-full lg:overflow-y-auto lg:pr-1">
             <LeftRail
               displayName={displayName}
               userId={userId}
@@ -133,7 +133,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps = {}) {
         </aside>
 
         {/* 中栏：唯一滚动区 */}
-        <main className="min-w-0 flex-1 lg:overflow-y-auto lg:pr-1">
+        <main data-back-to-top-scroll className="min-w-0 flex-1 lg:overflow-y-auto lg:pr-1">
           <motion.div
             className="space-y-5 lg:pb-4"
             initial="hidden"
@@ -152,7 +152,7 @@ function ProfilePage({ onNavigate }: ProfilePageProps = {}) {
         </main>
 
         {/* 右栏：整面液态玻璃面板（.liquid-glass，见 index.css） */}
-        <aside className="shrink-0 lg:w-[328px] lg:overflow-y-auto lg:pl-1">
+        <aside data-back-to-top-scroll className="shrink-0 lg:w-[328px] lg:overflow-y-auto lg:pl-1">
           <RightRail onAction={show} onNavigate={navigate} />
         </aside>
       </div>
