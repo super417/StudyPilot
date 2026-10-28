@@ -3,6 +3,7 @@
 @font-face { font-family: Spp Ink; src: url('/fonts/postcards/DenimINK-TRIAL-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
 @font-face { font-family: Spp Panell; src: url('/fonts/postcards/PanellCondensed-TRIAL-Medium.woff2') format('woff2'); font-weight: 500 700; font-display: swap; }
 @font-face { font-family: Spp Mono; src: url('/fonts/postcards/RobotoMono-Medium.ttf') format('truetype'); font-weight: 400 600; font-display: swap; }
+@font-face { font-family: Spp Brush; src: url('/fonts/postcards/StudyPilotBrush-TitleSubset.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
 
 .spp-root, .spp-floating-nav { --spp-u: 10px; --spp-ink: #000; --spp-paper: #fffefc; --spp-lime: #e9ffa3; font-family: Spp Denim, Arial, sans-serif; color: #000; line-height: 1.3; -webkit-font-smoothing: antialiased; }
 .spp-root { position: relative; isolation: isolate; width: 100vw; margin-left: calc(50% - 50vw); overflow: clip; background: var(--spp-paper); }
@@ -53,6 +54,10 @@
 .spp-process-finish { right: 0; bottom: 0; max-width: calc(81.1 * var(--spp-u)); }
 .spp-title-mask { display: block; overflow: hidden; margin-bottom: -.08em; padding-bottom: .08em; }
 .spp-title-line { display: block; will-change: transform; }
+.spp-process-calligraphy { font-family: Spp Brush, 'KaiTi', serif; font-size: clamp(54px, 8.3vw, 122px); font-weight: 400; font-synthesis: none; line-height: 1.12; letter-spacing: .025em; text-transform: none; white-space: nowrap; }
+.spp-process-calligraphy-goal { color: #244b3e; }
+.spp-process-calligraphy-feedback { color: #29455c; }
+.spp-process-calligraphy .spp-title-mask { margin: -.12em -.08em; padding: .12em .08em; }
 .spp-route-original { position: absolute; top: 0; left: 0; width: min(100%, calc(121 * var(--spp-u))); height: 100%; }
 .spp-route-original > div, .spp-route-original canvas { width: 100%; height: 100%; display: block; }
 .spp-process-caption { display: flex; flex-direction: column; align-items: flex-start; gap: max(30px, calc(3 * var(--spp-u))); max-width: calc(50 * var(--spp-u)); }
@@ -157,6 +162,7 @@
   .spp-process-heading, .spp-process-finish { font-size: 60px; line-height: .91667; }
   .spp-process-heading { max-width: 270px; }
   .spp-process-finish { right: auto; left: 0; bottom: auto; top: 290px; max-width: 345px; }
+  .spp-process-calligraphy { font-size: clamp(42px, 10.5vw, 60px); line-height: 1.14; letter-spacing: .015em; }
   .spp-route-original { width: min(calc(100% + 30px), 393px); height: auto; aspect-ratio: 393 / 440; top: 129px; left: 50%; transform: translateX(-50%); }
   .spp-process-caption { max-width: 100%; gap: 30px; }
   .spp-process-caption p { font-size: 18px; line-height: 1.3; }
