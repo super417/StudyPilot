@@ -19,6 +19,7 @@ import PhaseRings from '@/components/PhaseRings';
 import StackedBars, { type StackedBar } from '@/components/StackedBars';
 import StatisticsWeeklyReview from '@/components/StatisticsWeeklyReview';
 import StatisticsDiagnosis from '@/components/StatisticsDiagnosis';
+import StatisticsMaterials from '@/components/StatisticsMaterials';
 import type { TabKey } from '@/components/TabNav';
 import type { ReinforceOutcome, WeeklyReview } from '@/mocks/types';
 import { useAssistantStore, usePlanSessionStore } from '@/store';
@@ -524,6 +525,7 @@ export interface StatisticsPageProps {
 }
 
 function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<DetailPanelKey | null>(null);
   const [data, setData] = useState<StatisticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -802,10 +804,16 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
         {cards.map((card) => {
           const Icon = card.icon;
+          const isMaterials = card.key === 'uploadedDocs';
+          const CardTag = isMaterials ? 'button' : 'article';
           return (
-            <article
+            <CardTag
               key={card.key}
-              className="pressable-card flex items-center gap-3 squircle-card bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-5"
+              type={isMaterials ? 'button' : undefined}
+              onClick={isMaterials ? () => setMaterialsOpen((open) => !open) : undefined}
+              aria-expanded={isMaterials ? materialsOpen : undefined}
+              aria-controls={isMaterials && materialsOpen ? 'statistics-materials' : undefined}
+              className={`pressable-card flex items-center gap-3 squircle-card bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 sm:p-5 ${isMaterials ? 'cursor-pointer transition-shadow hover:shadow-md hover:ring-orange-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand' : ''}`}
             >
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${card.iconBg}`}>
                 <Icon className="h-5 w-5" />
@@ -814,11 +822,14 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
                 <p className="text-2xl font-semibold tabular-nums text-slate-800">{card.value}</p>
                 <p className="text-sm font-medium text-slate-700">{card.label}</p>
                 <p className="text-xs text-slate-400">{card.sub}</p>
+                {isMaterials ? <p className="mt-1 text-xs text-orange-600">{materialsOpen ? '收起资料 ↑' : '查看资料 →'}</p> : null}
               </div>
-            </article>
+            </CardTag>
           );
         })}
       </div>
+
+      {materialsOpen ? <StatisticsMaterials onUpload={onNavigate ? () => onNavigate('profile') : undefined} /> : null}
 
       <section className="pressable-card squircle-card bg-white p-6 shadow-sm ring-1 ring-slate-100">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
