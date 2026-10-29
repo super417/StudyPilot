@@ -21,17 +21,18 @@
 | 模块 | 说明 |
 |---|---|
 | 账号与会话 | 注册 / 登录 / 登出，服务端 Cookie 会话，密码 bcrypt 哈希 |
-| AI 配置 | 个人中心填写 API Key / Base URL / 模型；Key 经 AES-256-GCM 加密入库，模型列表由供应商 `/models` 动态拉取 |
+| AI 使用方式 | 二选一：**平台**（平台余额按元计费，或平台积分按点计费；模型与支付渠道由服务端配置，默认关闭）或**自带 API Key**（个人中心「高级设置」，Key 经 AES-256-GCM 加密入库，模型列表由供应商 `/models` 动态拉取） |
+| 平台账户与充值 | 个人中心查看余额、调用预留、可用余额、余额明细与充值订单；支付宝网页支付 / 微信 Native 下单，**只有服务端核验通过的支付通知或主动查单才入账** |
 | 学习资料 | 上传 PDF / DOCX / TXT / MD，后端解析为文本供规划与问答检索 |
 | 目标与规划 | 对话式提交目标 → SSE 流式生成计划（clarify / notice / done 事件）；支持整体重新生成与单阶段微调；「撤销最近一次已确认调整」只在计划确有可撤销记录时出现，收在聊天预览的「计划操作」折叠里，读取失败则不显示 |
-| 总览 | Hero + 学习流程叙事 + 明信片式总览，全部读真实接口；「进入我的总览」滚到内容区而非切 Tab |
+| 总览 | Hero + 学习流程叙事 + 明信片式总览，全部读真实接口；「进入我的总览」滚到内容区而非切 Tab；读不到的模块标不可用，**不用指标拼一张假规划卡** |
 | Roadmap | 展示最新计划的阶段划分与进度，切换本周任务完成态；每日任务可带直达课程页的资源链接 |
 | 每日任务与打卡 | 今日任务列表、打卡记录学习时长、今日三态（未反馈 / 已安排 / 已完成） |
-| 练习与判分 | 练习卡片生成、作答判分（correct / partial / wrong），结果写入掌握度证据 |
+| 练习与判分 | 练习卡片生成；判分方式可选**全部判分 / 勾选判分 / 每 n 题自动判分**，结果（correct / partial / wrong）写入掌握度证据；失败可单独重试 |
 | 错题本 | 手动录入或拍照识别错题、查看详情、标记复习状态，按 1/2/4/7/15/30 天排复习 |
-| 数据统计 | 指标卡、近 30 日作答量堆叠柱、掌握度分布、错题 TOP5、星图、航线、周报 |
+| 数据统计 | 指标卡、近 30 日作答量堆叠柱、掌握度分布、错题 TOP5、近 30 日练习日历（点日期看当天证据与得分）、航线、周报 |
 | 学习诊断 | 基于真实判分证据生成 AI 诊断报告，支持最新 / 历史 / 搜索三段视图与改名持久化 |
-| AI 助手 | SSE 流式对话；领域拦截（非学习类提问会被提示）；结合已上传文档给出摘录；推理强度可调；主聊天与小窗共用同一套凭证与语音缓存 |
+| AI 助手 | SSE 流式对话；领域拦截（非学习类提问会被提示）；结合已上传文档给出摘录；推理强度可调；主聊天与小窗共用同一套凭证与语音缓存；助手人物可拖动、单击聊天、双击展开、收起成小头像并自动避让页面控件 |
 | 语音朗读 | 晓晓在线女声；回复正文按句流式播放，新回复可自动预生成音频 |
 | 课程与笔记 | 课程章节（可挂用户填写的网页链接、学完打勾）、随手笔记 |
 | 简历 | 内置「实用简历管理」编辑器（本地镜像的 Magic Resume），AI 润色走个人中心凭证；另有人网站式简历模板 |
@@ -48,7 +49,9 @@
 3. **明信片式总览**（`StudyPilotPostcards`，`presentation='postcards'`，默认）—— 横向拖动的水彩明信片叠卡，分「今日概览 / 最近周报」两档切换；
 4. **内容区**（`#overview-content` 容器内）—— 目标、今日任务、打卡、掌握度、错题待复习等通过弹窗（`OverviewDetailsDialog`）打开，「开始今天的学习」弹 `DailyStartDialog` 选任务。
 
-- **真实数据接入**：总览取 `/api/metrics/overview`、`/api/plans/latest`、`/api/daily-tasks`、`/api/weekly-reviews/latest`、`/api/mistakes`。取不到的模块显示 `—` 并标注不可用，不用假数据填充。
+- **真实数据接入**：总览取 `/api/metrics/overview`、`/api/plans/latest`、`/api/daily-tasks`、`/api/weekly-reviews/latest`、`/api/mistakes`。取不到的模块显示 `—` 并标注不可用，不用假数据填充。指标或计划接口失败时卡片直接标不可用，**不再用指标拼一张「当前学习规划」卡片**。
+- **明信片里的学习卡**：今日安排最多 8 条，最近评估 / 回顾复盘最多 6–7 条，条目逐条引用真实任务、判分证据与周报（含样本量），没有记录时写「暂无」而不是留空或编造；卡片高度按真实记录自然长短，不强行拉齐。
+- **桌面标题吸顶**：学习卡标题跟随可见的悬浮导航吸顶（吸顶偏移由导航实际 bottom 写入 CSS 变量，导航隐藏时为 0），移动端回到正常文档流。
 - **「进入我的总览」入口**：顶部导航与段落 CTA 统一滚到 `#overview-content`（`scrollToLearningOverview`），不切 Tab、不刷新页面；明信片内部的回退路径指向 `#learning-overview`。两处锚点都在，入口定位以内容区为准。
 - **返回顶部按钮**：`OverviewBackToTop` 挂在除演示首屏外的所有业务页（总览 / Roadmap / 习题本 / 数据统计 / 我的简历 / 个人中心 / 两个简历子页）。行为是**下滑隐藏、上滑显示、距顶 24px 内隐藏**；点击回到顶部并尊重 `prefers-reduced-motion`。个人中心是三栏独立滚动，点击时会同时把带 `data-back-to-top-scroll` 的内部滚动容器归零。
 
@@ -66,7 +69,35 @@
 
 本地查看：启动前端，打开 `#/` 总览并强制刷新，滚动到右上信件卡片，检查拼写 `STUDYPIL` + 小人偶 + T、纵向对齐和随卡片运动的效果；再用移动端宽度复核。调试探针和备份不属于产品交付文件。
 
-## API 配置与同步
+## AI 使用方式与配置同步
+
+两种方式二选一，存在后端 `billing_accounts.mode`：`byok`（默认，走自己的 Key，由供应商直接计费）与 `platform`（走平台余额，按实际 token 用量计费）。个人中心中栏首卡是「平台余额与模型选择」，原「API 调用与模型配置」收进同一张卡底部的**高级设置**折叠里 —— 折叠只影响显示，不卸载组件，已保存的 Key 不会因为收起而丢失。
+
+### 平台余额（默认关闭）
+
+- **目录** `GET /api/billing/catalog`：只公开模型 `id`、供应商、显示名、输入 / 输出单价（元 / 百万 token）、输入输出上限、单次预留上限与可用支付渠道，**不公开 Key 和请求地址**。`BILLING_MODELS_JSON` 为空或配置不合法时目录返回空数组，`platformAvailable=false`。
+- **账户** `GET /api/billing/account`：当前模式、所选模型、账户余额、调用预留、可用余额、最近 30 条余额明细、最近 20 笔充值订单。
+- **切换** `PUT /api/billing/preferences`，body `{mode: 'platform' | 'byok', modelId}`；切回自带 Key 不会删除原有供应商与 Key 配置。
+- **计费口径**：整数微元（1 元 = 1,000,000 微元，1 分 = 10,000 微元），费用 = 输入 token × 输入单价 + 输出 token × 输出单价，两项相加后整体向上取整到 1 微元。每次调用先按模型上限原子预留，拿到非空文本与可核验 usage 后按实际量扣费、释放剩余；余额不足直接不调用，网络错误 / 超时 / 缺 usage / 空响应不扣费。
+- **覆盖能力**：助手文本对话、规划生成与调整、学习诊断、练习生成与判分。图片识题、资料对比与资料任务、简历润色仍走自带 Key，平台模式下会返回 `PLATFORM_CAPABILITY_UNAVAILABLE`（「此能力暂不支持平台余额，请切换自带 Key」）。
+- **充值**：`POST /api/billing/orders`（1–1000 元、整数分、`alipay` / `wechat`）与 `POST /api/billing/orders/{id}/query` 主动查单。支付宝返回签名付款链接，微信返回 `code_url` 由前端生成二维码（依赖 `qrcode`）。**页面回跳或前端声称成功都不入账**，只有验签通过的通知或查单结果在同一事务里更新订单、余额与唯一账本引用。
+- **部署**：新增迁移 `b1c2d3e4f5a6`（计费四表）、补列迁移 `b2f9e8d7c6a5`（调用单价快照）与 `c3a1b2c3d4e5`（积分三表），`alembic upgrade head` 一并应用。配置样例见 `backend/.env.billing.example`，**只在后端读取，不要写进 `VITE_` 变量**。
+- **未实现**：退款、自动关单、商户对账下载、管理后台。仓库里没有任何真实模型价目与支付凭据，默认 `BILLING_PAYMENTS_ENABLED=false`，不能收款，也未发生真实收款或付费调用。
+
+完整口径（验签、精度、并发与失败边界）见 [docs/platform-billing.md](docs/platform-billing.md)。
+
+### 平台积分（试运行，默认关闭）
+
+与平台余额并存的第二套计量方式，**独立账本、不与元余额互相兑换**：元余额走 `billing_*` 四表，积分走 `credit_lots` / `credit_calls` / `credit_ledger` 三表。切换方式仍是 `PUT /api/credits/preferences` 把 `mode` 设为 `platform`、`modelId` 设为 `credits:deepseek-flash`。
+
+- **接口**：`GET /api/credits/catalog`（可用模型、单价、套餐展示位）、`GET /api/credits/account`（可用 / 预留微积分、批次明细、最近 30 条流水）、`PUT /api/credits/preferences`（只接受 `credits:deepseek-flash`，其他模型返回 503）。
+- **计费口径**：1 积分 = 1,000,000 微积分；单次费用 = 输入 token × 40 + 输出 token × 160，合计向上取整到 1 微积分。调用前按上限（16,000 输入 / 4,096 输出）预留，拿到可核验 usage 后按实际量扣、剩余释放；缺 usage、超时、空响应不扣费，预留 10 分钟未结算自动释放。
+- **免费额度**：每个用户每月 500 积分，按北京时间自然月发放，月末到期不结转。
+- **模型约束**：固定 `deepseek-flash`，非流式、关闭思考模式，只支持文本。图片识题、资料对比与资料任务、简历润色仍只认自带 Key。
+- **启用条件**：`CREDITS_DEEPSEEK_ENABLED=true` 且 `BILLING_PROVIDER_KEYS_JSON` 里有 `deepseek` 的 Key，缺任一项目录为空、切换被拒。Key 只在后端读取。
+- **未实现**：购买、开通、自动续费、退款全部没有开放 —— 目录里的免费 / 启航 / 补给三档 `purchaseAvailable` 恒为 `false`，积分数量与价格只作展示。试运行期间的测试积分由运维在本地执行发放函数产生，**不是付款记录**，也不代表已上线付费订阅。
+
+### 自带 API Key（高级设置）
 
 **唯一事实来源是个人中心**「API 调用与模型配置」，接口 `/api/api-config`（`GET / POST / PUT / PATCH / DELETE`，外加 `POST /api/api-config/models`）。
 
@@ -79,7 +110,7 @@
 
 生效与同步行为：
 
-- **生效时机**：保存成功立刻生效，不用重启服务。所有 AI 调用（助手、规划、诊断、练习判分、OCR、简历润色）只取 `isVerified=true` 的配置，未验证等于没配。
+- **生效时机**：保存成功立刻生效，不用重启服务。使用方式为「自带 API Key」时，所有 AI 调用（助手、规划、诊断、练习判分、OCR、简历润色）只取 `isVerified=true` 的配置，未验证等于没配；切到平台余额后，助手、规划、诊断、练习这四项改由平台网关按用量扣余额，不再读这份 Key 配置，OCR 与简历润色仍只认 Key。
 - **保存方式**：Key 加密入库（AES-256-GCM，`AES_KEY` 派生），读接口只回 `apiKeyMasked`（末 4 位）；换设备、清缓存后重新登录仍在。
 - **前端本地只存非敏感偏好**：模型代号与推理强度（`studypilot.modelPrefs.v1`），不存 Key。
 - **不同聊天入口的配置来源**：
@@ -93,7 +124,15 @@
 
 **「近 30 日作答量」**：堆叠柱状图，每根柱按 correct / partial / wrong 三段拆分，与右侧掌握度环图同一套配色；柱下方另有一根独立基线表示「新增错题」，是两个指标，不是第四段作答。
 
-**七个明细面板**：阶段双环、近 30 日作答量、掌握度分布、高频错题 TOP5、近 30 日星图、学习航线、正反馈与顺延。点任一标题进入单面板详情（其余面板收成底部缩略条），「收起详情」回到两列网格。
+**七个明细面板**：阶段双环、近 30 日作答量、掌握度分布、高频错题 TOP5、近 30 日练习日历、学习航线、正反馈与顺延。点任一标题进入单面板详情（其余面板收成底部缩略条），「收起详情」回到两列网格。练习日历面板固定展开，不进入单面板详情，也不出现在底部缩略条里。
+
+**「近 30 日练习日历」**（`PracticeCalendar`，替代原来的星图）：
+
+- 30 个格子按**周一至周日**排列，前后补空位；日期以北京时间（`Asia/Shanghai`）为准，不受浏览器时区影响；今天有 `aria-current="date"`。
+- 点任一日期打开当天详情弹窗，数据来自 `GET /api/statistics/practice-days/{YYYY-MM-DD}`，按北京时间当天 00:00 至次日 00:00（不含）取 `MasteryEvidence`。
+- 得分口径：**正确 100、部分掌握 50、错误 0** 折算到 100 分，界面写明「仅反映已记录的练习证据，不等同于正确率或整体能力」；当天无证据显示「暂无练习证据」，休息和线下学习不会被记成未掌握。
+- 明细最多展示最近 100 条，超过时明确提示「共 N 条，展示最近 100 条，上方统计仍包含当天全部证据」；样本少于 5 条会提示结合原题回看。读取失败显示重试按钮，不显示猜测值。
+- 弹窗底部「打开习题本」只跳转已有题目，**不按所选日期筛选**，界面已注明。
 
 **周报**：`/api/weekly-reviews/latest`，无记录时惰性生成；总览的「最近周报」档与统计页共用同一份摘要。
 
@@ -122,6 +161,15 @@
 - **缺件降级**：`speech/.venv-edge` 不存在时接口返回 503 `SPEECH_UNAVAILABLE`；固定问候音频 `speech/output/greeting-xiaoxiao.mp3` 被 `.gitignore` 排除，不在仓库里，缺失时只有开场问候无声，正文朗读不受影响。
 - **发送范围**：只发被朗读的那一段正文。不发聊天历史、不发上传资料、不发其他消息。
 
+### 助手人物（companion）
+
+悬浮的助手人物是项目内组件（`components/assistant/FloatingIcon.tsx`），不是外部插件：
+
+- **交互**：拖动头像可改位置；**单击**开 / 关聊天（鼠标点击延迟 450 ms 等待双击判定，键盘激活立即生效，拖动结束不误触聊天）；**双击**展开全身人物；全身右上角「收起」回到小头像，「展开」再恢复。锚点与收起偏好存 `localStorage`（`studypilot.companion.anchor` / `studypilot.companion.collapsed`），刷新后保持。
+- **默认形态**：没有保存过偏好时，宽度小于 768 px 默认收起成小头像，桌面默认展开。
+- **避让**：小头像与 `main` 内的按钮、输入框、标题等可见控件重叠时自动上移，且不越出视口；页面有 `dialog[open]` 或 `aria-modal` 弹窗时人物让位隐藏，弹窗关闭后恢复。展开是显式选择，DOM 变化不会把它自动收回去。
+- **资源**：`frontend/public/assistant/companion-avatar.png`（小头像）；全身人物沿用 `chat-girl-*` 素材（图片 / 视频帧）。系统开启「减少动态效果」时停止逐帧播放，只保留静态形象，并立即结束入场 / 说话状态。
+
 ## Roadmap 学习资源
 
 每日任务可以带一条 `resourceUrl`，指向具体课程页或视频页。
@@ -134,9 +182,9 @@
 
 ## 技术栈
 
-**前端** —— React 18 · TypeScript 5 · Vite 5 · Tailwind CSS 3 · framer-motion · GSAP + Lenis · Rive · three（按需）· zustand · lucide-react · jsPDF
+**前端** —— React 18 · TypeScript 5 · Vite 5 · Tailwind CSS 3 · framer-motion · GSAP + Lenis · Rive · three（按需）· zustand · lucide-react · jsPDF · qrcode（微信充值的二维码）
 **后端** —— FastAPI · SQLAlchemy 2 · Alembic · Pydantic Settings · SQLite（默认）/ MySQL
-**AI 接入** —— 兼容 OpenAI 风格的 Chat Completions 与 `/models` 接口（DeepSeek 已实测，含 `reasoning_content` 兼容）
+**AI 接入** —— 兼容 OpenAI 风格的 Chat Completions 与 `/models` 接口（DeepSeek 已实测，含 `reasoning_content` 兼容）；另有一条服务端计量网关，按真实 usage 扣平台余额
 **语音** —— edge-tts 7.3.1（晓晓在线女声），独立 venv，不在后端 requirements 里
 **测试** —— pytest + Hypothesis（属性测试）· Vitest + fast-check
 
@@ -148,11 +196,12 @@ study-pilot/
 │   ├── app/
 │   │   ├── core/        # 配置、数据库、AES-GCM 加解密
 │   │   ├── models/      # SQLAlchemy 实体
-│   │   ├── routers/     # REST + SSE 路由（含 speech / resume_ai / statistics）
-│   │   └── services/    # 业务逻辑（规划、助手、诊断、指标、复盘、资源链接…）
+│   │   ├── routers/     # REST + SSE 路由（含 speech / resume_ai / statistics / billing）
+│   │   └── services/    # 业务逻辑（规划、助手、诊断、指标、复盘、资源链接、计费网关…）
 │   ├── alembic/         # 数据库迁移
 │   ├── tests/           # pytest + Hypothesis 属性测试
-│   └── .env.example
+│   ├── .env.example
+│   └── .env.billing.example  # 平台余额与支付配置样例（全空即关闭）
 ├── frontend/
 │   ├── src/
 │   │   ├── components/  # 通用组件、总览三件套、统计与诊断、聊天/小窗
@@ -187,8 +236,12 @@ study-pilot/
 | `DB_PASSWORD` | 是（可留空） | 无 | MySQL 部署才需要真实值；SQLite 留空但变量本身要在 |
 | `AES_KEY` | 是 | 无 | base64 编码的 32 字节，用于加密存储用户 API Key。留空会在加解密时报错 |
 | `SESSION_TIMEOUT_MINUTES` | 否 | `30` | 会话有效期（分钟） |
+| `BILLING_*` | 否 | 全空 / `false` | 平台余额与充值配置，样例见 `backend/.env.billing.example`。不填即目录为空模型、支付渠道不可用、不能收款 |
+| `CREDITS_DEEPSEEK_ENABLED` | 否 | `false` | 平台积分开关，还要 `BILLING_PROVIDER_KEYS_JSON` 里有 `deepseek` 的 Key 才真正可用。关闭时积分目录为空、切换被拒 |
 
 `DATABASE_URL`、`DB_PASSWORD`、`AES_KEY` 在 `Settings` 里没有默认值，缺任一项启动即失败 —— 这是有意的：宁可启动报错，不要用空密钥跑起来。
+
+`BILLING_*` 是另一组独立配置（`BILLING_MODELS_JSON`、`BILLING_PROVIDER_KEYS_JSON`、`BILLING_PAYMENTS_ENABLED`、支付宝 / 微信商户字段），全部有安全默认值，缺省不影响基础功能。**这些字段只在后端读取，不要写成 `VITE_` 变量**，否则密钥会进前端包。
 
 ### 前端环境变量（`frontend/.env`）
 
@@ -258,7 +311,7 @@ powershell -ExecutionPolicy Bypass -File speech/setup.ps1
 6. 另开终端 `cd frontend && npm install && npm run dev`，打开 `http://127.0.0.1:5173`；
 7. 注册 → 个人中心填 API Key / Base URL / 模型并保存（保存即校验）→ 上传一份 PDF/DOCX/TXT/MD → 助手提交目标生成计划 → 总览打卡 → 数据统计生成一份学习诊断。
 
-不需要 Key 也能走到的部分：注册登录、资料上传与解析、任务与打卡、错题本、统计页的打卡类指标。需要 Key 的部分：规划生成、助手对话、判分、诊断、简历润色。
+不需要 Key 也能走到的部分：注册登录、资料上传与解析、任务与打卡、错题本、统计页的打卡类指标。需要 Key **或平台余额 / 积分**的部分：规划生成、助手对话、判分、诊断；图片识题与简历润色只认自带 Key。
 
 语音朗读是可选项，第 8 步之外单独执行 `speech/setup.ps1`。
 
@@ -275,7 +328,9 @@ npm run test          # Vitest
 npm run build         # tsc -b && vite build（类型检查只在 build 阶段生效）
 ```
 
-**后端基线不是全绿。** 以 `389925a` 实测为 2 failed / 609 passed / 86 subtests，那 2 条固定是 `tests/test_video_link.py` 里依赖真实 bilibili DNS 的参数化用例，非回归。通过数随功能增长，以实跑为准，别抄旧数字。
+**后端基线不是全绿。** 2026-10-29 于 `d49fab3` + 未提交计费批次实测：**2 failed，其余通过**。那 2 条固定是 `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` 的两个参数化用例，依赖真实 bilibili DNS，非回归。通过数随功能增长，以实跑为准，别抄旧数字。
+
+前端 `tsc -b` 目前仍被 19 条**既有测试文件**的类型错误阻断（`AssistantNamePrompt`、`planner/*`、`adjustmentPreviewActions`），与产品源码无关；`npm run build` 因此失败，但 Vite 产品打包可单独跑通。不要把这些错误算成本轮回归，也不要用改测试的方式凑绿。
 
 必须用 `backend/.venv` 的 Python：系统 Python 的 `bcrypt` 与 `passlib` 不兼容，会得到上百条假失败。
 
@@ -294,6 +349,7 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 ## 项目文档
 
 - `.kiro/specs/study-pilot/` —— 需求、设计与任务分解（Kiro spec）
+- [docs/platform-billing.md](docs/platform-billing.md) —— 平台余额：目录配置、计费精度、预留与结算、支付验签与失败边界
 - [DEPLOY.md](DEPLOY.md) —— 本地联调、公网部署、竞赛演示主路径与手动验收清单
 
 ## 说明
