@@ -16,6 +16,7 @@ import {
   FileText,
 } from 'lucide-react';
 import PhaseRings from '@/components/PhaseRings';
+import PracticeCalendar from '@/components/PracticeCalendar';
 import StackedBars, { type StackedBar } from '@/components/StackedBars';
 import StatisticsWeeklyReview from '@/components/StatisticsWeeklyReview';
 import StatisticsDiagnosis from '@/components/StatisticsDiagnosis';
@@ -34,7 +35,6 @@ import {
   fetchStatisticsOverview,
   type MasteryDistribution,
   type RoutePhaseItem,
-  type StarDayItem,
   type StatisticsOverview,
   type TopMistakeItem,
 } from '@/lib/statisticsApi';
@@ -46,7 +46,7 @@ const DETAIL_PANELS = [
   { key: 'activity', title: '近 30 日作答量' },
   { key: 'mastery', title: '掌握度分布' },
   { key: 'mistakes', title: '高频错题 TOP5' },
-  { key: 'stars', title: '近 30 日星图' },
+  { key: 'stars', title: '近 30 日练习日历' },
   { key: 'route', title: '学习航线' },
   { key: 'feedback', title: '正反馈与顺延' },
 ] as const;
@@ -249,88 +249,6 @@ function AnimatedRing({
   );
 }
 
-const STAR_FILL: Record<StarDayItem['star'], string> = {
-  gold: '#F59E0B',
-  blue: '#3B82F6',
-  gray: '#94A3B8',
-  none: '#475569',
-};
-
-function StarFace({ star, size = 28 }: { star: StarDayItem['star']; size?: number }) {
-  const fill = STAR_FILL[star];
-  const cry = star === 'none';
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="14" fill={fill} opacity={cry ? 0.55 : 0.95} />
-      <circle cx="11" cy="13" r="1.6" fill="#fff" />
-      <circle cx="21" cy="13" r="1.6" fill="#fff" />
-      {cry ? (
-        <path d="M11 22c2-2 8-2 10 0" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      ) : (
-        <path d="M11 20c2 2.5 8 2.5 10 0" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      )}
-    </svg>
-  );
-}
-
-function StarMap({ items }: { items: StarDayItem[] }) {
-  const [tip, setTip] = useState<TipState>(null);
-  const hasData = items.some((d) => d.answered > 0);
-  if (!hasData) {
-    return <p className="py-10 text-center text-sm text-slate-400">近 30 天还没有掌握度证据</p>;
-  }
-
-  return (
-    <div className="relative w-full" onMouseLeave={() => setTip(null)}>
-      <ChartTooltip tip={tip} />
-      <div className="mx-auto grid max-w-xl grid-cols-10 gap-1.5">
-        {items.map((d) => {
-          const label = d.date.slice(5);
-          const text =
-            d.star === 'none'
-              ? `${label}：这天没有作答`
-              : `${label}：${d.answered} 道 · 正确率 ${d.accuracy}%`;
-          return (
-            <button
-              key={d.date}
-              type="button"
-              title={text}
-              className="flex items-center justify-center rounded-md p-0.5 hover:bg-slate-50"
-              onMouseEnter={(e) => {
-                const host = e.currentTarget.parentElement?.parentElement;
-                if (!host) return;
-                const box = host.getBoundingClientRect();
-                setTip({
-                  label,
-                  value: d.answered,
-                  percent: d.accuracy ?? 0,
-                  color: STAR_FILL[d.star],
-                  unitLabel: '道',
-                  text,
-                  x: e.clientX - box.left,
-                  y: e.clientY - box.top,
-                });
-              }}
-              onMouseMove={(e) => {
-                const host = e.currentTarget.parentElement?.parentElement;
-                if (!host) return;
-                const box = host.getBoundingClientRect();
-                setTip((prev) =>
-                  prev
-                    ? { ...prev, x: e.clientX - box.left, y: e.clientY - box.top }
-                    : prev,
-                );
-              }}
-            >
-              <StarFace star={d.star} size={28} />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function buildFeedbackLines(data: StatisticsOverview): string[] {
   const lines: string[] = [];
   const done = data.todayTasksDone ?? 0;
@@ -346,7 +264,7 @@ function buildFeedbackLines(data: StatisticsOverview): string[] {
     const first = last3[0].accuracy as number;
     const last = last3[last3.length - 1].accuracy as number;
     if (first !== last) {
-      lines.push(`这三天正确率从 ${first}% 到 ${last}%`);
+      lines.push(`最近三个有记录的日期，练习证据得分从 ${first} 到 ${last} / 100（各日样本量可能不同）`);
     }
   }
 
@@ -761,7 +679,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       case 'mistakes':
         return <TopMistakesList items={data?.topMistakes ?? []} />;
       case 'stars':
-        return <StarMap items={data?.stars ?? []} />;
+        return <PracticeCalendar items={data?.stars ?? []} onOpenMistakes={onNavigate ? () => onNavigate('mistakes') : undefined} />;
       case 'route':
         return <RouteTrack items={data?.route ?? []} busyPhaseId={quizBusyPhaseId} onQuiz={(id) => void handlePhaseQuiz(id)} message={quizMsg} />;
       case 'feedback':
@@ -893,12 +811,12 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         {(activePanel ? DETAIL_PANELS.filter((panel) => panel.key === activePanel) : DETAIL_PANELS).map((panel) => (
           <article
             key={panel.key}
-            onClick={(event) => openPanelFromCard(panel.key, event)}
-            className={`statistics-panel-glass pressable-card p-6 ${activePanel ? 'min-h-80' : 'cursor-pointer'} ${!activePanel && ['stars', 'route', 'feedback'].includes(panel.key) ? 'md:col-span-2' : ''}`}
+            onClick={panel.key === 'stars' ? undefined : (event) => openPanelFromCard(panel.key, event)}
+            className={`statistics-panel-glass pressable-card p-6 ${activePanel ? 'min-h-80' : panel.key === 'stars' ? '' : 'cursor-pointer'} ${!activePanel && ['stars', 'route', 'feedback'].includes(panel.key) ? 'md:col-span-2' : ''}`}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-800">
-                {activePanel ? panel.title : (
+                {activePanel || panel.key === 'stars' ? panel.title : (
                   <button type="button" className="rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand" onClick={() => setActivePanel(panel.key)} aria-label={`展开${panel.title}`}>
                     {panel.title}
                   </button>
@@ -911,7 +829,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         ))}
         {activePanel ? (
           <nav className="flex gap-3 overflow-x-auto pb-2" aria-label="统计模块缩略条">
-            {DETAIL_PANELS.filter((panel) => panel.key !== activePanel).map((panel) => (
+            {DETAIL_PANELS.filter((panel) => panel.key !== activePanel && panel.key !== 'stars').map((panel) => (
               <button key={panel.key} type="button" onClick={() => setActivePanel(panel.key)} className="pressable-card min-w-36 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-4 text-left text-sm font-medium text-slate-700 shadow-sm hover:border-brand hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
                 {panel.title}
               </button>

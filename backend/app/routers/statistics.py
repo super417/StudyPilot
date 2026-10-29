@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from app.models.entities import (
     MasteryEvidence,
     Mistake,
     Phase,
+    Plan,
     User,
     UserDocument,
 )
@@ -307,6 +308,43 @@ def statistics_overview_route(
     session: Session = Depends(get_db),
 ) -> JSONResponse:
     return JSONResponse(status_code=200, content=build_overview(session, user.id))
+
+
+@router.get("/practice-days/{day}")
+def practice_day_route(
+    day: str = Path(pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db),
+) -> dict:
+    """Read a Beijing calendar day, using the same evidence/scoring as stars."""
+    try:
+        selected_day = date.fromisoformat(day)
+        start = datetime.combine(selected_day, time.min, tzinfo=CHINA_TZ).astimezone(timezone.utc)
+        end = start + timedelta(days=1)
+    except (ValueError, OverflowError):
+        raise HTTPException(status_code=422, detail="请选择有效的 ISO 日期（YYYY-MM-DD）") from None
+    filters = (
+        MasteryEvidence.user_id == user.id,
+        MasteryEvidence.created_at >= start,
+        MasteryEvidence.created_at < end,
+    )
+    grouped = session.execute(
+        select(MasteryEvidence.result, func.count()).where(*filters).group_by(MasteryEvidence.result)
+    ).all()
+    distribution = {"correct": 0, "partial": 0, "wrong": 0}
+    distribution.update({result: int(count) for result, count in grouped})
+    answered = sum(distribution.values())
+    score = round(sum(_EVIDENCE_SCORE[result] * count for result, count in distribution.items()) / answered) if answered else None
+    # Details are bounded; the counts and score above always cover the full day.
+    rows = session.scalars(select(MasteryEvidence).where(*filters).order_by(MasteryEvidence.created_at.desc(), MasteryEvidence.id).limit(100)).all()
+    phase_ids = {row.knowledge_point for row in rows if row.knowledge_point is not None}
+    phases = dict(session.execute(select(Phase.id, Phase.name).join(Plan, Plan.id == Phase.plan_id).where(Plan.user_id == user.id, Phase.id.in_(phase_ids))).all()) if phase_ids else {}
+    return {
+        "status": "ok", "date": day, "timezone": "Asia/Shanghai",
+        "answered": answered, "score": score, "distribution": distribution,
+        "total": answered, "truncated": answered > len(rows),
+        "evidence": [{"id": str(row.id), "result": row.result, "phaseName": phases.get(row.knowledge_point), "gradeReason": row.grade_reason, "errorTag": row.error_tag} for row in rows],
+    }
 
 
 @router.get("/diagnosis/latest")

@@ -71,6 +71,22 @@ export function fetchStatisticsOverview(): Promise<StatisticsOverview> {
   return apiRequest<StatisticsOverview>('/api/statistics/overview');
 }
 
+export interface PracticeDayDetail {
+  status: 'ok';
+  date: string;
+  timezone: 'Asia/Shanghai';
+  answered: number;
+  score: number | null;
+  distribution: MasteryDistribution;
+  total: number;
+  truncated: boolean;
+  evidence: Array<{ id: string; result: keyof MasteryDistribution; phaseName: string | null; gradeReason: string | null; errorTag: string | null }>;
+}
+
+export function fetchPracticeDay(day: string, signal?: AbortSignal): Promise<PracticeDayDetail> {
+  return apiRequest(`/api/statistics/practice-days/${encodeURIComponent(day)}`, { signal });
+}
+
 export interface DiagnosisReport {
   id: string;
   title?: string;

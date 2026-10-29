@@ -1,0 +1,78 @@
+.practice-calendar { width: 100%; color: #25463e; }
+.practice-calendar-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.practice-calendar-heading p { margin: 0; font-size: 13px; }
+.practice-calendar-heading .practice-calendar-range { margin-bottom: 4px; font-size: 11px; color: #65796f; }
+.practice-calendar-mark { font-size: 28px; color: #b39a58; }
+.practice-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.practice-calendar-weekday { text-align: center; padding-bottom: 3px; font-size: 11px; color: #65796f; }
+.practice-calendar-day { position: relative; isolation: isolate; overflow: hidden; display: flex; min-width: 0; min-height: 48px; align-items: center; justify-content: center; gap: 6px; padding: 6px 3px; border: 1px solid #d7e1db; border-radius: 9px; background: #f4f7f3; color: #64776e; cursor: pointer; }
+.practice-calendar-day > span, .practice-calendar-day > small { position: relative; z-index: 1; }
+.practice-calendar-day::after { content: ''; position: absolute; z-index: 0; top: -35px; left: -75px; width: 50px; height: 150px; background: #38ef7d; opacity: 0; transform: rotate(35deg); pointer-events: none; }
+.practice-calendar-date { font-size: 12px; line-height: 1.2; }
+.practice-calendar-dot { font-size: 16px; line-height: 1; }
+.practice-calendar-day small { font-size: 10px; white-space: nowrap; }
+.practice-calendar-day-gold { background: #faf2d9; color: #795b17; border-color: #eadcae; }
+.practice-calendar-day-blue { background: #e9f0fa; color: #365a87; border-color: #cedcf0; }
+.practice-calendar-day-gray { background: #eaf0ed; color: #49675b; border-color: #cfdad4; }
+.practice-calendar-day[aria-current=date] { border-color: #55765e; }
+.practice-calendar-day[aria-current=date] .practice-calendar-date { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+.practice-calendar-day[aria-expanded=true] { outline: 2px solid #55765e; outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .practice-calendar-day:not(:disabled):hover { box-shadow: 0 2px 8px #25463e18; animation: rotate624 .7s ease-in-out both; }
+  .practice-calendar-day:not(:disabled):hover > span,
+  .practice-calendar-day:not(:disabled):hover > small { animation: storm1261 .7s ease-in-out .06s both; }
+  .practice-calendar-day:not(:disabled):hover::after { left: 120%; opacity: .4; transition: left 550ms cubic-bezier(.19, 1, .22, 1); }
+}
+@keyframes rotate624 {
+  0%, 100% { transform: rotate(0deg) translate3d(0, 0, 0); }
+  25% { transform: rotate(3deg) translate3d(0, 0, 0); }
+  50% { transform: rotate(-3deg) translate3d(0, 0, 0); }
+  75% { transform: rotate(1deg) translate3d(0, 0, 0); }
+}
+@keyframes storm1261 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(4px, 0, 0); }
+  50% { transform: translate3d(-3px, 0, 0); }
+  75% { transform: translate3d(2px, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .practice-calendar-day:not(:disabled):hover,
+  .practice-calendar-day:not(:disabled):hover > span,
+  .practice-calendar-day:not(:disabled):hover > small { animation: none; }
+  .practice-calendar-day:not(:disabled):hover::after { transition: none; opacity: 0; }
+}
+.practice-calendar-day:focus-visible, .practice-day-dialog button:focus-visible { outline: 3px solid #624b97; outline-offset: 2px; }
+.practice-calendar-legend { display: flex; flex-wrap: wrap; gap: 5px 16px; margin: 10px 0 0; font-size: 11px; color: #65796f; }
+.practice-day-dialog { box-sizing: border-box; width: min(540px, calc(100vw - 32px)); max-height: 84dvh; margin: auto; padding: 0; overflow: auto; border: 1px solid #c5d6cb; border-radius: 20px; background: #f9fcf9; color: #25463e; box-shadow: 0 16px 70px #173c3433; }
+.practice-day-dialog::backdrop { background: #132d2955; backdrop-filter: blur(5px); }
+.practice-day-dialog-content { padding: 24px; overflow-wrap: anywhere; }
+.practice-day-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.practice-day-dialog header p { margin: 0 0 4px; font-size: 12px; color: #65796f; }
+.practice-day-dialog h2 { margin: 0; font-size: 22px; font-weight: 600; }
+.practice-day-dialog header > button { flex: none; width: 44px; height: 44px; border-radius: 50%; background: #eaf1eb; font-size: 26px; }
+.practice-day-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px 0; }
+.practice-day-summary strong { display: block; font-size: 32px; line-height: 1.3; }
+.practice-day-summary span { font-size: 12px; color: #65796f; }
+.practice-day-distribution { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 16px; }
+.practice-day-distribution > div { padding: 12px 6px; background: #edf3ed; border-radius: 10px; text-align: center; }
+.practice-day-distribution dt { font-size: 12px; }
+.practice-day-distribution dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
+.practice-day-note { margin: 12px 0; font-size: 12px; line-height: 1.7; color: #65796f; }
+.practice-day-empty { padding: 14px; background: #edf3ed; border-radius: 10px; font-size: 14px; line-height: 1.7; }
+.practice-day-dialog h3 { margin: 18px 0 10px; font-size: 14px; font-weight: 600; }
+.practice-day-evidence { margin: 0; padding: 0; list-style: none; }
+.practice-day-evidence li { padding: 12px 0; border-top: 1px solid #dae6dd; }
+.practice-day-evidence li > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.practice-day-evidence li > div span { flex: none; }
+.practice-day-evidence p { margin: 8px 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+.practice-day-evidence small { font-size: 11px; color: #65796f; }
+.practice-day-action { min-height: 44px; padding: 10px 15px; border: 1px solid #b5c6bb; border-radius: 10px; background: #fff; font-size: 13px; }
+.practice-day-dialog footer { margin-top: 18px; }
+@media (max-width: 767px) {
+  .practice-calendar-grid { gap: 4px; }
+  .practice-calendar-day { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 0; min-height: 52px; padding: 5px 1px; border-radius: 7px; text-align: center; }
+  .practice-calendar-day small { grid-column: 1 / -1; font-size: 8px; }
+  .practice-calendar-date { font-size: 10px; }
+  .practice-calendar-dot { font-size: 12px; }
+  .practice-day-dialog-content { padding: 18px; }
+}
