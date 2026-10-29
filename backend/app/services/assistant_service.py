@@ -732,7 +732,9 @@ async def _stream_chat_reply(
     is_disconnected=None,
     stream_factory: ChatStreamFactory | None = None,
 ) -> AsyncIterator[str]:
-    if not has_verified_api_config(session, user_id):
+    from app.services.billing_service import BillingError, selected_mode
+    platform = selected_mode(session, user_id) == "platform"
+    if not platform and not has_verified_api_config(session, user_id):
         err = build_client_error(NoVerifiedApiConfigError())
         yield format_sse(
             SSE_ERROR_EVENT, {"code": err["code"], "message": err["message"]}
@@ -740,7 +742,7 @@ async def _stream_chat_reply(
         return
 
     try:
-        credential = resolve_credential(session, user_id)
+        credential = resolve_credential(session, user_id, allow_platform=True)
     except (NoVerifiedApiConfigError, CredentialUnavailableError) as error:
         err = build_client_error(error)
         yield format_sse(
@@ -781,6 +783,18 @@ async def _stream_chat_reply(
         "messages": messages,
     }
     apply_reasoning_strength(payload, reasoning_strength)
+
+    if platform:
+        from app.services.platform_ai_service import complete
+        try:
+            if is_disconnected is not None and await is_disconnected():
+                return
+            reply = await complete(session, user_id, payload)
+            yield format_sse("token", {"delta": reply})
+            yield format_sse("done", {"finish": "stop", **({"citations": citations} if citations else {})})
+        except BillingError as error:
+            yield format_sse(SSE_ERROR_EVENT, {"code": error.code, "message": str(error)})
+        return
 
     factory = stream_factory or openai_compatible_chat_stream
 

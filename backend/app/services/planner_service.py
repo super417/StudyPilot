@@ -42,6 +42,7 @@ from app.services import (
     task_service,
 )
 from app.services.ai_proxy import (
+    require_ai_access, request_ai_completion,
     CredentialUnavailableError,
     build_outbound_headers,
     resolve_credential,
@@ -770,7 +771,7 @@ async def _generate_structure_via_ai_proxy(
     adds no message, so every other caller sends exactly what it sent before.
     """
     try:
-        credential = resolve_credential(session, user_id)
+        credential = resolve_credential(session, user_id, allow_platform=True)
     except (NoVerifiedApiConfigError, CredentialUnavailableError):
         raise
     except Exception as error:
@@ -809,16 +810,10 @@ async def _generate_structure_via_ai_proxy(
     }
     strength = fields.get("reasoningStrength") or fields.get("reasoning_strength")
     apply_reasoning_strength(payload, str(strength) if strength is not None else "standard")
-    headers = {
-        **build_outbound_headers(credential),
-        "Content-Type": "application/json",
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                credential.base_url, headers=headers, json=payload
-            )
+        response = await request_ai_completion(session, user_id, credential, payload)
+    except CredentialUnavailableError:
+        raise
     except Exception as error:
         raise PlanGenerationError() from error
 
@@ -1227,7 +1222,7 @@ async def generate_plan(
       commit failure rolls back so no partial plan is left behind.
     """
     # Requirement 9 (and 2.13/3.5): block AI work without a verified config.
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
 
     used_docs, skipped_docs = document_service.filter_ready_documents(
         session, user_id, document_ids
@@ -1308,7 +1303,7 @@ async def compose_unpersisted(
     instruction: str = "",
 ) -> tuple[dict, list[str]]:
     """Build a plan structure without writing it. Used when no files were uploaded."""
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
     used_docs, _skipped = document_service.filter_ready_documents(
         session, user_id, document_ids
     )
@@ -1453,7 +1448,7 @@ async def regenerate_plan(
     phase rows. The rebuild runs in the same transaction as the plan update, so
     a failure leaves the previous plan fully intact.
     """
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
 
     plan = _owned_plan(session, user_id, plan_id)
 

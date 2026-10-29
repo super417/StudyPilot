@@ -69,6 +69,12 @@ class CredentialUnavailableError(RuntimeError):
         super().__init__(message)
 
 
+class PlatformCredentialError(CredentialUnavailableError):
+    def __init__(self, code="PLATFORM_CAPABILITY_UNAVAILABLE"):
+        self.code = code
+        super().__init__()
+
+
 # Safe, generic client-facing messages keyed by error code. These never
 # expose credential material.
 _CLIENT_ERROR_MESSAGES = {
@@ -77,6 +83,12 @@ _CLIENT_ERROR_MESSAGES = {
     "AI_INSUFFICIENT_BALANCE": "API 账户余额不足，请充值或更换 Key 后重试",
     "AI_AUTH_FAILED": "API Key 无效或已失效，请到个人中心重新配置",
     "AI_RATE_LIMITED": "API 调用过于频繁，请稍后重试",
+    "PLATFORM_CAPABILITY_UNAVAILABLE": "此能力暂不支持平台余额，请切换自带 Key",
+    "PLATFORM_UNAVAILABLE": "平台模型暂不可用，请选择其他模型或切换自带 Key",
+    "PLATFORM_INSUFFICIENT_BALANCE": "平台可用余额不足以预留本次调用上限，请充值或切换自带 Key",
+    "PLATFORM_INPUT_TOO_LARGE": "本次上下文超过平台模型上限，请缩短内容",
+    "INVALID_USAGE": "平台模型未提供可核验用量，本次未扣费",
+    "PLATFORM_AI_FAILED": "平台模型调用失败，预留余额已释放",
 }
 
 
@@ -102,7 +114,7 @@ class ResolvedCredential:
         )
 
 
-def resolve_credential(session: Session, user_id: uuid.UUID) -> ResolvedCredential:
+def resolve_credential(session: Session, user_id: uuid.UUID, *, allow_platform=False) -> ResolvedCredential:
     """Return the user's decrypted credential for an in-memory outbound call.
 
     - Raises ``NoVerifiedApiConfigError`` (NO_API_KEY) when the user has no
@@ -114,6 +126,12 @@ def resolve_credential(session: Session, user_id: uuid.UUID) -> ResolvedCredenti
 
     The plaintext key exists only inside the returned local object.
     """
+    from app.services.billing_service import account, selected_mode
+    if selected_mode(session, user_id) == "platform":
+        if not allow_platform:
+            raise PlatformCredentialError()
+        row = account(session, user_id)
+        return ResolvedCredential(api_key="", model_type=row.model_id or "", base_url="platform://metered")
     config = require_verified_api_config(session, user_id)
 
     try:
@@ -135,10 +153,38 @@ def build_outbound_headers(credential: ResolvedCredential) -> dict[str, str]:
     The credential travels only here, in the outbound header, never in the
     business payload and never in a response returned to the frontend.
     """
+    if credential.base_url == "platform://metered":
+        raise CredentialUnavailableError("此能力须经过平台计费网关")
     return {
         "Authorization": f"Bearer {credential.api_key}",
         "X-Model-Type": credential.model_type,
     }
+
+
+def require_ai_access(session: Session, user_id):
+    from app.services.billing_service import selected_mode
+    if selected_mode(session, user_id) != "platform":
+        return require_verified_api_config(session, user_id)
+    return None
+
+
+def has_ai_access(session: Session, user_id) -> bool:
+    from app.services.billing_service import selected_mode
+    from app.services.api_config_service import has_verified_api_config
+    return selected_mode(session, user_id) == "platform" or has_verified_api_config(session, user_id)
+
+
+async def request_ai_completion(session, user_id, credential, payload):
+    if credential.base_url == "platform://metered":
+        from app.services.platform_ai_service import complete
+        from app.services.billing_service import BillingError
+        try:
+            text = await complete(session, user_id, payload)
+        except BillingError as error:
+            raise PlatformCredentialError(error.code) from None
+        return httpx.Response(200, json={"choices": [{"message": {"content": text}}]})
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        return await client.post(credential.base_url, headers={**build_outbound_headers(credential), "Content-Type": "application/json"}, json=payload)
 
 
 def build_client_error(error: Exception) -> dict:

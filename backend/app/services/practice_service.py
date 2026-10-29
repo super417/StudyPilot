@@ -22,6 +22,7 @@ from app.models.entities import (
 )
 from app.services import document_service
 from app.services.ai_proxy import (
+    require_ai_access, request_ai_completion,
     CredentialUnavailableError,
     build_outbound_headers,
     resolve_credential,
@@ -344,7 +345,7 @@ def _done_task_lines(session: Session, user_id: uuid.UUID, day: date) -> tuple[l
 
 
 async def _default_generator(session: Session, user_id: uuid.UUID, lines: list[str], context: str) -> dict:
-    credential = resolve_credential(session, user_id)
+    credential = resolve_credential(session, user_id, allow_platform=True)
     payload = {
         "model": credential.model_type,
         "stream": False,
@@ -363,12 +364,7 @@ async def _default_generator(session: Session, user_id: uuid.UUID, lines: list[s
             },
         ],
     }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            credential.base_url,
-            headers={**build_outbound_headers(credential), "Content-Type": "application/json"},
-            json=payload,
-        )
+    response = await request_ai_completion(session, user_id, credential, payload)
     if response.status_code >= 400:
         raise PlanGenerationError()
     body = response.json()
@@ -386,7 +382,7 @@ async def generate_for_day(
     day: date,
     generator: QuestionGenerator | None = None,
 ) -> list[PracticeQuestion]:
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
     lines, task_id = _done_task_lines(session, user_id, day)
     if not lines:
         return []
@@ -474,7 +470,7 @@ async def generate_reinforce_retest(
     written ``PracticeQuestion.source_task_id`` is a reinforce task id for
     ``phase_id``. No reinforce tasks → refuse without writing.
     """
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
     phase, reinforce_tasks = _reinforce_tasks_for_phase(session, user_id, phase_id)
     if not reinforce_tasks:
         raise PracticeValidationError("该阶段没有补强任务，无法重测")
@@ -560,7 +556,7 @@ async def generate_phase_quiz(
     ``source_task_id`` points at a done task of this phase so ``_knowledge_point``
     resolves to ``phase_id`` and mastery evidence feeds the dual rings.
     """
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
     phase, done_tasks = _done_tasks_for_phase(session, user_id, phase_id)
     if not done_tasks:
         raise PracticeValidationError("该阶段还没有已完成的任务，无法测验")
@@ -731,8 +727,8 @@ async def _call_grade_model(
     user_content: str,
     parse: Callable[[object], dict],
 ) -> dict:
-    require_verified_api_config(session, user_id)
-    credential = resolve_credential(session, user_id)
+    require_ai_access(session, user_id)
+    credential = resolve_credential(session, user_id, allow_platform=True)
     payload = {
         "model": credential.model_type,
         "stream": False,
@@ -742,15 +738,9 @@ async def _call_grade_model(
         ],
     }
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                credential.base_url,
-                headers={
-                    **build_outbound_headers(credential),
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
+        response = await request_ai_completion(session, user_id, credential, payload)
+    except CredentialUnavailableError:
+        raise
     except Exception as exc:
         raise PracticeGradeError("判分调用失败，没有写入掌握度证据") from exc
     if response.status_code >= 400:

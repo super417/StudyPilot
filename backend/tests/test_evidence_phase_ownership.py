@@ -41,7 +41,10 @@ from app.services import (
 # Frozen at batch 27: this batch adds no migration. A future batch that does
 # must bump this number on purpose.
 # 26 = +resume_documents（简历编辑器快照按账号保存）。
-MIGRATION_FILE_COUNT = 26
+# 29 = +b1c2d3e4f5a6 平台计费四表、+b2f9e8d7c6a5 调用单价快照，
+#      以及此前批次漏计的一支迁移（27 时该断言已失败，本轮一并校正）。
+# 30 = +c3a1b2c3d4e5 积分批次（credit_lots / credit_calls / credit_ledger）。
+MIGRATION_FILE_COUNT = 30
 
 
 def _structure() -> dict:

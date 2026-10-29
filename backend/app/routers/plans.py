@@ -1,3 +1,4 @@
+from app.services.ai_proxy import has_ai_access
 """Planner SSE routes: generate + clarify + regenerate (needs 9.1-9.6, 10.2, 3.6).
 
 Both endpoints stream Server-Sent Events. No credential material ever appears
@@ -333,7 +334,7 @@ async def _generate_frames(
     notice and the skipped-documents notice precede the terminal done frame.
     """
     # Fail fast on NO_API_KEY so it precedes any readiness notice.
-    if not has_verified_api_config(session, user_id):
+    if not has_ai_access(session, user_id):
         yield _error_frame(NoVerifiedApiConfigError.code, _NO_API_KEY_MESSAGE)
         return
 
@@ -671,7 +672,7 @@ async def regenerate_plan_route(
             yield _error_frame(PlanNotFoundError.code, str(PlanNotFoundError()))
             return
 
-        if not has_verified_api_config(session, user.id):
+        if not has_ai_access(session, user.id):
             yield _error_frame(NoVerifiedApiConfigError.code, _NO_API_KEY_MESSAGE)
             return
 

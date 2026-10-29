@@ -30,7 +30,7 @@ from app.services import (
     task_service,
     weekly_review_service,
 )
-from app.services.api_config_service import require_verified_api_config
+from app.services.ai_proxy import require_ai_access
 from app.services.planner_service import PlanGenerator, PlanGenerationError
 
 # Test-only seams for controllable interleaving (independent connections).
@@ -825,7 +825,7 @@ async def create_preview(
     plan_generator: PlanGenerator | None = None,
 ) -> PlanAdjustment:
     """Generate a durable preview. Does not mutate the live plan."""
-    require_verified_api_config(session, user_id)
+    require_ai_access(session, user_id)
     plan = planner_service._owned_plan(session, user_id, plan_id)
     fields: dict[str, object] = {
         "goalName": plan.goal_name,

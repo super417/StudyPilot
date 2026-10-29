@@ -82,10 +82,12 @@ def chat(monkeypatch):
         },
     }
     monkeypatch.setattr(assistant_service, "has_verified_api_config", lambda *_: True)
+    # The real resolver gained keyword-only ``allow_platform``; the stub accepts it
+    # but always returns the same BYOK credential, so no platform path is taken.
     monkeypatch.setattr(
         assistant_service,
         "resolve_credential",
-        lambda *_: ResolvedCredential("test-key", "test-model", "https://example.com"),
+        lambda *_, **__: ResolvedCredential("test-key", "test-model", "https://example.com"),
     )
 
     @asynccontextmanager

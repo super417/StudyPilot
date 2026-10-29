@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.routers.api_config import router as api_config_router
 from app.routers.assistant import router as assistant_router
 from app.routers.auth import router as auth_router
+from app.routers.billing import router as billing_router
 from app.routers.conversations import router as conversations_router
 from app.routers.courses import router as courses_router
 from app.routers.dependencies import AuthenticationRequiredError
@@ -29,6 +30,7 @@ from app.services.session_service import COOKIE_NAME
 app = FastAPI(title="StudyPilot API", version="0.1.0")
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(billing_router)
 app.include_router(profile_router)
 app.include_router(resume_router)
 app.include_router(resume_documents_router)
@@ -66,3 +68,6 @@ async def authentication_required_handler(
     if error.clear_cookie:
         response.delete_cookie(COOKIE_NAME)
     return response
+
+from app.routers.credits import router as credits_router
+app.include_router(credits_router)
