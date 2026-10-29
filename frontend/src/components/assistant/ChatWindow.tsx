@@ -9,6 +9,7 @@ import GoalSubmitForm from '@/components/planner/GoalSubmitForm';
 import AdjustmentPreviewBar from '@/components/assistant/AdjustmentPreviewBar';
 import AssistantNamePrompt from '@/components/assistant/AssistantNamePrompt';
 import AssistantInput from '@/components/chat/AssistantInput';
+import ModelEffortMenu from '@/components/chat/ModelEffortMenu';
 import AssistantMessage from '@/components/chat/AssistantMessage';
 import UserMessage from '@/components/chat/UserMessage';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
@@ -191,6 +192,7 @@ function ChatWindow() {
       {open ? (
         <motion.div
           key="assistant-window"
+          data-assistant-panel
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.8 }}
@@ -357,6 +359,8 @@ function ChatWindow() {
           />
           <div className="min-w-0 shrink-0 border-t border-brandFaint px-3 py-3">
             <AssistantInput
+              variant="stacked"
+              controls={<ModelEffortMenu />}
               value={input}
               onChange={setInput}
               onSend={handleSend}
