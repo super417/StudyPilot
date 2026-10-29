@@ -216,3 +216,23 @@
 .spp-review-summary p { margin: 0; font-size: 14px; line-height: 1.6; }
 .spp-review-summary button { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
 .spp-review-summary button svg { width: 18px; height: 18px; }
+
+/* Learning cards keep their action visible without the pricing template's tall gap. */
+.spp-learning-plans .spp-plan-body > header { position: sticky; z-index: 3; top: var(--spp-card-sticky-top, 0px); margin-bottom: 0; }
+.spp-learning-plans .spp-plan-body:hover { translate: none; }
+.spp-learning-plans .spp-plan-features { margin-top: 0; padding: 22px 20px; }
+.spp-learning-plans .spp-plan h3 { font-size: clamp(28px, 2.7vw, 42px); }
+.spp-learning-plans .spp-plan-features ul { max-width: none; gap: 18px; }
+.spp-learning-plans .spp-plan-features li { align-items: flex-start; overflow-wrap: anywhere; font-size: 16px; }
+.spp-learning-action { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 18px 22px; }
+.spp-learning-action .spp-button { background: #fffefc; font-size: 14px; }
+.spp-learning-secondary { padding: 6px 0; background: transparent; border: 0; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; }
+.spp-root .spp-learning-reason { padding: 12px 24px 24px; font: 13px/1.6 Arial, 'Microsoft YaHei', sans-serif; overflow-wrap: anywhere; }
+.spp-record-warning { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; margin-bottom: 32px; border: 1px solid #73531c; background: #fff6db; }
+.spp-learning-plans button:disabled { opacity: .5; cursor: wait; }
+.spp-learning-secondary:focus-visible { outline: 2px solid #152c29; outline-offset: 4px; }
+@media (max-width: 767px) { .spp-learning-plans .spp-plan-body > header { position: relative; top: auto; } .spp-learning-plans .spp-plan:nth-child(2) { margin-top: 0; } .spp-learning-action { padding: 16px 20px; } }
+
+/* Real records set each learning card's height; keep their natural differences. */
+.spp-learning-plans { align-items: start; }
+.spp-learning-plans .spp-plan-body, .spp-learning-plans .spp-plan-features { flex: initial; }

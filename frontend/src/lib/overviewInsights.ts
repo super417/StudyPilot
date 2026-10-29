@@ -16,7 +16,7 @@ export function buildLearningInsights(
   const todayStatus = metrics?.todayStatus ?? '未反馈';
   const streak = metrics?.streakDays ?? 0;
   const doneTasks = todayTasks.filter((t) => t.status === 'done').length;
-  const totalTasks = todayTasks.length;
+  const totalTasks = todayTasks.filter((t) => t.status !== 'carried').length;
 
   const hardRule: LearningInsight = {
     index: '01',
@@ -24,18 +24,18 @@ export function buildLearningInsights(
     title: '只看不算完成',
     body:
       totalTasks > 0
-        ? `今日已安排 ${totalTasks} 项任务，完成 ${doneTasks} 项。有输出、有打卡才算完成；仅浏览不算。`
-        : '今日尚无任务。提交规划并生成每日任务后，完成以打卡与任务勾选为准，而不是“看过”。',
+        ? `今日已安排 ${totalTasks} 项任务，完成 ${doneTasks} 项。任务勾选和打卡分别保存；仅浏览不算完成。`
+        : '今日尚无任务。提交规划并生成每日任务后，任务完成以勾选记录为准；打卡另行填写。',
     evidence: `证据: 今日任务 ${doneTasks}/${totalTasks} · 状态「${todayStatus}」`,
   };
 
   const restart: LearningInsight = {
     index: '02',
     kind: '重启方式',
-    title: streak <= 1 ? '中断后先做 2 分钟' : `连续 ${streak} 天，保持最小启动`,
+    title: metrics ? `连续打卡 ${streak} 天` : '暂无打卡指标',
     body:
       streak <= 1
-        ? '连续打卡偏弱时，用 2 分钟复述或一道小题重建手感，比硬追进度更稳。'
+        ? '连续天数较少不能判断是否中断。时间有限时，可以自选复述一个要点或一道小题。'
         : `当前连续打卡 ${streak} 天。若中断，用最短任务（复述要点 / 一题）重启，避免一次补完。`,
     evidence: `证据: streakDays=${streak}`,
   };
@@ -48,7 +48,7 @@ export function buildLearningInsights(
       todayStatus === '已完成'
         ? '今日已打卡完成。隔日可回看错题与周报，确认是否真正掌握。'
         : todayStatus === '已安排'
-          ? '任务已安排但尚未打卡。完成后回来反馈，掌握度与连续天数才会更新。'
+          ? '任务已安排，任务完成与打卡请分别记录。掌握评估还需要练习证据。'
           : '尚无今日反馈。「未反馈」不计入完成，打卡后总览与周报才会刷新。',
     evidence: `证据: metrics.todayStatus=${todayStatus}`,
   };
@@ -89,7 +89,7 @@ export function buildSelfNote(input: {
         ? `掌握均分 ${review.masteryAvg}%`
         : '';
   const headline = review
-    ? `本周复盘已生成（${review.weekStart} ~ ${review.weekEnd}）：投入 ${review.totalMinutes} 分钟，完成率 ${review.completionRate}%，${masteryClause}。目标是把「看→写理解→做题」跑通，不盲目追进度。`
+    ? `最近周报已生成（${review.weekStart} ~ ${review.weekEnd}）：投入 ${review.totalMinutes} 分钟，完成率 ${review.completionRate}%，${masteryClause}。目标是把「看→写理解→做题」跑通，不盲目追进度。`
     : metrics
       ? `当前${phaseText}，连续打卡 ${metrics.streakDays} 天，累计投入 ${metrics.totalMinutes} 分钟。今日状态「${metrics.todayStatus}」。先稳住每日最小闭环，再谈加速。`
       : '提交学习规划并开始打卡后，这里会根据你的周报与今日状态生成近期自述。';

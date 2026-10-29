@@ -53,6 +53,7 @@ const stats = [['8,000,000+', 'Cards Sent'], ['99.5%', 'Delivery Rate'], ['<5 mi
 interface DisplayPlan {
   name: string; monthly: string; annual: string; color: string; note: string; features: string[];
   suffix?: string; annualSuffix?: string; action?: OverviewAction; cta?: string;
+  reason?: string; secondaryAction?: OverviewAction; secondaryLabel?: string;
 }
 
 function Arrow() {
@@ -71,12 +72,12 @@ function CardDeck({ className = '', decorative = false }: { className?: string; 
   </div>;
 }
 
-function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverview; onAction?: (action: OverviewAction) => void }) {
+function StudyPilotPostcards({ overview, onAction, onRetry }: { overview?: PostcardsOverview; onAction?: (action: OverviewAction) => void; onRetry?: () => void }) {
   const rootRef = useRef<HTMLElement>(null);
   const floatingRef = useRef<HTMLElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
   const [annual, setAnnual] = useState(false);
-  const content = overview ? buildPostcardsOverview(overview) : null;
+  const content = overview ? buildPostcardsOverview(overview, annual ? 'weekly' : 'today') : null;
   const displayedPlans: DisplayPlan[] = content?.plans ?? plans;
   const act = (action: OverviewAction) => onAction?.(action);
 
@@ -89,6 +90,7 @@ function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverv
     const ending = root.querySelector<HTMLElement>('.spp-ending')!;
     let lastDirectionY = window.scrollY;
     let scrollingUp = false;
+    let lastStickyTop = -1;
     const lenis = reduced ? null : new Lenis({
       autoRaf: false, lerp: .1,
       virtualScroll: ({ event }) => event.target instanceof Node && root.contains(event.target),
@@ -145,6 +147,11 @@ function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverv
       const bounds = root.getBoundingClientRect();
       const floating = floatingRef.current;
       if (floating) floating.hidden = !(bounds.top < -180 && bounds.bottom > 100 && scrollingUp && window.innerWidth >= 768);
+      const stickyTop = floating && !floating.hidden ? Math.max(0, floating.getBoundingClientRect().bottom) : 0;
+      if (stickyTop !== lastStickyTop) {
+        root.style.setProperty('--spp-card-sticky-top', `${stickyTop}px`);
+        lastStickyTop = stickyTop;
+      }
     };
 
     const context = gsap.context(() => {
@@ -166,6 +173,7 @@ function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverv
       window.removeEventListener(OVERVIEW_NAVIGATION_EVENT, openOverview);
       images.forEach((image) => image.removeEventListener('load', refresh));
       gsap.ticker.remove(draw);
+      root.style.removeProperty('--spp-card-sticky-top');
       lenis?.destroy();
       lenisRef.current = null;
       media.revert();
@@ -226,19 +234,16 @@ function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverv
       <section id="postcard-pricing" className="spp-pricing" aria-labelledby="spp-pricing-heading">
         <div className="spp-container">
           <header className="spp-pricing-heading"><h2 id="spp-pricing-heading">{content ? '看见今天，也看见下一步' : 'Simple, Transparent Pricing'}</h2><p>{content ? '今日任务、知识掌握与回顾复盘，都来自你的学习记录。先选今天能做的量，完成后再留下反馈。' : 'Launch has no monthly platform fee or minimum. Pay for each mailing, including printing and postage. Scale and Command add a subscription for higher-volume sending and additional features.'}</p><div className="spp-billing-switch" data-annual={annual} role="group" aria-label={content ? '学习记录范围' : '计费周期展示'}><span className="spp-billing-slider" aria-hidden="true" /><button type="button" aria-pressed={!annual} aria-label={content ? '今日概览' : '按月付费'} onClick={() => setAnnual(false)}>{content ? '今日概览' : 'Pay Monthly'}</button><button type="button" aria-pressed={annual} aria-label={content ? '最近周报' : '按年付费'} onClick={() => setAnnual(true)}>{content ? '最近周报' : 'Pay Annually'}</button></div></header>
-          <div className="spp-plans">{displayedPlans.map((plan, index) => <article className={`spp-plan spp-plan-${plan.color}`} key={plan.name}>
+          {content && overview?.ready && (overview.error || overview.unavailable.length > 0) && <div role="alert" className="spp-record-warning"><p>{overview.error || '部分学习记录暂时无法读取，缺失数据不会记为零。'}</p><button className="spp-button" type="button" onClick={onRetry}>重新读取记录</button></div>}
+          <div className={content ? "spp-plans spp-learning-plans" : "spp-plans"} aria-busy={content ? !overview?.ready : undefined}>{displayedPlans.map((plan, index) => <article className={`spp-plan spp-plan-${plan.color}`} key={plan.name}>
             <p className="spp-plan-index">{content ? '学习环节' : 'PLAN'} {index + 1}</p>
             <div className="spp-plan-body">
               {index === 1 && <div className="spp-popular"><BotMark /><span style={{ whiteSpace: 'nowrap' }}>{content ? '学习证据' : 'POPULAR'}</span></div>}
               <header><h3>{plan.name}</h3><p className="spp-price"><strong>{annual ? plan.annual : plan.monthly}</strong>{plan.suffix ? <span>{annual ? plan.annualSuffix : plan.suffix}</span> : index > 0 && <span>{annual ? 'year' : 'month'}</span>}</p><p className="spp-plan-note">{plan.note}</p></header>
-              {index === 2 && content && overview?.ready && overview.review && !overview.unavailable.includes('review') && (
-                <div className="spp-review-summary">
-                  <p>{content.note}</p>
-                  <button type="button" onClick={() => act('weekly')}>查看复盘 <Arrow /></button>
-                </div>
-              )}
-              <div className="spp-plan-features">{index > 0 && <p className="spp-plan-includes">{content ? index === 1 ? '根据最近周报的真实证据' : '让记录成为下一步的依据' : `EVERYTHING IN ${plans[index - 1].name.toUpperCase()}, PLUS:`}</p>}<ul>{plan.features.map((feature, featureIndex) => <li key={featureIndex}><span aria-hidden="true">✓</span>{feature}</li>)}</ul></div>
-              <div className="spp-plan-bottom"><button className="spp-button" type="button" onClick={() => plan.action ? act(plan.action) : goTo('learning-overview')}>{plan.cta ?? 'START SENDING'} <Arrow /></button></div>
+              {content && <div className="spp-learning-action"><button className="spp-button" type="button" disabled={!overview?.ready} onClick={() => plan.action && act(plan.action)}>{plan.cta} <Arrow /></button>{plan.secondaryAction && <button className="spp-learning-secondary" type="button" disabled={!overview?.ready} onClick={() => act(plan.secondaryAction!)}>{plan.secondaryLabel}</button>}</div>}
+              <div className="spp-plan-features">{!content && index > 0 && <p className="spp-plan-includes">{content ? index === 1 ? '根据最近周报的真实证据' : '让记录成为下一步的依据' : `EVERYTHING IN ${plans[index - 1].name.toUpperCase()}, PLUS:`}</p>}<ul>{plan.features.map((feature, featureIndex) => <li key={featureIndex}><span aria-hidden="true">{content ? '·' : '✓'}</span>{feature}</li>)}</ul></div>
+              {content && <p className="spp-learning-reason">{plan.reason}</p>}
+              {!content && <div className="spp-plan-bottom"><button className="spp-button" type="button" onClick={() => plan.action ? act(plan.action) : goTo('learning-overview')}>{plan.cta ?? 'START SENDING'} <Arrow /></button></div>}
             </div>
           </article>)}</div>
         </div>
@@ -248,7 +253,7 @@ function StudyPilotPostcards({ overview, onAction }: { overview?: PostcardsOverv
         <CardDeck className="spp-ending-deck spp-ending-deck-top" decorative /><CardDeck className="spp-ending-deck spp-ending-deck-bottom" decorative /><div className="spp-ending-scrim" aria-hidden="true" />
         <PricingPostcardStack />
       </section>
-      <footer className="spp-footer"><div className="spp-container spp-footer-grid"><div><span className="spp-footer-logo">STUDYPILOT</span><h3>{content ? '智航 · AI 微专业能力航图' : 'Automate your direct mail at scale.'}</h3><p>{content ? '把目标、阶段路线、今日任务、练习记录和复盘反馈放在同一条学习路线上。' : 'Create, personalize, and send postcards, letters, and invoices through a powerful API or intuitive dashboard.'}</p><small>© 2026 StudyPilot. All rights reserved.<br />Privacy Policy | Terms of Service | Cookie preferences</small></div><div className="spp-footer-links"><div><span>{content ? '学习工具' : 'INDUSTRIES'}</span>{(content ? ['完整路线', '我的习题本', '学习周报', '个人中心'] : ['Retail', 'Nonprofit', 'Home Services', 'Startups and Digital Nomads']).map((label, index) => <button type="button" key={label} onClick={() => content ? act((['roadmap', 'mistakes', 'weekly', 'profile'] as OverviewAction[])[index]) : goTo('learning-overview')}>{label}</button>)}</div><div><span>STUDYPILOT</span>{(content ? ['学习目标', '今日任务', '今日打卡'] : ['Blog', 'API Docs', 'Integrations']).map((label, index) => <button type="button" key={label} onClick={() => content ? act((['goal', 'tasks', 'checkin'] as OverviewAction[])[index]) : goTo('learning-overview')}>{label}</button>)}</div><div className="spp-connect"><span>CONNECT</span><p>contact@mailerbot.com</p><div className="spp-socials"><span>in</span><span>𝕏</span><span>◎</span></div></div></div></div></footer>
+      <footer className="spp-footer"><div className="spp-container spp-footer-grid"><div><span className="spp-footer-logo">STUDYPILOT</span><h3>{content ? '智航 · AI 微专业能力航图' : 'Automate your direct mail at scale.'}</h3><p>{content ? '把目标、阶段路线、今日任务、练习记录和复盘反馈放在同一条学习路线上。' : 'Create, personalize, and send postcards, letters, and invoices through a powerful API or intuitive dashboard.'}</p><small>© 2026 StudyPilot. All rights reserved.<br />{content ? '记录与反馈，让下一步有据可依。' : 'Privacy Policy | Terms of Service | Cookie preferences'}</small></div><div className="spp-footer-links"><div><span>{content ? '学习工具' : 'INDUSTRIES'}</span>{(content ? ['完整路线', '我的习题本', '学习周报', '个人中心'] : ['Retail', 'Nonprofit', 'Home Services', 'Startups and Digital Nomads']).map((label, index) => <button type="button" key={label} onClick={() => content ? act((['roadmap', 'mistakes', 'weekly', 'profile'] as OverviewAction[])[index]) : goTo('learning-overview')}>{label}</button>)}</div><div><span>STUDYPILOT</span>{(content ? ['学习目标', '今日任务', '今日打卡'] : ['Blog', 'API Docs', 'Integrations']).map((label, index) => <button type="button" key={label} onClick={() => content ? act((['goal', 'tasks', 'checkin'] as OverviewAction[])[index]) : goTo('learning-overview')}>{label}</button>)}</div><div className="spp-connect"><span>{content ? '下一步' : 'CONNECT'}</span><p>{content ? '从一个真实目标开始。' : 'contact@mailerbot.com'}</p>{!content && <div className="spp-socials"><span>in</span><span>𝕏</span><span>◎</span></div>}</div></div></div></footer>
     </section>
     {!content && <p className="spp-reference-note">本段沿用 MailerBot 参考展示内容；邮寄数据及方案不代表 StudyPilot 的实际服务或收费。</p>}
     {createPortal(nav(true), document.body)}

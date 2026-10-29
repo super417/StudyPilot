@@ -12,7 +12,7 @@ import { FadeIn, StickyStack } from '@/components/motion';
 import type { TabKey } from '@/components/TabNav';
 import type { CheckInFormValues } from '@/components/CheckInForm';
 import type { DailyTask, Metrics, Mistake, Plan, WeeklyReview } from '@/mocks/types';
-import { todayISO, addDaysISO, currentWeekCalendar } from '@/lib/dates';
+import { todayISO, currentWeekCalendar } from '@/lib/dates';
 import {
   createCheckIn,
   fetchDailyTasks,
@@ -35,34 +35,18 @@ import {
   buildSelfNote,
   isoWeekLabel,
 } from '@/lib/overviewInsights';
+import { requestPracticeBoard } from '@/lib/practiceApi';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import StudyPilotPostcards from '@/components/StudyPilotPostcards';
 import DailyStartDialog from '@/components/overview/DailyStartDialog';
 import OverviewDetailsDialog from '@/components/overview/OverviewDetailsDialog';
-import type { OverviewAction, PostcardsOverview } from '@/lib/postcardsOverview';
+import { weakestEvidence, type OverviewAction, type PostcardsOverview } from '@/lib/postcardsOverview';
 
 export interface OverviewPageProps {
   onNavigate?: (tab: TabKey) => void;
   presentation?: 'legacy' | 'postcards';
-}
-
-/** 无 Plan GET 时，用 metrics 拼展示用规划卡（不伪造 AI 内容）。 */
-function planFromMetrics(metrics: Metrics, today: string): Plan | null {
-  if (metrics.phaseProgress.total <= 0) return null;
-  const remaining = metrics.remainingDays;
-  return {
-    id: 'derived-latest',
-    goalName: '当前学习规划',
-    subtitle: `剩余 ${remaining} 天 · 阶段 ${metrics.phaseProgress.completed}/${metrics.phaseProgress.total}`,
-    startDate: addDaysISO(today, -Math.max(1, 30 - Math.min(remaining, 30))),
-    goalDate: addDaysISO(today, remaining),
-    currentLevel: '',
-    dailyMinutes: 0,
-    totalPhases: metrics.phaseProgress.total,
-    updatedAt: today,
-  };
 }
 
 function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPageProps = {}) {
@@ -94,7 +78,7 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
     setError(null);
     try {
       const [metricsRes, tasksRes, weeklyRes, mistakesRes, latestPlan] = await Promise.all([
-        fetchOverviewMetrics(today),
+        fetchOverviewMetrics(today).catch(() => ({ unavailable: true as const })),
         fetchDailyTasks(today).catch(() => ({ status: 'ok', tasks: [] as DailyTask[], unavailable: true })),
         fetchLatestWeeklyReview().catch(() => ({
           status: 'ok',
@@ -121,15 +105,19 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
           empty: true,
           plan: null,
           phases: [],
+          unavailable: true,
         })),
       ]);
 
-      const nextMetrics = toMetrics(metricsRes);
+      const nextMetrics = 'unavailable' in metricsRes ? null : toMetrics(metricsRes);
       setUnavailable([
+        ...('unavailable' in metricsRes ? ['metrics'] : []),
+        ...('unavailable' in latestPlan ? ['plan'] : []),
         ...('unavailable' in tasksRes ? ['tasks'] : []),
         ...('unavailable' in weeklyRes ? ['review'] : []),
         ...('unavailable' in mistakesRes ? ['mistakes'] : []),
       ]);
+      if ('unavailable' in metricsRes && 'unavailable' in latestPlan && 'unavailable' in tasksRes && 'unavailable' in weeklyRes && 'unavailable' in mistakesRes) setError('学习记录读取失败，请重试。');
       setMetrics(nextMetrics);
       setTodayTasks(tasksRes.tasks ?? []);
       setReview(
@@ -151,7 +139,7 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
           updatedAt: latestPlan.plan.updatedAt.slice(0, 10),
         });
       } else {
-        setPlan(planFromMetrics(nextMetrics, today));
+        setPlan(null);
       }
 
       setDueMistakeCount(mistakesRes.dueCount ?? 0);
@@ -175,7 +163,10 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
       setPlan(null);
       setTodayTasks([]);
       setReview(null);
-      setUnavailable(['tasks', 'review', 'mistakes']);
+      setUnavailable(['metrics', 'plan', 'tasks', 'review', 'mistakes']);
+      setFeaturedMistake(null);
+      setPendingMistakeCount(0);
+      setDueMistakeCount(0);
     } finally {
       setLoading(false);
     }
@@ -204,7 +195,7 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
     setCheckInMsg(null);
     try {
       const preview = await createRemedyPreview(plan.id);
-      if (plan.id !== 'derived-latest') setActivePlanId(plan.id);
+      setActivePlanId(plan.id);
       setPendingAdjustment(preview);
       openAssistantWithContext({ type: 'free', hint: '查看补救预览' });
       setDialog(null);
@@ -269,10 +260,13 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
   );
   const weekLabel = isoWeekLabel();
 
-  const overview: PostcardsOverview = { ready: !loading, error, plan, metrics, tasks: todayTasks, review, insights, pendingMistakeCount, dueMistakeCount, unavailable };
+  const overview: PostcardsOverview = { ready: !loading, error, plan, metrics, tasks: todayTasks, review, insights, pendingMistakeCount, dueMistakeCount, featuredMistake, unavailable };
   const handleAction = (action: OverviewAction) => {
     setCheckInMsg(null);
-    if (action === 'start') { setDialog(null); setStarting(true); }
+    if (action === 'retry') { void reload(); }
+    else if (action === 'practice') { setDialog(null); requestPracticeBoard('today'); go('mistakes'); }
+    else if (action === 'weakness') { setDialog('mastery'); }
+    else if (action === 'start') { setDialog(null); setStarting(true); }
     else if (action === 'plan') { setDialog(null); openAssistantWithContext({ type: 'plan', hint: '制定学习规划' }); }
     else if (action === 'goal' || action === 'tasks' || action === 'checkin' || action === 'mastery') setDialog(action);
     else if (action === 'backlog') { setDialog('weekly'); void handleArrangeBacklog(); }
@@ -284,13 +278,13 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
   };
 
   if (presentation === 'postcards') return <div id="learning-overview" ref={pageRef}>
-    <StudyPilotPostcards overview={overview} onAction={handleAction} />
+    <StudyPilotPostcards overview={overview} onAction={handleAction} onRetry={() => void reload()} />
     {starting && <DailyStartDialog defaultMinutes={Math.min(plan?.dailyMinutes || 30, 30)} onClose={() => setStarting(false)} onConfirm={(prompt) => {
       setStarting(false);
       openAssistantWithContext({ type: 'free', hint: prompt });
       useAssistantStore.getState().queuePrompt(prompt);
     }} />}
-    {dialog && <OverviewDetailsDialog key={dialog} mode={dialog} data={overview} message={checkInMsg} addingToday={addingToday} onClose={() => setDialog(null)} onAction={handleAction} onToggleTask={handleToggleTask} onAddToday={handleAddToday} onCheckIn={handleCheckIn} />}
+    {dialog && <OverviewDetailsDialog key={dialog} mode={dialog} highlightedPhase={weakestEvidence(review)?.phaseId} onRetry={() => void reload()} data={overview} message={checkInMsg} addingToday={addingToday} onClose={() => setDialog(null)} onAction={handleAction} onToggleTask={handleToggleTask} onAddToday={handleAddToday} onCheckIn={handleCheckIn} />}
   </div>;
 
   return (
