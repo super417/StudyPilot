@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { getBasicProfile } from '@/lib/profilePrefs';
 import type { TabKey } from '@/components/TabNav';
+import PlatformBillingCard from '@/components/profile/PlatformBillingCard';
 import ApiConfigCard from '@/components/profile/ApiConfigCard';
 import BasicInfoCard from '@/components/profile/BasicInfoCard';
 import CoursesCard from '@/components/profile/CoursesCard';
@@ -20,7 +21,7 @@ import { useToast } from '@/components/profile/useToast';
  * 个人中心工作台（Tab: profile）。
  *
  * 三栏工作台布局（lg+）：左栏固定宽（欢迎语 / 头像 / 效率概览 / 快捷入口）、
- * 中栏 flex-1 独立纵向滚动（API 配置置顶最突出 + 各概览卡片）、右栏固定宽
+ * 中栏 flex-1 独立纵向滚动（平台账户与高级 API 设置 + 各概览卡片）、右栏固定宽
  * （今日待办 / 快捷操作 / 最近动态 / AI 入口）。左右栏不随中栏滚动，只有中栏滚动。
  * < lg：三列自然回流为单列（左栏 → 中栏卡片 → 右栏），整页正常滚动。
  *
@@ -51,9 +52,9 @@ function ProfilePage({ onNavigate }: ProfilePageProps = {}) {
     else show('请从顶部标签切换页面');
   };
 
-  // 中栏卡片序列：API 配置置顶最突出，其余概览卡片纵向堆叠。
+  // 原有 API 配置仅挂载一次，收进个人中心平台账户的高级设置。
   const centerCards = [
-    <ApiConfigCard key="api" onToast={show} />,
+    <PlatformBillingCard key="billing" advancedSettings={<ApiConfigCard onToast={show} />} />,
     <StudyMaterialsCard key="materials" onAction={show} />,
     <StudyProgressCard key="progress" onEnter={() => navigate('overview')} />,
     <StudyStatsCard key="stats" />,

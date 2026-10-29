@@ -1,3 +1,6 @@
+import CreditModelMenu from './CreditModelMenu';
+import { CREDIT_SELECTION_CHANGED } from '@/lib/creditModelOptions';
+import { fetchCreditAccount, fetchCreditCatalog, type CreditAccount, type CreditCatalog } from '@/lib/creditsApi';
 /**
  * 输入条上沿的「模型 · 思考强度」折叠入口。
  *
@@ -44,7 +47,7 @@ function effortLabel(id: StrengthId): string {
 const ITEM_BASE =
   'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors';
 
-function ModelEffortMenu() {
+function ByokModelEffortMenu() {
   const [open, setOpen] = useState(false);
   const [model, setModelState] = useState(() => getModelPrefs().model);
   const [effort, setEffortState] = useState<StrengthId>(() =>
@@ -219,6 +222,21 @@ function ModelEffortMenu() {
       ) : null}
     </div>
   );
+}
+
+function ModelEffortMenu() {
+  const [selection, setSelection] = useState<{ account: CreditAccount; catalog: CreditCatalog } | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    const refresh = () => { void Promise.all([fetchCreditAccount(), fetchCreditCatalog()]).then(([account, catalog]) => {
+      if (active) { setSelection({ account, catalog }); setError(''); }
+    }).catch(() => { if (active) { setSelection(null); setError('模型配置读取失败，请重新打开聊天'); } }); };
+    refresh(); window.addEventListener(CREDIT_SELECTION_CHANGED, refresh);
+    return () => { active = false; window.removeEventListener(CREDIT_SELECTION_CHANGED, refresh); };
+  }, []);
+  if (!selection) return <span className="text-xs text-emerald-200">{error || '读取模型配置…'}</span>;
+  return selection.account.mode === 'byok' ? <ByokModelEffortMenu /> : <CreditModelMenu account={selection.account} catalog={selection.catalog} />;
 }
 
 export default ModelEffortMenu;

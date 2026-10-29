@@ -1,0 +1,34 @@
+.platform-billing { padding: 24px; color: #14372e; background: #ffffffdb; border: 1px solid #c6d8ce; border-radius: 20px; font: 14px/1.65 Arial, 'Microsoft YaHei', sans-serif; overflow-wrap: anywhere; }
+.platform-billing h2 { font-size: 22px; font-weight: 700; margin: 4px 0 12px; }
+.platform-billing h3 { font-weight: 700; }
+.platform-billing p { margin: 10px 0; }
+.platform-billing button, .platform-billing a { display: inline-block; padding: 8px 14px; border: 1px solid #6a9382; border-radius: 8px; color: #164d3b; background: #edf7f0; cursor: pointer; font: inherit; }
+.platform-billing button:disabled { opacity: .5; cursor: not-allowed; }
+.platform-billing button:focus-visible, .platform-billing input:focus-visible, .platform-billing select:focus-visible { outline: 2px solid #6547ac; outline-offset: 3px; }
+.platform-billing fieldset { margin: 22px 0; padding: 18px; border: 1px solid #bdcec3; border-radius: 12px; min-width: 0; }
+.platform-billing legend { padding: 0 6px; font-weight: 700; }
+.platform-billing label { display: block; margin: 12px 0; }
+.platform-billing input:not([type=radio]):not([type=checkbox]), .platform-billing select { width: 100%; padding: 9px; border: 1px solid #a3bcad; border-radius: 6px; background: white; font: inherit; color: #14372e; }
+.billing-note { color: #526d60; font-size: 12px; }
+.billing-error { padding: 12px; color: #86291d; background: #fff0e8; border-radius: 8px; }
+.billing-balances { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin: 20px 0; }
+.billing-balances div { padding: 12px; border-radius: 10px; background: #e9f4ee; }
+.billing-balances dd { margin: 4px 0 0; font-size: 17px; font-weight: 700; }
+.billing-order { padding: 16px; margin: 18px 0; background: #f1f2fc; border: 1px solid #b8b7d5; border-radius: 10px; }
+.platform-billing details { padding: 12px 0; border-top: 1px solid #d6e3da; }
+.platform-billing summary { cursor: pointer; font-weight: 700; }
+.platform-billing .billing-history-item { display: block; width: 100%; margin: 8px 0; text-align: left; }
+.billing-providers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.platform-billing .billing-provider { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 68px; padding: 12px; text-align: left; border-color: #d4dfd8; background: #fff; color: #244438; }
+.platform-billing .billing-provider[aria-pressed=true] { border-color: #678975; background: #edf6ef; box-shadow: inset 0 0 0 1px #678975; }
+.billing-provider-badge { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: #f0f1f4; color: #4b596a; font-size: 14px; font-weight: 700; }
+.billing-provider-copy { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.billing-provider-copy strong { display: block; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.billing-provider-copy small { display: block; margin-top: 3px; font-size: 11px; color: #718074; }
+.billing-provider-check { flex: none; width: 14px; color: #49745b; font-weight: 700; }
+.platform-billing .billing-provider-pending { padding: 12px; border-radius: 8px; border: 1px solid #e2d8bb; background: #fffaf0; font-size: 12px; }
+.platform-billing .billing-advanced { margin-top: 18px; padding-top: 18px; }
+.billing-advanced > summary { min-height: 44px; padding: 8px 0; }
+.billing-advanced > summary:focus-visible { outline: 2px solid #6547ac; outline-offset: 3px; }
+@media(max-width: 600px) { .billing-providers { grid-template-columns: 1fr; } }
+@media(max-width: 500px) { .platform-billing { padding: 18px; } .billing-balances { grid-template-columns: 1fr; } }
