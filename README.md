@@ -268,6 +268,7 @@ py -3.13 -m venv .venv
 .venv/Scripts/activate        # Linux/macOS 用 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m alembic upgrade head
+python -m scripts.seed_review_user  # 先跑种子脚本，再启动后端
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 # 前端（另开一个终端）
@@ -306,10 +307,10 @@ powershell -ExecutionPolicy Bypass -File speech/setup.ps1
 1. 装 Python 3.13 与 Node 18+；
 2. `git clone` 后进仓库根目录；
 3. `cd backend && cp .env.example .env`，生成并填入 `AES_KEY`（`DATABASE_URL` 保持 SQLite 默认，`DB_PASSWORD` 留空）；
-4. `py -3.13 -m venv .venv` → `.venv/Scripts/activate` → `pip install -r requirements.txt` → `python -m alembic upgrade head`；
+4. `py -3.13 -m venv .venv` → `.venv/Scripts/activate` → `pip install -r requirements.txt` → `python -m alembic upgrade head` → `python -m scripts.seed_review_user`（先跑种子脚本，再启动后端）；
 5. `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`，访问 `/health` 确认 200；
 6. 另开终端 `cd frontend && npm install && npm run dev`，打开 `http://127.0.0.1:5173`；
-7. 运维按 [本地评委运行说明](DEPLOY.md#本地评委体验不需要个人-key) 配置平台模型与评审赠送 → 登录已有评委账号 → 个人中心选择 DeepSeek 平台积分模型并启用 → 上传资料 → 提交目标生成计划 → 打卡并作答判分 → 确认补强后查看新任务。自带 Key 是可选路径，可在个人中心高级设置中配置验证。
+7. 运维按 [本地评委运行说明](DEPLOY.md#本地评委体验不需要个人-key) 配置平台模型与评审赠送 → 登录 `super`（种子新建账号的初始密码为 `StudyPilot2026!`，既有账号密码不变）→ 个人中心选择 DeepSeek 平台积分模型并启用 → 上传资料 → 提交目标生成计划 → 打卡并作答判分 → 确认补强后查看新任务。自带 Key 是可选路径，可在个人中心高级设置中配置验证。
 
 不需要 Key 也能走到的部分：注册登录、资料上传与解析、任务与打卡、错题本、统计页的打卡类指标。需要 Key **或平台余额 / 积分**的部分：规划生成、助手对话、判分、诊断；图片识题与简历润色只认自带 Key。
 

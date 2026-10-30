@@ -5,6 +5,7 @@
 1. 后端（`study-pilot/backend`）
    - 复制环境变量并填写 `DATABASE_URL`、`AES_KEY`、`DB_PASSWORD` 等
    - 首次安装依赖后，在 backend 目录执行 `.venv/Scripts/python.exe -m alembic upgrade head`，升级前备份已有数据库
+   - 先跑种子脚本 `.venv/Scripts/python.exe -m scripts.seed_review_user`，再启动后端
    - `.venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`
    - 健康检查：`GET http://127.0.0.1:8000/health`
 
@@ -45,16 +46,16 @@
 
 本次交付采用本地运行，不要求公网地址。后端仍需联网访问模型供应商；本地运行不等于离线 AI。前端使用 `http://127.0.0.1:5173`，后端使用 `127.0.0.1:8000`，保持 Vite 的 `/api` 代理。
 
-运维先完成依赖安装、数据库备份和 `alembic upgrade head`。在 backend 私有 `.env` 配置：
+运维先完成依赖安装、数据库备份和 `alembic upgrade head`，再运行 `.venv/Scripts/python.exe -m scripts.seed_review_user`，然后启动后端。在 backend 私有 `.env` 配置：
 
 ```dotenv
 CREDITS_DEEPSEEK_ENABLED=true
 BILLING_PROVIDER_KEYS_JSON={"deepseek":"<服务端真实API Key>"}
-CREDITS_REVIEW_USER_ID=<已有评委账号的UUID>
+CREDITS_REVIEW_USER_ID=4c6d1df3-95a2-472f-9018-34bf11db3efe
 CREDITS_REVIEW_UNTIL=2027-10-30T00:00:00+08:00
 ```
 
-以上 UUID 和 Key 均为占位，须由运维填写，不能放进前端变量或提交到仓库。评委使用既有 `super` 账号登录即可，无需输入个人 Key。当前本机评审资格配置为截至 **2027-10-30 00:00:00（北京时间，不含该时刻）**，与当前准备的一年体验期对应；克隆仓库不会携带私有账号、密钥或此机器的数据库，另一台机器需要自行配置或按受控方式恢复。
+以上固定 UUID 与种子脚本一致；Key 为占位，须由运维填写，不能放进前端变量或提交到仓库。评委使用 `super` 账号登录即可，无需输入个人 Key；种子新建账号的初始密码为 `StudyPilot2026!`，脚本不会重置已有账号密码。当前本机评审资格配置为截至 **2027-10-30 00:00:00（北京时间，不含该时刻）**，与当前准备的一年体验期对应；克隆仓库不会携带私有账号、密钥或此机器的数据库，另一台机器需要自行配置或按受控方式恢复。
 
 资格有效期内，每月首次读取账户或使用积分模型时，按现有 UUID 自动赠送启航版测试包（基础 2,000 + 赠送 2,000 积分）。同月重复读取不重发，旧批次保留，新增批次在月末与资格截止的较早时刻到期。账本标作测试赠送，不代表购买、付款或订阅。普通免费账号只有每月 5 轮助手聊天，不能用该免费次数完成规划、出题和判分。
 
