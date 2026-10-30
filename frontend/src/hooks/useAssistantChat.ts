@@ -1,3 +1,4 @@
+import { CREDIT_SELECTION_CHANGED } from '@/lib/creditModelOptions';
 /**
  * 助手「发一条消息」的完整逻辑 —— 悬浮窗和全屏聊天面板共用。
  *
@@ -331,6 +332,7 @@ export function useAssistantChat(acceptQueued = true) {
             pushAssistant('响应未完成（已停止），已保留上方内容。');
           }
         } finally {
+          window.dispatchEvent(new Event(CREDIT_SELECTION_CHANGED));
           if (abortRef.current === ac) {
             stopStreaming();
             if (completed && !ac.signal.aborted) {

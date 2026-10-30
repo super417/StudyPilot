@@ -11,8 +11,8 @@ const imageRoot = '/postcards/pricing/';
 const art = (group: string, extension = 'jpg') => `${imageRoot}${group}/main.${extension}`;
 
 export const PRICING_POSTCARDS = [
-  { id: 'qihang', name: '免费版', category: '每月 500 积分', price: '免费', detail: '基础学习功能免费，每个自然月发放 500 积分，当月有效、不结转。', image: art('01-qihang-envelope'),
-    blurb: '从目标到任务，留下真实学习记录。', features: ['学习目标与阶段路线', '今日任务、练习与学习记录', '每月 500 积分，按模型实际用量消耗'],
+  { id: 'qihang', name: '免费版', category: '每月 5 轮 AI 对话', price: '免费', detail: '基础学习功能免费，每个北京时间自然月可进行 5 轮平台 AI 对话，失败不扣次数。', image: art('01-qihang-envelope'),
+    blurb: '从目标到任务，留下真实学习记录。', features: ['学习目标与阶段路线', '今日任务、练习与学习记录', '每月 5 轮平台 AI 对话，成功回复计次'],
     back: [art('02-voyage-map-letter'), art('03-checkin-stamp'), art('07-study-journal'), art('11-celebrate-step', 'png')] },
   { id: 'linghang', name: '启航版', category: '活动每月 4,000 积分', price: '¥99 / 月', detail: '单月 99 元；连续包月 70 元；连续包年 672 元。每月基础 2,000 积分，活动期间每月额外赠送 2,000 积分，共 4,000 积分。', image: art('05-linghang-member'),
     blurb: '套餐价格已确定；购买与自动续费暂未开放。', features: ['活动赠送每月发放，并非只赠首月', '积分当期有效、不结转', '学习助手、规划、诊断与练习按实际模型用量扣积分'],
@@ -61,7 +61,7 @@ function TierPostcard({ tier, index, onDetails }: { tier: Tier; index: number; o
             <img src={src} width="864" height="1152" alt="" loading="lazy" decoding="async" />
           </figure>)}
           <div className="spb-front" style={{ '--spb-x': '85px', '--spb-z': '80px' } as CSSProperties}>
-            <div className="spb-front-copy"><span>STUDYPILOT</span><h4>{tier.name}</h4><strong>{tier.price}</strong><p>{index === 1 ? '每月积分\n按用量结算' : index === 2 ? '补充额度\n继续学习' : '从今天出发\n每一步都算数'}</p><span className="spb-front-seal">{index === 1 ? '活动每月 4,000 积分' : index === 2 ? '1,000 积分 · 一个月' : '每月 500 积分'}</span></div>
+            <div className="spb-front-copy"><span>STUDYPILOT</span><h4>{tier.name}</h4><strong>{tier.price}</strong><p>{index === 1 ? '每月积分\n按用量结算' : index === 2 ? '补充额度\n继续学习' : '从今天出发\n每一步都算数'}</p><span className="spb-front-seal">{index === 1 ? '活动每月 4,000 积分' : index === 2 ? '1,000 积分 · 一个月' : '每月 5 轮 AI 对话'}</span></div>
             <div className="spb-front-art"><img src={tier.image} alt={`StudyPilot ${tier.name}水彩信件`} width="864" height="1152" loading="lazy" decoding="async" />{index === 1 && <img className="spb-owl-stamp" src={art('04-ai-helper')} alt="可爱的 AI 学习伙伴猫头鹰" width="864" height="1152" loading="lazy" />}</div>
           </div>
         </div>

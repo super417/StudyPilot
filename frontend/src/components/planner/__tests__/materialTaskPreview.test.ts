@@ -39,11 +39,11 @@ describe('GoalSubmitForm material task preview', () => {
       generate: 0,
       clarify: 0,
       preview: [] as string[],
-      draftId: 'old-draft',
+      draftId: 'old-draft' as string | null,
       draftClears: 0,
-      compare: (_body: unknown) => Promise.resolve({}),
-      select: (_id: string, _body: unknown) => Promise.resolve({}),
-      previewTask: (_id: string, _body: unknown) => Promise.resolve({}),
+      compare: (_body: unknown): Promise<unknown> => Promise.resolve({}),
+      select: (_id: string, _body: { candidateId: string }): Promise<unknown> => Promise.resolve({}),
+      previewTask: (_id: string, _body: unknown): Promise<unknown> => Promise.resolve({}),
     };
     (globalThis as { __materialTask?: unknown }).__materialTask = {
       useState(initial: unknown) {
@@ -116,7 +116,7 @@ describe('GoalSubmitForm material task preview', () => {
           name: 'material-task',
           setup(build) {
             build.onResolve({ filter: /.*/ }, (args) => {
-              if (Object.hasOwn(mocks, args.path)) return { path: args.path, namespace: 'material-task' };
+              if (Object.prototype.hasOwnProperty.call(mocks, args.path)) return { path: args.path, namespace: 'material-task' };
               return undefined;
             });
             build.onLoad({ filter: /.*/, namespace: 'material-task' }, (args) => ({

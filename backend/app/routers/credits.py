@@ -18,7 +18,7 @@ router = APIRouter(prefix='/api/credits', tags=['credits'])
 @router.get('/catalog')
 def catalog(user: User = Depends(get_current_user)):
     available = service.enabled()
-    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':service.MODEL_ID, 'provider':'deepseek', 'displayName':'DeepSeek Flash', 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096}] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':500,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
+    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':service.MODEL_ID, 'provider':'deepseek', 'displayName':'DeepSeek Flash', 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096}] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':0,'freeChatLimit':5,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
 
 
 @router.get('/account')
@@ -27,9 +27,9 @@ def read_account(user: User = Depends(get_current_user), session: Session = Depe
         end = service.prepare(ledger, user.id)
         now = datetime.now(timezone.utc)
         row = account(ledger, user.id)
-        lots = ledger.scalars(select(CreditLot).where(CreditLot.user_id == user.id, CreditLot.expires_at > now).order_by(CreditLot.expires_at)).all()
+        lots = service.spendable_lots(ledger, user.id, now)
         entries = ledger.scalars(select(CreditLedger).where(CreditLedger.user_id == user.id).order_by(CreditLedger.created_at.desc()).limit(30)).all()
-        return {'testPlan':any(l.kind.startswith('test_') for l in lots), 'planName':'启航版（测试）' if any(l.kind.startswith('test_') for l in lots) else '免费版', 'status':'ok', 'mode':row.mode, 'modelId':row.model_id, 'availableMicroPoints':sum(l.remaining-l.reserved for l in lots), 'reservedMicroPoints':sum(l.reserved for l in lots), 'nextRefreshAt':end.isoformat(), 'lots':[{'id':l.id,'kind':l.kind,'grantedMicroPoints':l.granted,'remainingMicroPoints':l.remaining,'reservedMicroPoints':l.reserved,'expiresAt':service.utc(l.expires_at).isoformat()} for l in lots], 'ledger':[{'id':e.id,'kind':e.kind,'amountMicroPoints':e.amount,'createdAt':service.utc(e.created_at).isoformat()} for e in entries]}
+        return {'freeChat':service.free_chat_status(ledger, user.id, now), 'testPlan':any(l.kind.startswith('test_') for l in lots), 'planName':'启航版（测试）' if any(l.kind.startswith('test_') for l in lots) else '免费版', 'status':'ok', 'mode':row.mode, 'modelId':row.model_id, 'availableMicroPoints':sum(l.remaining-l.reserved for l in lots), 'reservedMicroPoints':sum(l.reserved for l in lots), 'nextRefreshAt':end.isoformat(), 'lots':[{'id':l.id,'kind':l.kind,'grantedMicroPoints':l.granted,'remainingMicroPoints':l.remaining,'reservedMicroPoints':l.reserved,'expiresAt':service.utc(l.expires_at).isoformat()} for l in lots], 'ledger':[{'id':e.id,'kind':e.kind,'amountMicroPoints':e.amount,'createdAt':service.utc(e.created_at).isoformat()} for e in entries]}
 
 
 class Preferences(BaseModel):

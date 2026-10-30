@@ -92,7 +92,7 @@
 
 - **接口**：`GET /api/credits/catalog`（可用模型、单价、套餐展示位）、`GET /api/credits/account`（可用 / 预留微积分、批次明细、最近 30 条流水）、`PUT /api/credits/preferences`（只接受 `credits:deepseek-flash`，其他模型返回 503）。
 - **计费口径**：1 积分 = 1,000,000 微积分；单次费用 = 输入 token × 40 + 输出 token × 160，合计向上取整到 1 微积分。调用前按上限（16,000 输入 / 4,096 输出）预留，拿到可核验 usage 后按实际量扣、剩余释放；缺 usage、超时、空响应不扣费，预留 10 分钟未结算自动释放。
-- **免费额度**：每个用户每月 500 积分，按北京时间自然月发放，月末到期不结转。
+- **免费额度**：普通免费用户每个北京时间自然月可进行 5 轮平台 AI 对话；成功一问一答计 1 次，失败释放次数。免费次数仅用于助手聊天，不用于规划、出题、判分。套餐积分与自带 Key 不受免费 5 轮限制；不再发放每月 500 免费积分，旧记录保留审计。
 - **模型约束**：固定 `deepseek-flash`，非流式、关闭思考模式，只支持文本。图片识题、资料对比与资料任务、简历润色仍只认自带 Key。
 - **启用条件**：`CREDITS_DEEPSEEK_ENABLED=true` 且 `BILLING_PROVIDER_KEYS_JSON` 里有 `deepseek` 的 Key，缺任一项目录为空、切换被拒。Key 只在后端读取。
 - **未实现**：购买、开通、自动续费、退款全部没有开放 —— 目录里的免费 / 启航 / 补给三档 `purchaseAvailable` 恒为 `false`，积分数量与价格只作展示。试运行期间的测试积分由运维在本地执行发放函数产生，**不是付款记录**，也不代表已上线付费订阅。
@@ -301,7 +301,7 @@ powershell -ExecutionPolicy Bypass -File speech/setup.ps1
 
 目标：干净机器上从零到「上传资料 → 生成计划 → 做题 → 看诊断」的最小闭环。
 
-> **耗时未在本轮重新实测。** 下面步骤已按当前代码逐条核对，但不附带本轮计时的结论；实际耗时取决于网络（`pip` / `npm` 下载、是否装语音环境）与是否已有 AI Key。
+> **耗时未在本轮重新实测。** 下面步骤不附带 10 分钟实测结论；实际耗时取决于依赖下载、语音环境和服务端模型配置。评委可本地运行，无需个人 API Key，但运维须配置服务端真实模型 Key 与评审赠送。模型调用仍需联网。本文推荐 Python 3.13；2026-10-30 本机定向测试实际使用现有 `backend/.venv` 的 Python 3.12.15，不将该结果当作干净 Python 3.13 环境的复现计时。
 
 1. 装 Python 3.13 与 Node 18+；
 2. `git clone` 后进仓库根目录；
@@ -309,11 +309,11 @@ powershell -ExecutionPolicy Bypass -File speech/setup.ps1
 4. `py -3.13 -m venv .venv` → `.venv/Scripts/activate` → `pip install -r requirements.txt` → `python -m alembic upgrade head`；
 5. `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`，访问 `/health` 确认 200；
 6. 另开终端 `cd frontend && npm install && npm run dev`，打开 `http://127.0.0.1:5173`；
-7. 注册 → 个人中心填 API Key / Base URL / 模型并保存（保存即校验）→ 上传一份 PDF/DOCX/TXT/MD → 助手提交目标生成计划 → 总览打卡 → 数据统计生成一份学习诊断。
+7. 运维按 [本地评委运行说明](DEPLOY.md#本地评委体验不需要个人-key) 配置平台模型与评审赠送 → 登录已有评委账号 → 个人中心选择 DeepSeek 平台积分模型并启用 → 上传资料 → 提交目标生成计划 → 打卡并作答判分 → 确认补强后查看新任务。自带 Key 是可选路径，可在个人中心高级设置中配置验证。
 
 不需要 Key 也能走到的部分：注册登录、资料上传与解析、任务与打卡、错题本、统计页的打卡类指标。需要 Key **或平台余额 / 积分**的部分：规划生成、助手对话、判分、诊断；图片识题与简历润色只认自带 Key。
 
-语音朗读是可选项，第 8 步之外单独执行 `speech/setup.ps1`。
+语音朗读是可选项，可单独执行 `speech/setup.ps1`。
 
 ## 测试
 
@@ -330,7 +330,7 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 
 **后端基线不是全绿。** 2026-10-29 于 `d49fab3` + 未提交计费批次实测：**2 failed，其余通过**。那 2 条固定是 `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` 的两个参数化用例，依赖真实 bilibili DNS，非回归。通过数随功能增长，以实跑为准，别抄旧数字。
 
-前端 `tsc -b` 目前仍被 19 条**既有测试文件**的类型错误阻断（`AssistantNamePrompt`、`planner/*`、`adjustmentPreviewActions`），与产品源码无关；`npm run build` 因此失败，但 Vite 产品打包可单独跑通。不要把这些错误算成本轮回归，也不要用改测试的方式凑绿。
+2026-10-30 交付阶段已修正上述 19 条测试夹具与契约类型错误，完整 `cd frontend` 后执行 `npm run build`（`tsc -b && vite build`）通过。没有排除测试、关闭类型检查或削弱断言；档案整体保存测试使用七字段严格比对，包含非空学校与专业。该结论是本机构建结果，不代表全部测试或其他机器均已验证。后端本轮 15 个受影响文件定向回归为 147 passed、2 subtests passed；未据此宣称后端全量全绿。
 
 必须用 `backend/.venv` 的 Python：系统 Python 的 `bcrypt` 与 `passlib` 不兼容，会得到上百条假失败。
 
@@ -338,7 +338,7 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 
 ## 部署
 
-见 [DEPLOY.md](DEPLOY.md)。要点：
+本次评委主路径为本地运行，见 [DEPLOY.md](DEPLOY.md)。公网部署保留为可选方案。要点：
 
 - 推荐 **同域反向代理**（Nginx / Caddy：`/` → `frontend/dist`，`/api` → 后端），避免跨域丢 Cookie；
 - 构建前端 `npm run build`，产物在 `frontend/dist`；

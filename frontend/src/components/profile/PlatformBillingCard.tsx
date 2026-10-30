@@ -48,14 +48,15 @@ export default function PlatformBillingCard({ advancedSettings }: { advancedSett
   const model = catalog?.models.find((item) => item.id === modelId);
   return <section className="platform-billing" aria-labelledby="platform-billing-title" aria-busy={busy}>
     <header><p>STUDYPILOT · AI 账户</p><h2 id="platform-billing-title">平台积分与模型选择</h2><button type="button" disabled={busy} onClick={() => void reload()}>刷新账户</button></header>
-    <p>免费版每个自然月发放 500 积分，当月有效、不结转。模型按实际输入与输出 token 用量结算，积分不对应固定调用次数。</p>
+    <p>免费版每个北京时间自然月可进行 5 轮平台 AI 对话，AI 成功生成完整回答计 1 次，失败不扣次数。规划、出题、判分等功能使用套餐积分、平台余额或自带 Key。</p>
     {busy && <p role="status">正在读取账户…</p>}
     {error && <p role="alert" className="billing-error">{error}</p>}
     {notice && <p role="status">{notice}</p>}
     {account && <>
       <p><strong>{account.planName ?? (account.testPlan ? '启航版（测试）' : '免费版')}</strong>{account.testPlan && ' · 测试权益，不代表真实购买或付款。'}</p>
+      {account.freeChat && <p>本月免费对话剩余 {account.freeChat.remaining}/{account.freeChat.limit} 次{account.freeChat.reserved > 0 && `（处理中 ${account.freeChat.reserved} 次）`}{!account.freeChat.eligible && ' · 当前套餐积分不受免费次数限制'}</p>}
       <dl className="billing-balances"><div><dt>可用积分</dt><dd>{formatPoints(account.availableMicroPoints)}</dd></div><div><dt>调用预留积分</dt><dd>{formatPoints(account.reservedMicroPoints)}</dd></div></dl>
-      <p>下次免费积分刷新：{formatBillingDateTime(account.nextRefreshAt)}</p>
+      <p>下次免费对话次数刷新：{formatBillingDateTime(account.nextRefreshAt)}</p>
       <p>当前使用方式：{account.mode === 'byok' ? '自带 API Key' : account.modelId?.startsWith('credits:') ? '平台积分' : '原人民币余额模型'}。选择模型后，点击启用才会改变使用方式。</p>
       <fieldset disabled={busy}><legend>选择积分模型</legend>
         {!catalog?.platformAvailable && <p>平台积分模型暂未开放；已有积分不会因浏览而扣除。</p>}

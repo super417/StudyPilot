@@ -88,7 +88,11 @@ _CLIENT_ERROR_MESSAGES = {
     "PLATFORM_INSUFFICIENT_BALANCE": "平台可用余额不足以预留本次调用上限，请充值或切换自带 Key",
     "PLATFORM_INPUT_TOO_LARGE": "本次上下文超过平台模型上限，请缩短内容",
     "INVALID_USAGE": "平台模型未提供可核验用量，本次未扣费",
-    "PLATFORM_AI_FAILED": "平台模型调用失败，预留余额已释放",
+    "PLATFORM_AI_FAILED": "平台模型调用失败，预留额度已释放，请稍后重试",
+    "CREDITS_BUSY": "积分状态正在更新，请稍后点击重试",
+    "CREDITS_INSUFFICIENT": "可用积分不足以预留本次调用上限，请补充额度或切换自带 Key",
+    "CALL_EXPIRED": "本次调用已超时，预留额度已释放，请重新发起",
+    "FREE_CHAT_LIMIT": "本月免费 AI 对话次数已用完或正在处理中，请使用套餐积分或自带 Key",
 }
 
 

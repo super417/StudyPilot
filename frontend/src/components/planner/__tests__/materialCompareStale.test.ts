@@ -1,3 +1,4 @@
+import type { MaterialComparisonResponse } from '@/lib/materialsApi';
 import path from 'node:path';
 import { Module } from 'node:module';
 import { describe, expect, it } from 'vitest';
@@ -35,8 +36,8 @@ describe('GoalSubmitForm stale material results', () => {
     let cursor = 0;
     const observed = {
       planId: null as string | null,
-      compare: (_body: unknown) => Promise.resolve({}),
-      select: (_id: string, _body: unknown) => Promise.resolve({}),
+      compare: (_body: unknown): Promise<unknown> => Promise.resolve({}),
+      select: (_id: string, _body: unknown): Promise<unknown> => Promise.resolve({}),
     };
     (globalThis as { __materialStale?: unknown }).__materialStale = {
       useState(initial: unknown) {
@@ -107,7 +108,7 @@ describe('GoalSubmitForm stale material results', () => {
           name: 'material-stale',
           setup(build) {
             build.onResolve({ filter: /.*/ }, (args) => {
-              if (Object.hasOwn(mocks, args.path)) return { path: args.path, namespace: 'material-stale' };
+              if (Object.prototype.hasOwnProperty.call(mocks, args.path)) return { path: args.path, namespace: 'material-stale' };
               return undefined;
             });
             build.onLoad({ filter: /.*/, namespace: 'material-stale' }, (args) => ({
@@ -153,7 +154,7 @@ describe('GoalSubmitForm stale material results', () => {
       completionCriterion: '能独立证明秩不等式',
       completionCriterionLabel: '能独立证明秩不等式',
     };
-    function response(id: string, planId: string | null = null, goalOverride = goal) {
+    function response(id: string, planId: string | null = null, goalOverride = goal): MaterialComparisonResponse {
       return {
         comparisonId: id,
         planId,

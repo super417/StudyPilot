@@ -113,7 +113,7 @@ describe('GoalSubmitForm preview', () => {
           name: 'form-preview-boundaries',
           setup(build) {
             build.onResolve({ filter: /.*/ }, (args) => {
-              if (Object.hasOwn(mocks, args.path)) {
+              if (Object.prototype.hasOwnProperty.call(mocks, args.path)) {
                 return { path: args.path, namespace: 'form-preview-mock' };
               }
               return undefined;

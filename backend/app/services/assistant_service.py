@@ -789,7 +789,7 @@ async def _stream_chat_reply(
         try:
             if is_disconnected is not None and await is_disconnected():
                 return
-            reply = await complete(session, user_id, payload)
+            reply = await complete(session, user_id, payload, allow_free_chat=True)
             yield format_sse("token", {"delta": reply})
             yield format_sse("done", {"finish": "stop", **({"citations": citations} if citations else {})})
         except BillingError as error:

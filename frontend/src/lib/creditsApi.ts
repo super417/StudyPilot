@@ -7,9 +7,10 @@ export interface CreditModel {
 }
 export interface CreditCatalog {
   status: string; platformAvailable: boolean; models: CreditModel[];
-  plans: { id: string; name: string; priceFen: number; basePoints: number; bonusPoints: number; purchaseAvailable: boolean }[];
+  plans: { id: string; name: string; priceFen: number; basePoints: number; bonusPoints: number; purchaseAvailable: boolean; freeChatLimit?: number }[];
 }
 export interface CreditAccount {
+  freeChat?: { limit: number; remaining: number; reserved: number; resetsAt: string; eligible: boolean };
   status: string; testPlan?: boolean; planName?: string; mode: 'byok' | 'platform'; modelId: string | null;
   availableMicroPoints: number; reservedMicroPoints: number; nextRefreshAt: string;
   lots: { id: string; kind: string; grantedMicroPoints: number; remainingMicroPoints: number; reservedMicroPoints: number; expiresAt: string }[];

@@ -9,14 +9,14 @@ from .billing_config import platform_models
 from .billing_service import BillingError, account, cost_micros, finish_call, reserve_call
 
 
-async def complete(session, user_id, payload: dict, *, request_id: str | None = None, transport=None) -> str:
+async def complete(session, user_id, payload: dict, *, request_id: str | None = None, transport=None, allow_free_chat=False) -> str:
     from app.models.billing import BillingAccount
     with Session(bind=session.get_bind()) as preference_session:
         preference = preference_session.get(BillingAccount, user_id)
         credits_selected = bool(preference and (preference.model_id or '').startswith('credits:'))
     if credits_selected:
         from .credits_service import complete as credits_complete
-        return await credits_complete(session, user_id, payload, request_id=request_id, transport=transport)
+        return await credits_complete(session, user_id, payload, request_id=request_id, transport=transport, allow_free_chat=allow_free_chat)
     # Billing commits must never commit or roll back a caller's pending plan,
     # answer or message. Production DB connections are acquired independently.
     with Session(bind=session.get_bind(), expire_on_commit=False) as ledger_session:

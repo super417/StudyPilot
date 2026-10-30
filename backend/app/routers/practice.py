@@ -13,6 +13,7 @@ from app.models.entities import User
 from app.routers.dependencies import get_current_user
 from app.services import practice_service
 from app.services.api_config_service import NoVerifiedApiConfigError
+from app.services.ai_proxy import CredentialUnavailableError, build_client_error
 from app.services.practice_service import (
     ExplanationInsufficientEvidenceError,
     PracticeGradeError,
@@ -126,6 +127,10 @@ async def generate_practice_route(
         rows = await practice_service.generate_for_day(session, user.id, day, generator)
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        safe = build_client_error(error)
+        status = 429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503
+        return _json_error(status, safe['code'], safe['message'])
     return JSONResponse(
         status_code=200,
         content={
@@ -156,6 +161,10 @@ async def reinforce_retest_route(
         return _json_error(400, error.code, str(error))
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        safe = build_client_error(error)
+        status = 429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503
+        return _json_error(status, safe['code'], safe['message'])
     return JSONResponse(
         status_code=200,
         content={
@@ -186,6 +195,10 @@ async def phase_quiz_route(
         return _json_error(400, error.code, str(error))
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        safe = build_client_error(error)
+        status = 429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503
+        return _json_error(status, safe['code'], safe['message'])
     return JSONResponse(
         status_code=200,
         content={
@@ -290,6 +303,10 @@ async def grade_practice_route(
         return _json_error(404, error.code, str(error))
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        safe = build_client_error(error)
+        status = 429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503
+        return _json_error(status, safe['code'], safe['message'])
     except PracticeGradeError as error:
         return _json_error(502, error.code, str(error))
     return JSONResponse(
@@ -338,6 +355,10 @@ async def explain_practice_route(
         return _json_error(404, error.code, str(error))
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        safe = build_client_error(error)
+        status = 429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503
+        return _json_error(status, safe['code'], safe['message'])
     except PracticeGradeError as error:
         return _json_error(502, error.code, str(error))
     return JSONResponse(

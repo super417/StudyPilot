@@ -160,7 +160,7 @@ export async function handleConfirmAdjustment(opts: {
   planId: string;
   adjustmentId: string;
   selectionVersion?: number;
-  validation?: { ok?: unknown; checks?: Record<string, unknown> } | null;
+  validation?: { ok?: unknown; checks?: Record<string, unknown>; contract?: unknown } | null;
   localDirty?: boolean;
   confirmApi: (
     planId: string,

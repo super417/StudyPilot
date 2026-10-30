@@ -15,3 +15,9 @@ describe('积分定价与精度', () => {
     expect(PRICING_POSTCARDS[2].detail).toContain('一个月');
   });
 });
+
+it('免费权益是每月五轮对话，不再承诺500积分', () => {
+  expect(PRICING_POSTCARDS[0].category).toContain('5 轮');
+  expect(PRICING_POSTCARDS[0].detail).toContain('失败不扣次数');
+  expect(JSON.stringify(PRICING_POSTCARDS[0])).not.toContain('500');
+});

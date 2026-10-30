@@ -19,22 +19,23 @@ def test_free_idempotent_month_boundary_and_expiry(db):
     assert session.scalar(select(func.count()).select_from(CreditLot)) == 1
     s.prepare(session,user.id,now+timedelta(minutes=2))
     assert session.scalar(select(func.count()).select_from(CreditLot)) == 2
-    assert session.scalar(select(func.sum(CreditLot.remaining)).where(CreditLot.expires_at > now+timedelta(minutes=2))) == 500*s.MICRO
+    assert session.scalar(select(func.sum(CreditLot.remaining)).where(CreditLot.expires_at > now+timedelta(minutes=2))) == 5
 
 
 def test_reserve_release_and_charge(db):
     session,user=db
+    s.grant_test_qihang(session,user.id)
     s.reserve(session,user.id,'a',10000)
     assert s.finish(session,'a',(8,1))
     assert not s.finish(session,'a',(8,1))
     session.expire_all()
-    lot=session.scalar(select(CreditLot))
-    assert lot.remaining==500*s.MICRO-480 and lot.reserved==0
+    lot=session.scalar(select(CreditLot).where(CreditLot.kind == 'test_base'))
+    assert lot.remaining==2000*s.MICRO-480 and lot.reserved==0
     s.reserve(session,user.id,'b',10000)
     s.finish(session,'b',None)
     session.expire_all()
-    assert session.scalar(select(CreditLot)).reserved==0
-    with pytest.raises(s.BillingError):s.reserve(session,user.id,'c',501*s.MICRO)
+    assert session.scalar(select(func.sum(CreditLot.reserved)))==0
+    with pytest.raises(s.BillingError):s.reserve(session,user.id,'c',4001*s.MICRO)
 
 
 def test_real_shape_mock_usage_failure_release(db,monkeypatch):
@@ -45,11 +46,13 @@ def test_real_shape_mock_usage_failure_release(db,monkeypatch):
         body=json.loads(request.content)
         assert body['model']=='deepseek-flash' and body['thinking']=={'type':'disabled'}
         return httpx.Response(200,json={'choices':[{'message':{'content':'OK'}}],'usage':{'prompt_tokens':8,'completion_tokens':1}})
-    assert asyncio.run(s.complete(session,user.id,{'messages':[{'role':'user','content':'OK'}]},transport=httpx.MockTransport(handler)))=='OK'
+    assert asyncio.run(s.complete(session,user.id,{'messages':[{'role':'user','content':'OK'}]},transport=httpx.MockTransport(handler),allow_free_chat=True))=='OK'
     with pytest.raises(s.BillingError):
-        asyncio.run(s.complete(session,user.id,{'messages':[]},transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'choices':[]}))))
+        asyncio.run(s.complete(session,user.id,{'messages':[]},transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'choices':[]})),allow_free_chat=True))
     assert session.scalar(select(func.sum(CreditLot.reserved)))==0
-    assert session.scalar(select(func.sum(CreditLedger.amount)).where(CreditLedger.kind=='usage'))==-480
+    assert session.scalar(select(func.count()).select_from(CreditLedger).where(CreditLedger.kind=='usage'))==0
+    session.expire_all()
+    assert s.free_chat_status(session,user.id)['remaining']==4
 
 
 def test_credit_migration_roundtrip_preserves_currency(tmp_path):
@@ -71,4 +74,5 @@ def test_test_grants_are_explicit_idempotent_and_not_payments(db):
     s.grant_test_qihang(session,user.id)
     s.grant_test_qihang(session,user.id)
     assert session.scalar(select(func.count()).select_from(CreditLot)) == 3
-    assert session.scalar(select(func.sum(CreditLot.remaining))) == 4500*s.MICRO
+    assert sum(lot.remaining for lot in s.spendable_lots(session,user.id,datetime.now(timezone.utc))) == 4000*s.MICRO
+    assert s.free_chat_status(session,user.id)['remaining'] == 5

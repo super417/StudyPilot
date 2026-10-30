@@ -149,7 +149,7 @@ describe('GoalSubmitForm material compare', () => {
           name: 'material-entry',
           setup(build) {
             build.onResolve({ filter: /.*/ }, (args) => {
-              if (Object.hasOwn(mocks, args.path)) return { path: args.path, namespace: 'material-entry' };
+              if (Object.prototype.hasOwnProperty.call(mocks, args.path)) return { path: args.path, namespace: 'material-entry' };
               return undefined;
             });
             build.onLoad({ filter: /.*/, namespace: 'material-entry' }, (args) => ({

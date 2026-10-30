@@ -29,7 +29,7 @@ vi.stubGlobal('localStorage', {
 
 vi.mock('@/lib/httpClient', async () => {
   class ApiError extends Error {
-    constructor(message: string) {
+    constructor(_status: number, _code: string, message: string) {
       super(message);
       this.name = 'ApiError';
     }
@@ -62,7 +62,7 @@ function textOf(node: unknown): string {
   return '';
 }
 
-function findButton(tree: unknown, label: string) {
+function findButton(tree: unknown, label: string): { props?: Record<string, unknown> } | null {
   let found: { props?: Record<string, unknown> } | null = null;
   visit(tree, (node) => {
     if (node.type === 'button' && textOf(node) === label) found = node;
@@ -76,12 +76,14 @@ describe('AssistantNamePrompt interactions', () => {
     vi.clearAllMocks();
   });
 
-  it('save path: GET then PUT full five fields via saveAssistantName', async () => {
+  it('save path: GET then PUT full seven fields via saveAssistantName', async () => {
     api.apiRequest
       .mockResolvedValueOnce({
         status: 'ok',
         profile: {
           nickname: '小明',
+          school: '示例大学',
+          major: '信息管理',
           direction: 'AI',
           targetSchool: '某处',
           bio: '简介',
@@ -92,6 +94,8 @@ describe('AssistantNamePrompt interactions', () => {
         status: 'ok',
         profile: {
           nickname: '小明',
+          school: '示例大学',
+          major: '信息管理',
           direction: 'AI',
           targetSchool: '某处',
           bio: '简介',
@@ -109,6 +113,8 @@ describe('AssistantNamePrompt interactions', () => {
     );
     expect(JSON.parse(String((putCall?.[1] as { body: string }).body))).toEqual({
       nickname: '小明',
+      school: '示例大学',
+      major: '信息管理',
       direction: 'AI',
       targetSchool: '某处',
       bio: '简介',
@@ -162,7 +168,7 @@ describe('AssistantNamePrompt interactions', () => {
           assistantName: '',
         },
       })
-      .mockRejectedValueOnce(new ApiError('后端拒绝'));
+      .mockRejectedValueOnce(new ApiError(400, 'PROFILE_REJECTED', '后端拒绝'));
 
     await runSave();
     expect(hidden).toBe(false);
@@ -209,7 +215,7 @@ describe('AssistantNamePrompt interactions', () => {
       if (node.type === 'input' && node.props?.['aria-label'] === 'chat-input') {
         inputDisabled = node.props.disabled;
       }
-      if (node.type === 'button' && textOf(node) === '发送') {
+      if (node.type === 'button' && node.props && textOf(node) === '发送') {
         sendDisabled = node.props.disabled;
       }
     });
