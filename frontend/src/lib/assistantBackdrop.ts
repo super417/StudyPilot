@@ -1,4 +1,4 @@
-/** Remove only neutral backdrop pixels connected to the edge of a video crop. */
+/** Separate tinted floor/shadows from the character while retaining white shoes. */
 export function clearAssistantBackdrop(pixels: Pick<ImageData, 'data' | 'width' | 'height'>) {
   const { data, width, height } = pixels;
   const visited = new Uint8Array(width * height);
@@ -8,10 +8,11 @@ export function clearAssistantBackdrop(pixels: Pick<ImageData, 'data' | 'width' 
   const pinkSeen = new Uint8Array(width * height);
   const shoes: Array<Array<[number, number]>> = [];
   const isPink = (i: number) => data[i * 4] > data[i * 4 + 1] + 16 && data[i * 4 + 2] > data[i * 4 + 1] + 8;
+  const shoeSeed = (i: number) => data[i * 4] > data[i * 4 + 1] + 35 && data[i * 4 + 2] > data[i * 4 + 1] + 8;
   for (let y = Math.floor(height * .66); y < height; y++) {
     for (let x = 0; x < width; x++) {
       const first = y * width + x;
-      if (pinkSeen[first] || !isPink(first)) continue;
+      if (pinkSeen[first] || !shoeSeed(first)) continue;
       const points: Array<[number, number]> = [];
       const todo = [first];
       pinkSeen[first] = 1;
@@ -20,7 +21,7 @@ export function clearAssistantBackdrop(pixels: Pick<ImageData, 'data' | 'width' 
         points.push([px, py]);
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           const nx = px + dx, ny = py + dy, next = ny * width + nx;
-          if (nx < 0 || nx >= width || ny < height * .66 || ny >= height || pinkSeen[next] || !isPink(next)) continue;
+          if (nx < 0 || nx >= width || ny < height * .66 || ny >= height || pinkSeen[next] || !shoeSeed(next)) continue;
           pinkSeen[next] = 1;
           todo.push(next);
         }

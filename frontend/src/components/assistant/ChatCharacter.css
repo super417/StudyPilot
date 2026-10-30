@@ -1,0 +1,19 @@
+.assistant-character {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.assistant-character__pose {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0;
+  user-select: none;
+}
+.assistant-character__pose--active { opacity: 1; }
+.assistant-character__source { display: none; }

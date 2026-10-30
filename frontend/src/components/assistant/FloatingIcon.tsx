@@ -4,7 +4,8 @@ import { animate, motion, useMotionValue } from 'framer-motion';
 import { clampIconPosition, useAssistantStore } from '@/store';
 import { startAssistantGreeting } from '@/lib/assistantGreeting';
 import { COMPANION_PREFERENCE_KEY, COMPANION_ANCHOR_KEY, companionAnchorFromPosition, companionPositionFromAnchor, defaultCompanionAnchor, readCompanionAnchor, createCompanionClickIntent, companionDockLift, companionExpansionProtected, companionOverlaps, companionStartsCollapsed } from '@/lib/companionVisibility';
-import ChatCharacter, { type CharacterMode } from './ChatCharacter';
+import ChatCharacter from './ChatCharacter';
+import { resolveCharacterMode } from '@/lib/assistantCharacter';
 import './FloatingIcon.css';
 
 /** 全身角色的点击区域（px），拖拽和边界钳制使用相同尺寸。 */
@@ -31,10 +32,10 @@ function FloatingIcon({ overviewEntrance = false }: { overviewEntrance?: boolean
   const toggleAssistant = useAssistantStore((s) => s.toggleAssistant);
   const open = useAssistantStore((s) => s.open);
   const streaming = useAssistantStore((s) => s.streaming);
-  const replyStarted = useAssistantStore((s) => s.replyStarted);
   const [hovered, setHovered] = useState(false);
   const completedReplyCount = useAssistantStore((s) => s.completedReplyCount);
   const [answering, setAnswering] = useState(false);
+  const [waitingForQuestion, setWaitingForQuestion] = useState(true);
   const [entering, setEntering] = useState(false);
   const previousCompletedReplyCount = useRef(completedReplyCount);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -176,27 +177,30 @@ function FloatingIcon({ overviewEntrance = false }: { overviewEntrance?: boolean
   }, [completedReplyCount, open, streaming]);
 
   useEffect(() => {
-    if (streaming) setAnswering(false);
+    if (streaming) {
+      setAnswering(false);
+      setWaitingForQuestion(false);
+    }
   }, [streaming]);
 
   useEffect(() => {
+    setHovered(false);
+    setWaitingForQuestion(true);
     if (!open) {
       setAnswering(false);
-      setHovered(false);
     }
   }, [open]);
 
-  const onAnswerEnd = useCallback(() => setAnswering(false), []);
+  const onAnswerEnd = useCallback(() => {
+    setAnswering(false);
+    setWaitingForQuestion(false);
+  }, []);
   const onEntranceEnd = useCallback(() => {
     entranceActive.current = false;
     setPosition(entranceTarget.current);
     setEntering(false);
   }, [setPosition]);
-  const mode: CharacterMode = entering ? 'entrance' : !open
-    ? hovered ? 'hover' : 'idle'
-    : answering ? 'answer'
-    : streaming && !replyStarted ? 'thinking'
-    : 'open';
+  const mode = resolveCharacterMode({ entering, open, streaming, answering, hovered, waitingForQuestion });
   const showBubble = hovered && !open && !entering;
   const bubbleBelow = position.y < 110;
   const bubbleLeft = typeof window === 'undefined'
@@ -376,9 +380,15 @@ function FloatingIcon({ overviewEntrance = false }: { overviewEntrance?: boolean
         aria-expanded={open}
         aria-describedby={showBubble ? 'assistant-invite-bubble' : undefined}
         onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onMouseLeave={() => {
+          if (hovered) setWaitingForQuestion(false);
+          setHovered(false);
+        }}
         onFocus={() => setHovered(true)}
-        onBlur={() => setHovered(false)}
+        onBlur={() => {
+          if (hovered) setWaitingForQuestion(false);
+          setHovered(false);
+        }}
         onClick={() => {
           // 拖拽后抬手不触发打开（需求：区分点击与拖拽）
           if (draggingRef.current) {

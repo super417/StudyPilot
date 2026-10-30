@@ -1,160 +1,142 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import idleImage from '@/assets/chat-girl-idle.png';
-import { clearAssistantBackdrop } from '@/lib/assistantBackdrop';
-
-export type CharacterMode = 'idle' | 'hover' | 'open' | 'thinking' | 'answer' | 'entrance';
-
-const VIDEO_URL = '/chat-girl-10s-v6.mp4';
-const CANVAS_SIZE = 256;
+import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'framer-motion';
+import fallbackImage from '@/assets/chat-girl-idle.png';
+import { CHARACTER_ACTION_MS, CHARACTER_IMAGES, type CharacterMode } from '@/lib/assistantCharacter';
+import { CHARACTER_VIDEOS, clearAssistantGreenScreen, nextCharacterSegment, type CharacterSegment, type VideoPose } from '@/lib/assistantVideo';
+import './ChatCharacter.css';
 
 interface ChatCharacterProps {
   mode: CharacterMode;
   onAnswerEnd: () => void;
 }
 
+const CANVAS_SIZE = 360;
+
 function ChatCharacter({ mode, onAnswerEnd }: ChatCharacterProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const reducedMotion = useReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const previousMode = useRef<CharacterMode | null>(null);
-  const [ready, setReady] = useState(false);
+  const videos = useRef<Partial<Record<keyof typeof CHARACTER_VIDEOS, HTMLVideoElement>>>({});
+  const requested = useRef(mode);
+  requested.current = mode;
+  const onEnd = useRef(onAnswerEnd);
+  onEnd.current = onAnswerEnd;
+  const [hasFrame, setHasFrame] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [showCanvas, setShowCanvas] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(media.matches);
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-
-  const drawFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-    const side = Math.min(video.videoWidth * 0.34, video.videoHeight * 0.66);
-    const left = (video.videoWidth - side) / 2;
-    const top = (video.videoHeight - side) / 2;
-    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    ctx.drawImage(video, left, top, side, side, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    const pixels = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    clearAssistantBackdrop(pixels);
-    ctx.putImageData(pixels, 0, 0);
-    // The supplied transparent full-body portrait is exact for the idle pose.
-    // Keep the video for all moving/seated/thinking/jumping poses.
-    setShowCanvas(video.currentTime > 0.5);
-  }, []);
+    if (!reducedMotion && !failed) return;
+    if (mode !== 'answer' && mode !== 'entrance') return;
+    const timer = window.setTimeout(() => onEnd.current(), reducedMotion ? 0 : CHARACTER_ACTION_MS);
+    return () => window.clearTimeout(timer);
+  }, [mode, reducedMotion, failed]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (reducedMotion) {
-      video?.pause();
-      setShowCanvas(false);
-      if (mode === 'answer' || mode === 'entrance') onAnswerEnd();
-      return;
-    }
-    if (!ready || !video || failed) return;
-    const previous = previousMode.current;
-    previousMode.current = mode;
-    video.pause();
-
-    if (mode === 'idle' && (previous === null || previous === 'entrance')) {
-      video.currentTime = 0.35;
-      return;
-    }
-    if (mode === 'open' && previous === 'answer') {
-      video.currentTime = 7.4; // the answer animation has landed in the seated pose
-      return;
-    }
-
-    let start: number;
-    let end: number;
-    let settle: number | undefined;
-    if (mode === 'idle') {
-      start = 7.65;
-      end = 8.8;
-      settle = 0.35;
-    } else if (mode === 'hover') {
-      start = 1.2;
-      end = 2.2;
-    } else if (mode === 'open') {
-      start = previous === 'hover' && video.currentTime >= 1.2 && video.currentTime < 3.35
-        ? video.currentTime
-        : 1.2;
-      end = 3.35;
-    } else if (mode === 'thinking') {
-      start = 3.4;
-      end = 5.05;
-    } else if (mode === 'entrance') {
-      // 总览入场使用双手举起的跳跃段；前面的 3–5 秒是挠头。
-      start = 5;
-      end = 8;
-      settle = 0.35;
-    } else {
-      start = 5.15;
-      end = 7.5;
-    }
-
-    let cancelled = false;
-    let frameId = 0;
-    const tick = () => {
-      if (cancelled) return;
-      drawFrame();
-      if (video.currentTime >= end) {
+    if (reducedMotion) return;
+    let stopped = false;
+    let cancelPlayback = () => {};
+    let pose: VideoPose = 'idle';
+    let finishedAction: CharacterMode | undefined;
+    const context = canvasRef.current?.getContext('2d', { willReadFrequently: true });
+    if (!context) { setFailed(true); return; }
+    const draw = (video: HTMLVideoElement) => {
+      context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      context.drawImage(video, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      const pixels = context.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      clearAssistantGreenScreen(pixels);
+      context.putImageData(pixels, 0, 0);
+      setHasFrame(true);
+    };
+    const play = (segment: CharacterSegment) => new Promise<void>((resolve, reject) => {
+      const video = videos.current[segment.video]!;
+      let frame = 0;
+      let settled = false;
+      let lastTime = -1;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        window.cancelAnimationFrame(frame);
         video.pause();
-        video.currentTime = settle ?? end;
-        if (mode === 'answer' || mode === 'entrance') onAnswerEnd();
-        return;
+        video.removeEventListener('loadedmetadata', seek);
+        video.removeEventListener('seeked', start);
+        video.removeEventListener('error', onError);
+        video.removeEventListener('ended', onEnded);
+        if (error) reject(error); else resolve();
+      };
+      const timeout = window.setTimeout(() => finish(new Error('Video stalled')), (segment.end - segment.start) * 1000 + 12000);
+      cancelPlayback = () => finish();
+      const onError = () => finish(new Error('Video unavailable'));
+      const onEnded = () => finish();
+      const tick = () => {
+        if (stopped) { finish(); return; }
+        const target = requested.current === finishedAction ? 'idle' : requested.current;
+        // Check before drawing: a background tab may resume past the hold end.
+        if (video.currentTime >= segment.end || (segment.hold && target !== segment.hold)) { finish(); return; }
+        const sourceFrame = Math.floor(video.currentTime * 24);
+        if (!video.seeking && video.readyState >= 2 && lastTime !== sourceFrame) {
+          try { draw(video); } catch { onError(); return; }
+          lastTime = sourceFrame;
+        }
+        // Stable holds may exit immediately. Finish sit/stand/jump transitions
+        // first, so quick replies never cut a limb mid-move.
+        frame = window.requestAnimationFrame(tick);
+      };
+      const start = () => {
+        video.removeEventListener('seeked', start);
+        if (stopped || settled) return;
+        video.play().then(() => { if (!settled) tick(); }).catch(onError);
+      };
+      const seek = () => {
+        video.removeEventListener('loadedmetadata', seek);
+        if (stopped || settled) return;
+        if (Math.abs(video.currentTime - segment.start) < .001 && video.readyState >= 2) start();
+        else {
+          video.addEventListener('seeked', start, { once: true });
+          video.currentTime = segment.start;
+        }
+      };
+      video.addEventListener('error', onError);
+      video.addEventListener('ended', onEnded);
+      if (video.error) onError();
+      else if (video.readyState >= 1) seek();
+      else video.addEventListener('loadedmetadata', seek, { once: true });
+    });
+    const run = async () => {
+      try {
+        while (!stopped) {
+          const target = requested.current;
+          if (target !== finishedAction) finishedAction = undefined;
+          const segment = nextCharacterSegment(pose, target === finishedAction ? 'idle' : target);
+          await play(segment);
+          if (stopped) break;
+          pose = segment.pose;
+          if (segment.finish && requested.current === segment.finish) {
+            finishedAction = segment.finish;
+            onEnd.current();
+          }
+        }
+      } catch {
+        if (!stopped) setFailed(true);
       }
-      frameId = window.requestAnimationFrame(tick);
     };
-    const begin = () => {
-      if (cancelled) return;
-      drawFrame();
-      void video.play().then(() => {
-        if (!cancelled) frameId = window.requestAnimationFrame(tick);
-      }).catch(() => setFailed(true));
-    };
-    if (Math.abs(video.currentTime - start) < 0.02) {
-      begin();
-    } else {
-      video.addEventListener('seeked', begin, { once: true });
-      video.currentTime = start;
-    }
+    void run();
     return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(frameId);
-      video.removeEventListener('seeked', begin);
-      video.pause();
+      stopped = true;
+      cancelPlayback();
     };
-  }, [mode, ready, failed, drawFrame, onAnswerEnd, reducedMotion]);
+  }, [reducedMotion]);
 
+  const showVideo = hasFrame && !failed && !reducedMotion;
   return (
-    <span className="relative block h-full w-full" aria-hidden="true">
-      <img
-        src={idleImage}
-        alt=""
-        className={`absolute inset-0 h-full w-full object-contain ${showCanvas && !failed ? 'hidden' : ''}`}
-      />
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
-        className={`h-full w-full ${showCanvas && !failed ? '' : 'hidden'}`}
-      />
-      {!reducedMotion && <video
-        ref={videoRef}
-        src={VIDEO_URL}
-        muted
-        playsInline
-        preload="auto"
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.001]"
-        onLoadedMetadata={() => setReady(true)}
-        onSeeked={drawFrame}
-        onError={() => setFailed(true)}
-      />}
+    <span className="assistant-character" data-character-mode={mode} data-character-renderer={showVideo ? 'video' : 'image'} aria-hidden="true">
+      <img src={reducedMotion || failed ? CHARACTER_IMAGES[mode] : fallbackImage} alt="" draggable={false}
+        onError={(event) => { if (event.currentTarget.getAttribute('src') !== fallbackImage) event.currentTarget.src = fallbackImage; }}
+        className={`assistant-character__pose ${!showVideo ? 'assistant-character__pose--active' : ''}`} />
+      <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} className={`assistant-character__pose ${showVideo ? 'assistant-character__pose--active' : ''}`} />
+      {Object.entries(CHARACTER_VIDEOS).map(([name, src]) => (
+        <video key={name} ref={(element) => { if (element) videos.current[name as keyof typeof CHARACTER_VIDEOS] = element; }}
+          src={src} muted playsInline preload="auto" className="assistant-character__source" />
+      ))}
     </span>
   );
 }

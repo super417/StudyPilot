@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { fetchBillingAccount, formatMicros, type BillingAccount } from '@/lib/billingApi';
 import { fetchCreditAccount, fetchCreditCatalog, saveCreditPreferences, formatPoints, type CreditAccount, type CreditCatalog } from '@/lib/creditsApi';
 import './PlatformBillingCard.css';
+import { formatBillingDateTime } from '@/lib/billingDateTime';
 
 const kindLabel: Record<string, string> = { test_base: '测试基础积分', test_bonus: '测试赠送积分', monthly_grant: '月度发放', usage: '模型消费', free: '免费基础积分', base: '套餐基础积分', bonus: '活动赠送积分', supply: '补给积分', grant: '发放', consume: '模型消费', charge: '模型消费', expire: '到期' };
 export default function PlatformBillingCard({ advancedSettings }: { advancedSettings?: ReactNode } = {}) {
@@ -54,7 +55,7 @@ export default function PlatformBillingCard({ advancedSettings }: { advancedSett
     {account && <>
       <p><strong>{account.planName ?? (account.testPlan ? '启航版（测试）' : '免费版')}</strong>{account.testPlan && ' · 测试权益，不代表真实购买或付款。'}</p>
       <dl className="billing-balances"><div><dt>可用积分</dt><dd>{formatPoints(account.availableMicroPoints)}</dd></div><div><dt>调用预留积分</dt><dd>{formatPoints(account.reservedMicroPoints)}</dd></div></dl>
-      <p>下次免费积分刷新：{account.nextRefreshAt.replace('+', ' ')}</p>
+      <p>下次免费积分刷新：{formatBillingDateTime(account.nextRefreshAt)}</p>
       <p>当前使用方式：{account.mode === 'byok' ? '自带 API Key' : account.modelId?.startsWith('credits:') ? '平台积分' : '原人民币余额模型'}。选择模型后，点击启用才会改变使用方式。</p>
       <fieldset disabled={busy}><legend>选择积分模型</legend>
         {!catalog?.platformAvailable && <p>平台积分模型暂未开放；已有积分不会因浏览而扣除。</p>}
