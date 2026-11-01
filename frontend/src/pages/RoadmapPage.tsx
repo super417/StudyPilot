@@ -49,13 +49,7 @@ function RoadmapPage() {
       const [weekTasks, overview, latest] = await Promise.all([
         fetchDailyTasksForDates(week),
         fetchOverviewMetrics(today),
-        fetchLatestPlan().catch(() => ({
-          status: 'ok',
-          empty: true,
-          needsStartDate: false,
-          plan: null,
-          phases: [],
-        })),
+        fetchLatestPlan(),
       ]);
       setTasks(weekTasks);
       const planExists =
@@ -162,6 +156,14 @@ function RoadmapPage() {
     }
   };
 
+  if (loading) return <p role="status" className="text-sm text-gray-400">加载本周学习任务…</p>;
+  if (error) return (
+    <div role="alert" className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      {error}
+      <button type="button" className="ml-3 underline" onClick={() => void reload()}>重试</button>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <RoadmapHeader updatedAt={updatedAt} />
@@ -177,7 +179,7 @@ function RoadmapPage() {
       {statusMsg ? <p className="text-sm text-brandDark">{statusMsg}</p> : null}
       {loading ? <p className="text-sm text-gray-400">加载本周学习任务…</p> : null}
 
-      {!loading && !hasPlan ? (
+      {!loading && !error && !hasPlan ? (
         <section className="card p-6">
           <p className="text-sm font-medium text-brandDark">还没有阶段路线图</p>
           <p className="mt-1 text-xs text-gray-500">

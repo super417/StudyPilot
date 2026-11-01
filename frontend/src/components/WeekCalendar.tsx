@@ -1,3 +1,4 @@
+import { currentWeekCalendar } from '@/lib/dates';
 export interface WeekDay {
   /** 星期标签，如「周一」 */
   weekday: string;
@@ -8,27 +9,11 @@ export interface WeekDay {
 import { FadeIn } from '@/components/motion';
 
 export interface WeekCalendarProps {
-  /** 本周 7 天（周一→周日）；缺省用稳定 mock 周 */
+  /** 本周 7 天（周一→周日）；缺省使用真实本周日期 */
   days?: WeekDay[];
-  /** 今天在 days 中的下标（0-6）；缺省用 mock 高亮 */
+  /** 今天在 days 中的下标（0-6）；缺省高亮真实今天 */
   todayIndex?: number;
 }
-
-/**
- * 稳定 mock 周（对齐参考图 09-21 ~ 09-27，今天 09-23 周三高亮）。
- * 不接真实日期；生产接入后由调用方传入 days + todayIndex。
- */
-const DEFAULT_WEEK: WeekDay[] = [
-  { weekday: '周一', date: '09-21' },
-  { weekday: '周二', date: '09-22' },
-  { weekday: '周三', date: '09-23' },
-  { weekday: '周四', date: '09-24' },
-  { weekday: '周五', date: '09-25' },
-  { weekday: '周六', date: '09-26' },
-  { weekday: '周日', date: '09-27' },
-];
-
-const DEFAULT_TODAY_INDEX = 2;
 
 /**
  * WeekCalendar — 总览页本周日历（需求 4.3）
@@ -40,7 +25,7 @@ const DEFAULT_TODAY_INDEX = 2;
  * 延迟交错入场（每张用 FadeIn 包裹，delay = i × 0.05）。FadeIn 内部 viewport.once
  * 保证只播一次。用 flex-1 保持等宽响应式，包裹层不改变原布局。
  */
-function WeekCalendar({ days = DEFAULT_WEEK, todayIndex = DEFAULT_TODAY_INDEX }: WeekCalendarProps) {
+function WeekCalendar({ days = currentWeekCalendar().days, todayIndex = currentWeekCalendar().todayIndex }: WeekCalendarProps) {
   return (
     <section className="card p-6 sm:p-8">
       <p className="text-sm font-semibold text-brandDark">本周</p>

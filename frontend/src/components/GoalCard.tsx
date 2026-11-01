@@ -2,23 +2,12 @@ import { useEffect } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion';
 import type { Plan } from '@/mocks/types';
 import { completionCriterionLabel } from '@/lib/goalDraft';
-import { computeDayNumber, computeElapsedPercent, MS_PER_DAY } from '@/lib/goalProgress';
-
-/**
- * 演示用的稳定「今天」。
- *
- * mock 规划的 startDate 尚在未来，若用真实 new Date() 环形值会 clamp 到 0；
- * 这里默认取 startDate 之后第 8 天，让静态环形能展示一个非零小百分比。
- * 生产接入真实数据后由调用方传入真实 today（默认可改为 new Date()）。
- */
-function defaultMockToday(startDate: string): Date {
-  return new Date(new Date(startDate).getTime() + 7 * MS_PER_DAY);
-}
+import { computeDayNumber, computeElapsedPercent } from '@/lib/goalProgress';
 
 export interface GoalCardProps {
   /** 学习规划数据 */
   plan: Plan;
-  /** 参考「今天」，默认取演示用稳定日期，便于计算与测试 */
+  /** 参考「今天」，默认使用当前日期 */
   today?: string | Date;
 }
 
@@ -46,7 +35,7 @@ const MotionCircle = motion.create('circle');
  * strokeDashoffset 与百分比文案；两者同源，保证数字与环形始终一致。
  */
 function GoalCard({ plan, today }: GoalCardProps) {
-  const effectiveToday = today ?? defaultMockToday(plan.startDate);
+  const effectiveToday = today ?? new Date();
   const percent = computeElapsedPercent(plan.startDate, plan.goalDate, effectiveToday);
   const dayNumber = computeDayNumber(plan.startDate, effectiveToday);
   const percentLabel = percent.toFixed(1);
