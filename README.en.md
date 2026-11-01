@@ -92,9 +92,10 @@ A second metering scheme that coexists with the platform balance, on a **separat
 
 - **Endpoints**: `GET /api/credits/catalog` (available models, rates, plan display slots), `GET /api/credits/account` (available / reserved micro-points, grant lots, latest 30 ledger entries), `PUT /api/credits/preferences` (only `credits:deepseek-flash` is accepted; anything else returns 503).
 - **Arithmetic**: 1 point = 1,000,000 micro-points; cost = input tokens × 40 + output tokens × 160, rounded up once to a whole micro-point. Each call reserves the cap (16,000 input / 4,096 output) first, settles on verified usage and releases the remainder; missing usage, timeouts and empty output are not charged, and an unsettled reservation is released after 10 minutes.
-- **Free allowance**: 500 points per user per Beijing calendar month, expiring at month end and never carried over.
+- **Free allowance**: a plain free user gets **5 platform AI assistant rounds per Beijing calendar month**; one successful question-and-answer counts as one round and a failed call releases it. Free rounds cover assistant chat only — never planning, question generation or grading. Plan credits and your own key are not limited by the 5 rounds. The former 500 free points per month are no longer granted; existing `free:` lots stay in the ledger for audit but are no longer spendable.
 - **Model constraints**: pinned to `deepseek-flash`, non-streaming, thinking disabled, text only. Image OCR, material comparison / material tasks and resume polish still require your own key.
 - **Enablement**: `CREDITS_DEEPSEEK_ENABLED=true` **and** a `deepseek` entry in `BILLING_PROVIDER_KEYS_JSON`; without both the catalog is empty and switching is rejected. The key is read server-side only.
+- **Review gift**: with `CREDITS_REVIEW_USER_ID` (an existing user UUID, not a username) and `CREDITS_REVIEW_UNTIL` (ISO-8601 with a timezone, exclusive) both set, that account receives the 启航 test pack (2,000 base + 2,000 bonus points) once per Beijing month on first account read or first credit-model use. The grant ID is fixed, so repeated reads in the same month do not re-issue; the lot expires at the earlier of month end and the review deadline. Ledger entries are marked as test grants, not purchases.
 - **Not implemented**: purchase, activation, auto-renewal and refunds are all closed — the free / 启航 / 补给 tiers in the catalog always report `purchaseAvailable=false`, with prices and point amounts shown for display only. Trial points are minted by an operator-run local grant function, **not a payment record**, and do not mean a paid subscription is live.
 
 ### Your own API key (advanced settings)
@@ -238,6 +239,7 @@ study-pilot/
 | `SESSION_TIMEOUT_MINUTES` | no | `30` | Session lifetime in minutes |
 | `BILLING_*` | no | empty / `false` | Platform balance and top-up config, sample in `backend/.env.billing.example`. Left empty the catalog has no models, payment channels are unavailable and nothing can be charged |
 | `CREDITS_DEEPSEEK_ENABLED` | no | `false` | Platform credits switch; also needs a `deepseek` entry in `BILLING_PROVIDER_KEYS_JSON` to actually work. When off the credit catalog is empty and switching is rejected |
+| `CREDITS_REVIEW_USER_ID` / `CREDITS_REVIEW_UNTIL` | no | empty | Review gift: an account UUID plus an exclusive deadline that must include a timezone. Both are required; left empty no account is auto-granted |
 
 `DATABASE_URL`, `DB_PASSWORD` and `AES_KEY` have no defaults in `Settings`, so a missing one fails startup — intentionally: better a loud startup error than a server running on an empty key.
 
@@ -268,6 +270,7 @@ py -3.13 -m venv .venv
 .venv/Scripts/activate        # use source .venv/bin/activate on Linux/macOS
 python -m pip install -r requirements.txt
 python -m alembic upgrade head
+python -m scripts.seed_review_user   # seed before starting the backend
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 # Frontend (second terminal)
@@ -301,19 +304,19 @@ Everything except playback works without it; the speech endpoints just return 50
 
 Goal: from a clean machine to the minimal loop of upload material → generate a plan → answer practice → read a diagnosis.
 
-> **Timing was not re-measured this round.** The steps below were checked against the current code, but no timing conclusion is attached; actual duration depends on the network (`pip` / `npm` downloads, whether the speech environment is installed) and on already having an AI key.
+> **Timing was not re-measured this round.** The steps below carry no 10-minute timing claim; actual duration depends on dependency downloads, the speech environment and server-side model configuration. Reviewers can run it locally without a personal API key, but the operator must configure a real server-side model key and the review gift. Model calls still need network access. Python 3.13 is the recommendation; the 2026-10-30 targeted run used the existing `backend/.venv` on Python 3.12.15 and is not presented as a clean Python 3.13 timing.
 
 1. Install Python 3.13 and Node 18+;
 2. `git clone` and enter the repository root;
 3. `cd backend && cp .env.example .env`, generate and fill `AES_KEY` (keep the default SQLite `DATABASE_URL`, leave `DB_PASSWORD` empty);
-4. `py -3.13 -m venv .venv` → `.venv/Scripts/activate` → `pip install -r requirements.txt` → `python -m alembic upgrade head`;
+4. `py -3.13 -m venv .venv` → `.venv/Scripts/activate` → `pip install -r requirements.txt` → `python -m alembic upgrade head` → `python -m scripts.seed_review_user` (seed before starting the backend);
 5. `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`, confirm `/health` returns 200;
 6. In a second terminal `cd frontend && npm install && npm run dev`, open `http://127.0.0.1:5173`;
-7. Register → fill API Key / Base URL / model in the profile page and save (save verifies) → upload a PDF/DOCX/TXT/MD → submit a goal in the assistant to generate a plan → check in from the overview → generate a learning diagnosis on the statistics page.
+7. Operator configures the platform model and the review gift as described in [DEPLOY.md](DEPLOY.md#本地评委体验不需要个人-key) → sign in with the seeded account → pick the DeepSeek platform credit model in the profile page and enable it → upload a material → submit a goal to generate a plan → check in and answer and grade practice → confirm a remediation step and check the new task. Your own API key remains an optional path, configured under Advanced settings.
 
-Works without a key: registration and login, material upload and parsing, tasks and check-ins, mistake book, check-in-based statistics. Needs a key **or a platform balance / credits**: plan generation, assistant chat, grading, diagnosis; image OCR and resume polish accept only your own key.
+Works without a key: registration and login, material upload and parsing, tasks and check-ins, mistake book, check-in-based statistics, plus 5 assistant rounds per month on the free allowance. Needs a key **or a platform balance / credits** (beyond the 5 free rounds): plan generation, assistant chat, grading, diagnosis; image OCR and resume polish accept only your own key.
 
-Speech playback is optional and separate — run `speech/setup.ps1` after step 8.
+Speech playback is optional — run `speech/setup.ps1` separately.
 
 ## Tests
 
@@ -330,7 +333,7 @@ npm run build         # tsc -b && vite build (type checking only runs here)
 
 **The backend baseline is not green.** Measured on 2026-10-29 at `d49fab3` plus the uncommitted billing batch: **2 failed, everything else passing**. Those 2 are the two parametrised cases in `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable`, which need real Bilibili DNS — not regressions. The passed count grows with each batch; run it, don't copy old numbers.
 
-`tsc -b` is still blocked by 19 type errors in **pre-existing test files** (`AssistantNamePrompt`, `planner/*`, `adjustmentPreviewActions`), unrelated to product source; `npm run build` therefore fails while the Vite product bundle alone still builds. Do not count these as regressions and do not "fix" them by weakening tests.
+The 2026-10-30 delivery batch fixed those 19 test-fixture and contract type errors, so the full `npm run build` (`tsc -b && vite build`) now runs. This sync round independently re-ran `npx tsc -b` in `frontend` and it exited 0; the build itself is recorded as passing in that batch's report, not re-timed here. No test was excluded, no type check disabled and no assertion weakened; the archive round-trip test compares seven fields strictly, including non-empty school and major. The backend result for that batch was 147 passed / 2 subtests across 15 affected files — not a claim that the whole backend is green.
 
 Always use `backend/.venv`'s Python: the system Python has an incompatible `bcrypt` / `passlib` pair and produces hundreds of phantom failures.
 

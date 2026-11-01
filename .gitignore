@@ -29,6 +29,7 @@ backend/_v13*_raw/
 /_*.txt
 /_*.diff
 .tmp-course/
+/.ai-handoff/
 **/.pytest_cache/
 **/.hypothesis/
 
