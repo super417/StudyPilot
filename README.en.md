@@ -45,7 +45,7 @@ Built for students taking AI micro-majors or general AI courses — non-CS backg
 The `#/` overview is four layers:
 
 1. **Hero** (`StudyPilotHero`) — headline and primary action with scroll parallax;
-2. **Study-loop narrative** (`StudyPilotJourney`) — scroll-driven sections on Lenis smoothing plus GSAP ScrollTrigger;
+2. **Study-loop narrative** (`StudyPilotJourney`) — scroll-driven sections on Lenis smoothing plus GSAP ScrollTrigger; it now also carries "from learning records to the next step of growth", a three-step band (evidence → route confirmation → growth and résumé) that auto-advances every 1.8 s over a 5.4 s loop, with numbered dots to pick a step and a pause control, static by default under `prefers-reduced-motion`;
 3. **Postcard overview** (`StudyPilotPostcards`, `presentation='postcards'`, the default) — draggable watercolour postcard stack with a "today / latest weekly report" switch;
 4. **Content block** (inside `#overview-content`) — goal, today's tasks, check-in, mastery and due-mistake review open as dialogs (`OverviewDetailsDialog`); "开始今天的学习" opens `DailyStartDialog` to pick tasks.
 
@@ -93,7 +93,7 @@ A second metering scheme that coexists with the platform balance, on a **separat
 - **Endpoints**: `GET /api/credits/catalog` (available models, rates, plan display slots), `GET /api/credits/account` (available / reserved micro-points, grant lots, latest 30 ledger entries), `PUT /api/credits/preferences` (only `credits:deepseek-flash` is accepted; anything else returns 503).
 - **Arithmetic**: 1 point = 1,000,000 micro-points; cost = input tokens × 40 + output tokens × 160, rounded up once to a whole micro-point. Each call reserves the cap (16,000 input / 4,096 output) first, settles on verified usage and releases the remainder; missing usage, timeouts and empty output are not charged, and an unsettled reservation is released after 10 minutes.
 - **Free allowance**: a plain free user gets **5 platform AI assistant rounds per Beijing calendar month**; one successful question-and-answer counts as one round and a failed call releases it. Free rounds cover assistant chat only — never planning, question generation or grading. Plan credits and your own key are not limited by the 5 rounds. The former 500 free points per month are no longer granted; existing `free:` lots stay in the ledger for audit but are no longer spendable.
-- **Model constraints**: pinned to `deepseek-flash`, non-streaming, thinking disabled, text only. Image OCR, material comparison / material tasks and resume polish still require your own key.
+- **Model constraints**: pinned to `deepseek-flash`, non-streaming, thinking disabled, text only. Image OCR, material comparison / material tasks and resume polish still require your own key. The credit-model menu and the model select in the profile page group entries by vendor: any model missing from the catalog is listed as "待接入" (not integrated), disabled and display-only, and the catalog decides the display name.
 - **Enablement**: `CREDITS_DEEPSEEK_ENABLED=true` **and** a `deepseek` entry in `BILLING_PROVIDER_KEYS_JSON`; without both the catalog is empty and switching is rejected. The key is read server-side only.
 - **Review gift**: with `CREDITS_REVIEW_USER_ID` (an existing user UUID, not a username) and `CREDITS_REVIEW_UNTIL` (ISO-8601 with a timezone, exclusive) both set, that account receives the 启航 test pack (2,000 base + 2,000 bonus points) once per Beijing month on first account read or first credit-model use. The grant ID is fixed, so repeated reads in the same month do not re-issue; the lot expires at the earlier of month end and the review deadline. Ledger entries are marked as test grants, not purchases.
 - **Not implemented**: purchase, activation, auto-renewal and refunds are all closed — the free / 启航 / 补给 tiers in the catalog always report `purchaseAvailable=false`, with prices and point amounts shown for display only. Trial points are minted by an operator-run local grant function, **not a payment record**, and do not mean a paid subscription is live.
@@ -106,7 +106,7 @@ Steps:
 
 1. Enter Base URL (must start with `http://` or `https://`; for DeepSeek use `https://api.deepseek.com` — a pasted `platform.deepseek.com` console URL is normalised server-side);
 2. Enter the API Key (plaintext lives in memory only, never in localStorage);
-3. Fetch the model list — `POST /api/api-config/models` prefers the draft key + URL from the form and falls back to the stored config for whichever field is missing. Providers without a `/models` endpoint cannot be listed, so type the model name manually;
+3. Fetch the model list — `POST /api/api-config/models` prefers the draft key + URL from the form and falls back to the stored config for whichever field is missing. The list keeps the provider's display name alongside the original model id (falling back to the id only when the provider returns no name). Providers without a `/models` endpoint cannot be listed, so type the model name manually;
 4. Pick a model and save. **Saving performs a real verification** (by default against the provider's `/models`, so an HTML console page cannot pass), and success sets `isVerified=true`.
 
 Effect and sync behaviour:

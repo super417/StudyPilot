@@ -45,7 +45,7 @@
 `#/` 总览不是一个页面，是四层：
 
 1. **Hero**（`StudyPilotHero`）—— 首屏标题与主行动，滚动视差；
-2. **学习流程叙事**（`StudyPilotJourney`）—— 滚动驱动的分段讲解，配 Lenis 平滑滚动与 GSAP ScrollTrigger；
+2. **学习流程叙事**（`StudyPilotJourney`）—— 滚动驱动的分段讲解，配 Lenis 平滑滚动与 GSAP ScrollTrigger；其中「从学习记录，到下一步成长」三步区（留下证据 → 确认路线调整 → 整理成长与简历）按 5.4 秒自动轮转、每 1.8 秒换一步，可点号选步或暂停，`prefers-reduced-motion` 下默认静止；
 3. **明信片式总览**（`StudyPilotPostcards`，`presentation='postcards'`，默认）—— 横向拖动的水彩明信片叠卡，分「今日概览 / 最近周报」两档切换；
 4. **内容区**（`#overview-content` 容器内）—— 目标、今日任务、打卡、掌握度、错题待复习等通过弹窗（`OverviewDetailsDialog`）打开，「开始今天的学习」弹 `DailyStartDialog` 选任务。
 
@@ -93,7 +93,7 @@
 - **接口**：`GET /api/credits/catalog`（可用模型、单价、套餐展示位）、`GET /api/credits/account`（可用 / 预留微积分、批次明细、最近 30 条流水）、`PUT /api/credits/preferences`（只接受 `credits:deepseek-flash`，其他模型返回 503）。
 - **计费口径**：1 积分 = 1,000,000 微积分；单次费用 = 输入 token × 40 + 输出 token × 160，合计向上取整到 1 微积分。调用前按上限（16,000 输入 / 4,096 输出）预留，拿到可核验 usage 后按实际量扣、剩余释放；缺 usage、超时、空响应不扣费，预留 10 分钟未结算自动释放。
 - **免费额度**：普通免费用户每个北京时间自然月可进行 5 轮平台 AI 对话；成功一问一答计 1 次，失败释放次数。免费次数仅用于助手聊天，不用于规划、出题、判分。套餐积分与自带 Key 不受免费 5 轮限制；不再发放每月 500 免费积分，旧记录保留审计。
-- **模型约束**：固定 `deepseek-flash`，非流式、关闭思考模式，只支持文本。图片识题、资料对比与资料任务、简历润色仍只认自带 Key。
+- **模型约束**：固定 `deepseek-flash`，非流式、关闭思考模式，只支持文本。图片识题、资料对比与资料任务、简历润色仍只认自带 Key。积分模型菜单与个人中心的模型下拉按供应商分组，目录里没有的型号一律标「待接入」且不可选，只作浏览占位；展示名以目录为准。
 - **启用条件**：`CREDITS_DEEPSEEK_ENABLED=true` 且 `BILLING_PROVIDER_KEYS_JSON` 里有 `deepseek` 的 Key，缺任一项目录为空、切换被拒。Key 只在后端读取。
 - **评审赠送**：同时配置 `CREDITS_REVIEW_USER_ID`（已有账号的 UUID，不是用户名）与 `CREDITS_REVIEW_UNTIL`（带时区的 ISO-8601，不含该时刻）后，该账号每个北京时间自然月首次读取账户或首次使用积分模型时获赠启航版测试包（基础 2,000 + 赠送 2,000 积分）。批次 ID 固定，同月重复读取不重发；批次在月末与评审截止时刻的较早者到期。账本标作测试赠送，不是付款记录。
 - **未实现**：购买、开通、自动续费、退款全部没有开放 —— 目录里的免费 / 启航 / 补给三档 `purchaseAvailable` 恒为 `false`，积分数量与价格只作展示。试运行期间的测试积分由运维在本地执行发放函数产生，**不是付款记录**，也不代表已上线付费订阅。
@@ -106,7 +106,7 @@
 
 1. 填 Base URL（必须以 `http://` 或 `https://` 开头；DeepSeek 填 `https://api.deepseek.com`，误填 `platform.deepseek.com` 会被后端纠正）；
 2. 填 API Key（明文只在内存，不写 localStorage）；
-3. 拉模型列表 —— `POST /api/api-config/models`，优先用表单里的草稿 Key + URL，缺哪项就用已存配置补；供应商不支持 `/models` 时列不出来，需手填模型名；
+3. 拉模型列表 —— `POST /api/api-config/models`，优先用表单里的草稿 Key + URL，缺哪项就用已存配置补；列表保留供应商返回的展示名与原始模型 ID（供应商没给名字时才回退成 ID），供应商不支持 `/models` 时列不出来，需手填模型名；
 4. 选模型、保存。**保存即真实校验**（默认走供应商 `/models`，不能用 HTML 控制台页面蒙混通过），通过后 `isVerified=true`。
 
 生效与同步行为：
