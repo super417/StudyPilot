@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import './StudyPilotJourney.css';
 import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
@@ -89,6 +89,84 @@ function Arrow() {
   return <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 9.5L9.5 2.5M4 2.5h5.5V8" fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>;
 }
 
+const flowSteps = [
+  { title: '留下学习证据', detail: '任务与作答留下记录，判分理由可回看。' },
+  { title: '确认路线调整', detail: '结合学习记录查看阶段安排，调整先预览再由你确认。' },
+  { title: '整理成长与简历', detail: '回顾学习成果，在简历模块整理经历与个人展示。' },
+];
+
+function FlowIllustration({ step }: { step: number }) {
+  return <svg viewBox="0 0 240 130" fill="none" aria-hidden="true">
+    {step === 0 ? <>
+      {[['目标',12],['任务',39],['作答',66],['反馈',93]].map(([label,y]) => <g key={label}>
+        <rect x="14" y={Number(y)} width="44" height="20" rx="4" fill="currentColor" opacity=".1" />
+        <text x="36" y={Number(y)+14} textAnchor="middle" fill="currentColor" fontSize="10">{label}</text>
+        <path className="spj-flow-draw" pathLength="1" d={`M58 ${Number(y)+10}C90 ${Number(y)+10} 90 65 112 65`} stroke="currentColor" strokeWidth="1.2" />
+      </g>)}
+      <circle className="spj-flow-pulse" cx="139" cy="65" r="25" fill="currentColor" opacity=".12" />
+      <circle cx="139" cy="65" r="21" stroke="currentColor" strokeWidth="1.5" /><text x="139" y="69" textAnchor="middle" fontSize="12" fill="currentColor">证据</text>
+      <path className="spj-flow-draw" pathLength="1" d="M161 65h39" stroke="currentColor" strokeWidth="1.5" /><circle className="spj-flow-pulse" cx="202" cy="65" r="4" fill="currentColor" />
+    </> : step === 1 ? <>
+      {['M38 65 88 28 147 43 200 20','M38 65 90 66 147 43 200 65','M38 65 88 104 147 88 200 110','M88 28 90 66 88 104','M147 43 147 88','M90 66 147 88 200 65'].map((d) => <path key={d} className="spj-flow-draw" pathLength="1" d={d} stroke="currentColor" strokeWidth="1.2" opacity=".65" />)}
+      {[[38,65],[88,28],[90,66],[88,104],[147,43],[147,88],[200,20],[200,65],[200,110]].map(([x,y],index) => <g key={`${x}-${y}`}><circle cx={x} cy={y} r="6" fill="white" stroke="currentColor" strokeWidth="1.5" /><circle className={index === 4 ? 'spj-flow-pulse' : ''} cx={x} cy={y} r="2.5" fill="currentColor" /></g>)}
+    </> : <>
+      <path d="M25 20v90h193" stroke="currentColor" opacity=".22" />
+      <path className="spj-flow-draw" pathLength="1" d="M27 100 58 86 83 92 112 63 135 70 163 40 191 28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle className="spj-flow-pulse" cx="191" cy="28" r="4" fill="currentColor" />
+      <rect x="139" y="54" width="85" height="35" rx="4" fill="white" stroke="currentColor" />
+      <path d="M149 63h11v16h-11zM152 67h5M152 71h5" stroke="currentColor" strokeWidth="1" /><text x="188" y="75" textAnchor="middle" fill="currentColor" fontSize="10">成果整理</text>
+    </>}
+  </svg>;
+}
+
+function JourneyFlow() {
+  const ref = useRef<HTMLElement>(null);
+  const elapsedRef = useRef(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [reduced, setReduced] = useState(false);
+  const active = Math.min(2, Math.floor(elapsed / 1800));
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduced(media.matches);
+    update(); media.addEventListener('change', update);
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: .25 });
+    if (ref.current) observer.observe(ref.current);
+    return () => { observer.disconnect(); media.removeEventListener('change', update); };
+  }, []);
+  useEffect(() => {
+    if (!visible || paused || reduced) return;
+    let previous = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      elapsedRef.current = (elapsedRef.current + now - previous) % 5400;
+      previous = now;
+      setElapsed(elapsedRef.current);
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [visible, paused, reduced]);
+  return <section ref={ref} id="study-growth-flow" className={'spj-flow' + (paused || !visible ? ' is-paused' : '')} aria-labelledby="spj-flow-title">
+    <header className="spj-flow-heading"><h2 id="spj-flow-title">从学习记录，到下一步成长</h2></header>
+    <div className="spj-flow-grid">
+      {flowSteps.map((step,index) => <article key={step.title} className={'spj-flow-step' + (active === index ? ' is-active' : '') + (index <= active ? ' has-appeared' : '') + (index < active ? ' is-complete' : '')}>
+        <div className="spj-flow-art"><FlowIllustration step={index} /></div>
+        <div className="spj-flow-body"><div className="spj-flow-number"><span>{String(index + 1).padStart(2,'0')}</span><i /><b className="spj-flow-signal" /></div><h3>{step.title}</h3><p>{step.detail}</p></div>
+      </article>)}
+    </div>
+    <div className="spj-flow-controls">
+      <div className="spj-flow-progress" role="group" aria-label="选择流程步骤">
+        <div className="spj-flow-dots">{flowSteps.map((step,index) => <button key={step.title} type="button" className={active === index ? 'is-active' : ''} aria-label={`查看第 ${index + 1} 步：${step.title}`} aria-pressed={active === index} onClick={() => { elapsedRef.current = index * 1800; setElapsed(elapsedRef.current); setPaused(true); }}><span /><small>{String(index + 1).padStart(2,'0')}</small></button>)}</div>
+        <div className="spj-flow-line" aria-hidden="true"><span style={{ width: `${elapsed / 5400 * 100}%` }} /></div>
+      </div>
+      <span className="spj-flow-caption">学习流程示意</span>
+      {!reduced && <button type="button" className="spj-flow-pause" onClick={() => setPaused((value) => !value)}>{paused ? '继续演示' : '暂停演示'}</button>}
+    </div>
+  </section>;
+}
+
 function StudyPilotJourney() {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +194,7 @@ function StudyPilotJourney() {
     const dots = [...root.querySelectorAll<HTMLElement>('.spj-engine-dots i')];
     const labels = [...root.querySelectorAll<HTMLElement>('.spj-olab')];
     const loop = root.querySelector<HTMLElement>('.spj-loop')!;
+    const flow = root.querySelector<HTMLElement>('.spj-flow')!;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame = 0;
 
@@ -159,12 +238,13 @@ function StudyPilotJourney() {
       const okT = map(p, 0.52, 0.80);
       resolvedChips.forEach((chip, i) => chip.classList.toggle('is-visible', okT >= (i + 1) / resolvedChips.length * 0.9));
 
-      const a = reduced.matches ? 1 : progress(about);
-      const reveal = map(a, 0.06, 0.78);
+      const a = reduced.matches ? 1 : clamp((window.innerHeight * .85 - about.getBoundingClientRect().top) / (window.innerHeight * .60));
+      const groupHeight = about.offsetHeight + flow.offsetHeight;
+      const reveal = reduced.matches ? 1 : clamp((window.innerHeight * .85 - about.getBoundingClientRect().top) / (window.innerHeight * .85 + groupHeight * .5));
       words.forEach((word, i) => word.classList.toggle('is-on', (i + 1) / words.length <= reveal));
       floats.forEach((item, i) => {
-        if (a > 0.10 + i * 0.09) item.classList.add('is-visible');
-        item.style.marginTop = -26 * a * (i % 2 ? 1 : -1) + 'px';
+        item.classList.toggle('is-visible', reduced.matches || a > .10 + i * .09);
+        item.style.marginTop = reduced.matches ? '0px' : -26 * a * (i % 2 ? 1 : -1) + 'px';
       });
       if (reduced.matches) {
         card.classList.add('is-in');
@@ -259,13 +339,17 @@ function StudyPilotJourney() {
 
       <section className="spj-about" aria-label="关于 StudyPilot 的学习方式">
         <div className="spj-about-stage"><div className="spj-about-inner">
-          <div><Pill small>关于 StudyPilot</Pill></div>
+          <div className="spj-about-label"><Pill small>关于 StudyPilot</Pill></div>
           <div className="spj-about-copy">
             <p aria-label={aboutWords.join('')}>{aboutWords.map((word, i) => <span className="spj-word" aria-hidden="true" key={i}>{word}</span>)}</p>
-            {[{ src: images.quadruped, alt: 'Quadruped inspection robot' }, { src: images.drone, alt: 'Autonomous inspection drone' }, { src: images.humanoid, alt: 'Humanoid field robot' }].map((image, i) => <figure className={'spj-float f' + (i + 1)} key={image.src}><img src={image.src} alt={image.alt} loading="eager" /></figure>)}
+            <div className="spj-about-figures">
+              {[{ src: images.quadruped, alt: 'Quadruped inspection robot' }, { src: images.drone, alt: 'Autonomous inspection drone' }, { src: images.humanoid, alt: 'Humanoid field robot' }].map((image, i) => <figure className={'spj-float f' + (i + 1)} key={image.src}><img src={image.src} alt={image.alt} loading="eager" /></figure>)}
+            </div>
           </div>
         </div></div>
       </section>
+
+      <JourneyFlow />
 
       <section className="spj-loop" id="study-loop" aria-label="学习循环">
         <div className="spj-loop-layout">
