@@ -435,7 +435,7 @@ class ApiConfigServiceTests(unittest.IsolatedAsyncioTestCase):
             headers = {"content-type": "application/json"}
 
             def json(self):
-                return {"data": [{"id": "alpha"}, {"id": "beta"}]}
+                return {"data": [{"id": "alpha", "name": "Alpha Model"}, {"id": "beta"}, {"id": "gamma"}, {"id": "delta"}, {"id": "epsilon"}]}
 
         class FakeClient:
             def __init__(self, *_, **__):
@@ -459,7 +459,7 @@ class ApiConfigServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             models,
-            [{"id": "alpha", "name": "alpha"}, {"id": "beta", "name": "beta"}],
+            [{"id": "alpha", "name": "Alpha Model"}, {"id": "beta", "name": "beta"}, {"id": "gamma", "name": "gamma"}, {"id": "delta", "name": "delta"}, {"id": "epsilon", "name": "epsilon"}],
         )
 
     async def test_list_remote_models_empty_raises(self) -> None:

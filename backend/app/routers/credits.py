@@ -18,7 +18,7 @@ router = APIRouter(prefix='/api/credits', tags=['credits'])
 @router.get('/catalog')
 def catalog(user: User = Depends(get_current_user)):
     available = service.enabled()
-    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':service.MODEL_ID, 'provider':'deepseek', 'displayName':'DeepSeek Flash', 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096}] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':0,'freeChatLimit':5,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
+    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':service.MODEL_ID, 'provider':'deepseek', 'displayName':'DeepSeek-V4.1-Flash', 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096}] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':0,'freeChatLimit':5,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
 
 
 @router.get('/account')

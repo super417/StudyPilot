@@ -4,11 +4,21 @@ import { platformProviderId } from './platformProviders';
 export const CREDIT_SELECTION_CHANGED = 'studypilot:credit-selection-changed';
 
 export function creditModelGroups(models: CreditModel[]) {
-  const groups = [['deepseek', 'DeepSeek'], ['qwen', 'Qwen 系列'], ['kimi', 'Kimi'], ['minimax', 'MiniMax'], ['hunyuan', '混元'], ['mimo', 'MiMo']].map(([id, name]) => ({ id, name, models: [] as CreditModel[] }));
+  const groups = [
+    { id: 'deepseek', name: 'DeepSeek', pending: ['DeepSeek-V4.1-Flash', 'DeepSeek-V4-Pro'] },
+    { id: 'qwen', name: 'Qwen 系列', pending: ['Qwen3.5'] },
+    { id: 'kimi', name: 'Kimi', pending: ['Kimi-K3.1-Pro', 'Kimi-K3', 'Kimi-K2.8-Preview'] },
+    { id: 'minimax', name: 'MiniMax', pending: ['MiniMax-M3.1-Flash'] },
+    { id: 'hunyuan', name: '混元', pending: ['Hy4 preview', 'Hy3'] },
+    { id: 'mimo', name: 'MiMo', pending: ['Xiaomi MiMo-V2.6-Pro'] },
+    { id: 'glm', name: 'GLM', pending: ['GLM-5.3', 'GLM-5.3-Flash', 'GLM-5.2'] },
+    { id: 'space-bunny', name: 'Space-Bunny', pending: ['Space-Bunny'] },
+    { id: 'step', name: 'Step', pending: ['Step-5-Preview'] },
+  ].map((group) => ({ ...group, models: [] as CreditModel[] }));
   for (const model of models) {
     const id = platformProviderId(model.provider);
     let group = groups.find((item) => item.id === id);
-    if (!group) { group = { id, name: model.provider, models: [] }; groups.push(group); }
+    if (!group) { group = { id, name: model.provider, models: [], pending: [] }; groups.push(group); }
     group.models.push(model);
   }
   return groups;

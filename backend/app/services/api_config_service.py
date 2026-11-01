@@ -497,5 +497,6 @@ def _parse_models_payload(payload: object) -> list[dict[str, str]]:
         if not model_id or model_id in seen:
             continue
         seen.add(model_id)
-        models.append({"id": model_id, "name": model_id})
+        name = row.get("name") if isinstance(row, dict) else None
+        models.append({"id": model_id, "name": name.strip() if isinstance(name, str) and name.strip() else model_id})
     return models
