@@ -192,14 +192,23 @@
 .spj-float.f2 { right: 2%; top: 31%; --s: 96px; }
 .spj-float.f3 { left: 52%; top: 70%; --s: 84px; }
 
-.spj-loop { position: relative; height: 100vh; overflow: hidden; display: grid; place-items: center; background: #fff; }
-.spj-ring-wrap { position: absolute; left: 50%; top: 50%; width: min(62vh,560px); aspect-ratio: 1; transform: translate(-50%,-50%); }
+.spj-loop { position: relative; min-height: 100vh; height: auto; padding: clamp(72px,12vh,120px) var(--spj-gutter); overflow: hidden; display: grid; place-items: center; background: #fff; }
+.spj-loop-layout { display: grid; grid-template-columns: minmax(180px,.8fr) minmax(0,1.2fr); align-items: center; gap: clamp(32px,6vw,88px); width: min(1040px,100%); }
+.spj-loop-visual { display: grid; justify-items: center; align-content: center; gap: 28px; }
+.spj-loop-cards { display: grid; grid-auto-rows: 1fr; gap: 16px; }
+.spj-loop-card { display: flex; flex-direction: column; justify-content: center; min-height: 116px; padding: 22px 24px; border-radius: 22px; background: #f2edff; box-shadow: 0 8px 24px rgba(83,62,139,.09); }
+.spj-loop-card:nth-child(2) { background: #edf3ff; }
+.spj-loop-card:nth-child(3) { background: #f3effc; }
+.spj-loop-card h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; color: #493365; font-size: clamp(16px,1.45vw,19px); font-weight: 600; line-height: 1.45; }
+.spj-loop-card h3 > span { flex: none; color: #7956bb; }
+.spj-loop-card p { margin: 0; color: #665c78; font-size: 14px; line-height: 1.7; }
+.spj-ring-wrap { position: relative; width: calc(min(62vh,560px) / 3); aspect-ratio: 1; }
 .spj-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--spj-line); background: transparent; }
 .spj-orb { position: absolute; inset: 0; transform-origin: center center; transform: rotate(var(--a)); animation: spj-orbit 28s linear infinite; }
 .spj-orb i { position: absolute; left: 50%; top: 0; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; border-radius: 50%; background: var(--spj-purple); box-shadow: 0 2px 10px rgba(108,49,217,.35); }
 @keyframes spj-orbit { from { transform: rotate(var(--a,0deg)); } to { transform: rotate(calc(var(--a,0deg) + 360deg)); } }
-.spj-loop-copy { position: relative; z-index: 2; text-align: center; display: grid; justify-items: center; gap: 20px; }
-.spj-loop-copy h2 { font-weight: 400; font-size: clamp(26px,3.6vw,46px); letter-spacing: -.032em; line-height: 1.14; }
+.spj-loop-copy { position: relative; z-index: 2; text-align: center; display: grid; justify-items: center; gap: 16px; }
+.spj-loop-copy h2 { font-weight: 400; font-size: clamp(22px,2.4vw,30px); letter-spacing: -.032em; line-height: 1.25; }
 
 .spj-engine { height: 560vh; background: #fff; }
 .spj-engine-stage { position: sticky; top: 0; height: 100vh; display: grid; place-items: center; overflow: hidden; }
@@ -293,9 +302,9 @@
   .spj-strip-inner { flex-direction: column; align-items: flex-start; gap: 22px; }
   .spj-strip-marquee { width: 100%; flex: auto; border-left: 0; padding-left: 0; }
   .spj-about-copy > p { font-size: clamp(21px,5.4vw,32px); }
-  .spj-ring-wrap { width: min(70vw,40vh); }
-  .spj-loop-copy { padding: 0 var(--spj-gutter); max-width: 100%; }
-  .spj-loop-copy h2 { font-size: clamp(22px,6.2vw,34px); }
+  .spj-ring-wrap { width: calc(min(70vw,40vh) / 3); }
+  .spj-loop-copy { max-width: 100%; }
+  .spj-loop-copy h2 { font-size: clamp(22px,3vw,28px); }
   .spj-orb i { width: 12px; height: 12px; margin: -6px 0 0 -6px; }
   .spj-engine { height: 440vh; }
   .spj-engine-card { aspect-ratio: 3/4.1; max-height: 84vh; min-height: 0; }
@@ -325,8 +334,11 @@
   .spj-strip-label { white-space: normal; }
   .spj-about-copy > p { font-size: clamp(19px,5.2vw,26px); }
   .spj-float { --s: 68px !important; }
-  .spj-ring-wrap { width: min(68vw,34vh); }
-  .spj-loop-copy h2 { font-size: clamp(20px,5.8vw,28px); }
+  .spj-ring-wrap { width: calc(min(68vw,34vh) / 3); }
+  .spj-loop-layout { grid-template-columns: minmax(0,1fr); gap: 32px; }
+  .spj-loop-visual { gap: 20px; }
+  .spj-loop-card { padding: 20px; }
+  .spj-loop-copy h2 { font-size: clamp(20px,5.8vw,24px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .spj-root *, .spj-root *::before, .spj-root *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }

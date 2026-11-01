@@ -268,11 +268,20 @@ function StudyPilotJourney() {
       </section>
 
       <section className="spj-loop" id="study-loop" aria-label="学习循环">
-        <div className="spj-ring-wrap" aria-hidden="true">
-          <div className="spj-ring" />
-          {[0, 128, 243].map((angle) => <div className="spj-orb" style={{ '--a': angle + 'deg' } as CSSProperties} key={angle}><i /></div>)}
+        <div className="spj-loop-layout">
+          <div className="spj-loop-visual">
+            <div className="spj-ring-wrap" aria-hidden="true">
+              <div className="spj-ring" />
+              {[0, 128, 243].map((angle) => <div className="spj-orb" style={{ '--a': angle + 'deg' } as CSSProperties} key={angle}><i /></div>)}
+            </div>
+            <div className="spj-loop-copy"><Pill small>学习循环</Pill><h2><span className="spj-word">观察、</span><span className="spj-word">练习、</span><span className="spj-word">反馈</span><br /><span className="spj-word">再找到</span><span className="spj-word">下一步</span></h2></div>
+          </div>
+          <div className="spj-loop-cards">
+            <article className="spj-loop-card"><h3><span aria-hidden="true">✓</span>判分依据可回看</h3><p>回看当次作答、判分理由与历史记录，核对当前资料片段。</p></article>
+            <article className="spj-loop-card"><h3><span aria-hidden="true">✓</span>补强后同阶段新题重测</h3><p>确认并完成补强任务后，用同阶段新题继续作答并留存证据。</p></article>
+            <article className="spj-loop-card"><h3><span aria-hidden="true">✓</span>真实模型工程验收</h3><p>DeepSeek真实接口闭环与四项浏览器检查已完成。</p></article>
+          </div>
         </div>
-        <div className="spj-loop-copy"><Pill small>学习循环</Pill><h2><span className="spj-word">观察、</span><span className="spj-word">练习、</span><span className="spj-word">反馈</span><br /><span className="spj-word">再找到</span><span className="spj-word">下一步</span></h2></div>
       </section>
 
       <section className="spj-engine" id="study-engine" aria-label="StudyPilot 学习结构">

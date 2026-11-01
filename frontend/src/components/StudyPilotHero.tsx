@@ -119,6 +119,12 @@ function StudyPilotHero({ onNavigate, overlap }: StudyPilotHeroProps) {
   }, [motionEnabled]);
 
   const goToOverview = scrollToLearningOverview;
+  const goToLearningLoop = () => {
+    document.getElementById('study-loop')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    });
+  };
   const goToJourney = () => {
     document.getElementById('study-journey')?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
@@ -148,15 +154,15 @@ function StudyPilotHero({ onNavigate, overlap }: StudyPilotHeroProps) {
       <header className="sp-hero-intro">
         <p className="sp-hero-hi">Hi, 欢迎来到</p>
         <h1 className="sp-hero-name">StudyPilot</h1>
-        <p className="sp-hero-role"><span>让学习目标有方向，让每一步进展看得见。</span><span>从今天开始，按自己的节奏向前。</span></p>
+        <p className="sp-hero-role"><span>判分依据可回看，补强后用同阶段新题重测。</span><span>真实模型调用已完成工程验收，让每一步进展看得见。</span></p>
       </header>
       <nav className="sp-hero-nav" aria-label="首屏快捷入口">
-        <button type="button" className="sp-hero-home" onClick={goToOverview}>开始学习</button>
-        <button type="button" className="sp-hero-n1" onClick={goToOverview}>查看总览</button>
-        <button type="button" className="sp-hero-n2" onClick={() => onNavigate('roadmap')}>学习路线</button>
-        <button type="button" className="sp-hero-n3" onClick={() => onNavigate('resume')}>我的简历</button>
+        <button type="button" className="sp-hero-home" onClick={goToOverview}><span>开始学习</span></button>
+        <button type="button" className="sp-hero-n1" onClick={goToLearningLoop}><span>查看学习循环</span></button>
+        <button type="button" className="sp-hero-n2" onClick={() => onNavigate('roadmap')}><span>补强与重测</span></button>
+        <button type="button" className="sp-hero-n3" onClick={() => onNavigate('resume')}><span>我的简历</span></button>
         <div className="sp-hero-mode">
-          <span className="sp-hero-mode-label">动态<br />模式</span>
+          <span className="sp-hero-mode-label">动态模式</span>
           <button
             type="button"
             className="sp-hero-switch"
