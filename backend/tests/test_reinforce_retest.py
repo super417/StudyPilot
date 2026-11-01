@@ -212,7 +212,7 @@ class ReinforceRetestTests(unittest.TestCase):
         self._task(plan, phase_b, "阶段B已完成任务")
         seed_q = self._question(user, done_a, "触发补强的错题")
         seed_ev = self._evidence(user, phase_a, seed_q, "wrong")
-        reinforce_task = self._task(plan, phase_a, "重做错题：触发补强", status="pending")
+        reinforce_task = self._task(plan, phase_a, "重做错题：触发补强", status="done")
         self._link(reinforce_task, seed_ev)
         self._chunk(user, "阶段A：重做错题：触发补强 的关键结论")
 

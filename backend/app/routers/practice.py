@@ -113,6 +113,15 @@ def list_practice_route(
     return JSONResponse(status_code=200, content={"status": "ok", **body})
 
 
+@router.get("/{question_id}/evidence")
+def practice_evidence_route(question_id: str, user: User = Depends(get_current_user), session: Session = Depends(get_db)) -> JSONResponse:
+    try:
+        body = practice_service.practice_evidence(session, user.id, uuid.UUID(question_id))
+    except (ValueError, TypeError, AttributeError):
+        return _json_error(404, 'NOT_FOUND', '练习题不存在')
+    return JSONResponse(status_code=200, content={'status': 'ok', **body})
+
+
 @router.post("/generate")
 async def generate_practice_route(
     payload: PracticeGeneratePayload,

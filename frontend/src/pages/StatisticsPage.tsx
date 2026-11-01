@@ -754,7 +754,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <div>
             <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
             <p className="mt-1 text-sm text-slate-500">
-              完成度明显高于掌握度时生成补强任务；确认后在此重测，再到下方双环看掌握度变化。
+              完成度明显高于掌握度时生成补强任务；确认后先完成补强任务，再生成同阶段新题，到习题本「今日练习」作答后查看下方双环。
             </p>
           </div>
           <button
@@ -778,7 +778,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <div className="mt-4 border-t border-slate-100 pt-4">
             <p className="text-sm font-medium text-slate-700">补强后重测</p>
             <p className="mt-1 text-xs text-slate-400">
-              只为已确认补强的阶段出题；做完后看下方「阶段双环」的补强前/后变化。
+              请先完成该阶段全部已确认补强任务，再生成同阶段新题；到习题本「今日练习」作答后查看下方补强前/后记录。
             </p>
             <ul className="mt-3 space-y-2">
               {retestPhases.map((phase) => (

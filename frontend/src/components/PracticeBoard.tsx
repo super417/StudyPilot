@@ -1,3 +1,4 @@
+import PracticeEvidencePanel from './PracticeEvidencePanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PracticeGradingControls, { type GradingMode } from './PracticeGradingControls';
@@ -239,6 +240,7 @@ function PracticeCard({
             删除
           </button>
         </div>
+        <PracticeEvidencePanel questionId={item.id} revision={JSON.stringify([item.latestGrade ?? null, explainNote])} />
         {gradeNote ? <p className="mt-2 text-xs text-brandDark" role="status">{gradeNote}</p> : null}
         {note ? <p className="mt-2 text-xs text-brandDark">{note}</p> : null}
         {explainOpen ? (

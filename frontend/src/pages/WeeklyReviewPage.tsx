@@ -234,7 +234,7 @@ function WeeklyReviewPage({ onNavigate }: WeeklyReviewPageProps = {}) {
               ) : null}
               {retestPhases.length > 0 ? (
                 <section className="rounded-2xl border border-brandFaint bg-card px-4 py-3 shadow-card">
-                  <p className="text-sm font-medium text-brandDark">补强后重测</p>
+                  <p className="text-sm font-medium text-brandDark">补强后重测</p><p className="text-xs text-slate-500">请先完成该阶段全部已确认补强任务，再生成同阶段新题；完全重复题不会保存。新题作答后才产生补强后证据。</p>
                   <ul className="mt-2 space-y-2">
                     {retestPhases.map((phase) => (
                       <li

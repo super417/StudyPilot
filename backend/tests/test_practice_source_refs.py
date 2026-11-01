@@ -284,7 +284,7 @@ class PracticeSourceRefsTests(unittest.TestCase):
             task_date=self.today,
             week_label="W42",
             description="重做错题：触发补强",
-            status="pending",
+            status="done",
         )
         self.session.add(reinforce)
         self.session.flush()

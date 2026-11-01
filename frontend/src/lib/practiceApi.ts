@@ -171,3 +171,17 @@ export function setPracticeStatus(
 export function deletePractice(id: string): Promise<{ status: string; deletedId: string }> {
   return apiRequest(`/api/practice/${id}`, { method: 'DELETE' });
 }
+
+
+export interface PracticeEvidenceResponse {
+  status: string;
+  question: { id: string; phaseId: string | null; phaseName: string | null; practiceType: string };
+  evidence: Array<{
+    id: string; evidenceType: string; createdAt: string; phaseId: string | null; phaseName: string | null;
+    answerText: string; result: string; reason: string | null; sourceRef: string | null;
+    source: { status: 'available' | 'unavailable' | 'none'; label: string; docId?: string; chunkIndex?: number; filename?: string; content?: string; pageStart?: number | null };
+  }>;
+}
+export function fetchPracticeEvidence(id: string): Promise<PracticeEvidenceResponse> {
+  return apiRequest(`/api/practice/${encodeURIComponent(id)}/evidence`);
+}
