@@ -7,10 +7,11 @@ so the frontend can render its empty state (requirement 7.1/7.5).
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.entities import User, WeeklyReview
+from app.models.entities import CheckIn, User, WeeklyReview
 from app.routers.dependencies import get_current_user
 from app.services import reinforce_service, weekly_review_service
 
@@ -25,12 +26,25 @@ def _review(session: Session, user_id, review: WeeklyReview) -> dict:
     )
     # reinforceOutcomes：由全时段证据现算，不受 week_start/week_end 限制。
     outcomes = reinforce_service.list_reinforce_outcomes(session, user_id)
+    has_checkin = session.scalar(select(CheckIn.id).where(
+        CheckIn.user_id == user_id, CheckIn.check_date >= review.week_start,
+        CheckIn.check_date <= review.week_end,
+    ).limit(1))
+    if has_checkin:
+        total_minutes, streak_days, completion_rate = weekly_review_service.live_weekly_totals(
+            session, user_id, review.week_start, review.week_end
+        )
+    else:
+        total_minutes, streak_days, completion_rate = (
+            review.total_minutes, review.streak_days, review.completion_rate
+        )
     return {
+        "totalsSource": "live" if has_checkin else "snapshot",
         "weekStart": review.week_start.isoformat(),
         "weekEnd": review.week_end.isoformat(),
-        "totalMinutes": review.total_minutes,
-        "streakDays": review.streak_days,
-        "completionRate": review.completion_rate,
+        "totalMinutes": total_minutes,
+        "streakDays": streak_days,
+        "completionRate": completion_rate,
         "masteryAvg": avg,
         "masteryDetail": detail,
         "reinforceOutcomes": outcomes,

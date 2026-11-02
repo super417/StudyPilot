@@ -297,6 +297,8 @@ class MasteryEvidence(Base):
     answer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     grade_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quote_check: Mapped[str | None] = mapped_column(String(24), nullable=True)
     question_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
         ForeignKey("practice_questions.id", ondelete="SET NULL"),

@@ -188,33 +188,8 @@ def phase_mastery(
 
 # TODO(未来): 「周报是快照」的直觉是对的，但真正要冻结的是**已闭合的周**，
 # 且必须由一个显式的「周关闭」事件写入，不能由打开页面触发。本版不做。
-def generate_weekly_review(
-    session: Session,
-    user_id: uuid.UUID,
-    week_start: date,
-    week_end: date,
-    now: datetime | None = None,
-) -> WeeklyReview | None:
-    """Get-or-create a weekly review for one user's natural week (7.2-7.6).
-
-    Returns the existing review when one already exists for
-    ``(user_id, week_start, week_end)`` — the unique constraint makes the week
-    idempotent, so a repeat call never writes a second row. The row is only the
-    container. Mastery is computed by :func:`phase_mastery` at read time and is
-    not written here. Otherwise generates one only when the week holds at least
-    one ``Check_In`` (7.6); an empty week returns ``None`` and writes nothing.
-    A commit failure rolls back and re-raises.
-    """
-    existing = session.scalar(
-        select(WeeklyReview).where(
-            WeeklyReview.user_id == user_id,
-            WeeklyReview.week_start == week_start,
-            WeeklyReview.week_end == week_end,
-        )
-    )
-    if existing is not None:
-        return existing
-
+def live_weekly_totals(session: Session, user_id: uuid.UUID, week_start: date, week_end: date) -> tuple[int, int, int]:
+    """Calculate the current totals for an existing weekly review."""
     week_check_ins = list(
         session.scalars(
             select(CheckIn).where(
@@ -224,8 +199,6 @@ def generate_weekly_review(
             )
         )
     )
-    if not week_check_ins:
-        return None
 
     total_minutes = sum(c.duration_minutes for c in week_check_ins)
 
@@ -268,6 +241,44 @@ def generate_weekly_review(
         or 0
     )
     rate = completion_rate(int(done_tasks), int(total_tasks))
+
+    return int(total_minutes), int(streak_days), rate
+
+
+def generate_weekly_review(
+    session: Session,
+    user_id: uuid.UUID,
+    week_start: date,
+    week_end: date,
+    now: datetime | None = None,
+) -> WeeklyReview | None:
+    """Get-or-create a weekly review for one user's natural week (7.2-7.6).
+
+    Returns the existing review when one already exists for
+    ``(user_id, week_start, week_end)`` — the unique constraint makes the week
+    idempotent, so a repeat call never writes a second row. The row is only the
+    container. Mastery is computed by :func:`phase_mastery` at read time and is
+    not written here. Otherwise generates one only when the week holds at least
+    one ``Check_In`` (7.6); an empty week returns ``None`` and writes nothing.
+    A commit failure rolls back and re-raises.
+    """
+    existing = session.scalar(
+        select(WeeklyReview).where(
+            WeeklyReview.user_id == user_id,
+            WeeklyReview.week_start == week_start,
+            WeeklyReview.week_end == week_end,
+        )
+    )
+    if existing is not None:
+        return existing
+
+    has_check_in = session.scalar(select(CheckIn.id).where(
+        CheckIn.user_id == user_id, CheckIn.check_date >= week_start,
+        CheckIn.check_date <= week_end,
+    ).limit(1))
+    if not has_check_in:
+        return None
+    total_minutes, streak_days, rate = live_weekly_totals(session, user_id, week_start, week_end)
 
     review = WeeklyReview(
         user_id=user_id,

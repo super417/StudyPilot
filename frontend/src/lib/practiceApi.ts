@@ -179,7 +179,7 @@ export interface PracticeEvidenceResponse {
   evidence: Array<{
     id: string; evidenceType: string; createdAt: string; phaseId: string | null; phaseName: string | null;
     answerText: string; result: string; reason: string | null; sourceRef: string | null;
-    source: { status: 'available' | 'unavailable' | 'none'; label: string; docId?: string; chunkIndex?: number; filename?: string; content?: string; pageStart?: number | null };
+    source: { status: 'available' | 'unavailable' | 'none'; label: string; quoteCheck?: 'matched' | 'insufficient' | 'unverified'; sourceQuote?: string | null; docId?: string; chunkIndex?: number; filename?: string; content?: string; pageStart?: number | null };
   }>;
 }
 export function fetchPracticeEvidence(id: string): Promise<PracticeEvidenceResponse> {

@@ -13,6 +13,8 @@ export function PracticeEvidenceView({ data }: { data: PracticeEvidenceResponse 
       <p className="whitespace-pre-wrap">当次作答：{row.answerText}</p>
       <p className="whitespace-pre-wrap">当次理由：{row.reason ?? '未保存理由'}</p>
       <p>{row.source.label}</p>
+      <p>{row.source.quoteCheck === 'matched' ? '原文短句已做字面核对，不代表语义支持判分。' : row.source.quoteCheck === 'insufficient' ? '依据不足：未能核对支持判断的原文短句。' : '历史记录的引用未经核验，不能确认支持判分。'}</p>
+      {row.source.quoteCheck === 'matched' && row.source.sourceQuote && <p className="whitespace-pre-wrap break-words">当次核对短句：{row.source.sourceQuote}</p>}
       {row.source.status === 'available' && <details><summary>查看当前《{row.source.filename}》第 {(row.source.chunkIndex ?? 0) + 1} 段{row.source.pageStart != null ? ` · 第 ${row.source.pageStart} 页` : ''}</summary><pre className="whitespace-pre-wrap break-words">{row.source.content}</pre></details>}
     </article>)}
   </div>;

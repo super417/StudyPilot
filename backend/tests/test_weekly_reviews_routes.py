@@ -118,6 +118,7 @@ class WeeklyReviewRouteTests(unittest.TestCase):
         self.assertEqual(
             set(body["review"].keys()),
             {
+                "totalsSource",
                 "weekStart",
                 "weekEnd",
                 "totalMinutes",
@@ -130,6 +131,7 @@ class WeeklyReviewRouteTests(unittest.TestCase):
             },
         )
         self.assertEqual(body["review"]["reinforceOutcomes"], [])
+        self.assertEqual(body["review"]["totalsSource"], "snapshot")
         self.assertEqual(body["review"]["totalMinutes"], 180)
         self.assertEqual(body["review"]["completionRate"], 75)
 

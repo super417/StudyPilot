@@ -1,9 +1,10 @@
 import type { WeeklyReview } from '@/mocks/types';
+import { weeklyTotalsSourceLabel } from '@/lib/weeklyReviewsApi';
 import { FadeIn, InteractiveCard } from '@/components/motion';
 
 export interface WeeklyMetricsProps {
   /** 有周报时用真实值；没有周报时显示「暂无数据」，不用 0 冒充。 */
-  review: Pick<WeeklyReview, 'totalMinutes' | 'streakDays' | 'completionRate'> | null;
+  review: Pick<WeeklyReview, 'totalMinutes' | 'streakDays' | 'completionRate' | 'totalsSource' | 'createdAt'> | null;
 }
 
 interface MetricItem {
@@ -32,7 +33,9 @@ function WeeklyMetrics({ review }: WeeklyMetricsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div>
+      {review && <p className="mb-3 text-xs text-slate-500">{weeklyTotalsSourceLabel(review)}</p>}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {items.map((item, i) => (
         <FadeIn key={item.label} delay={i * 0.1} y={24}>
           <InteractiveCard className="rounded-[24px] border border-brandFaint/80 bg-card p-6 shadow-card">
@@ -44,6 +47,7 @@ function WeeklyMetrics({ review }: WeeklyMetricsProps) {
           </InteractiveCard>
         </FadeIn>
       ))}
+      </div>
     </div>
   );
 }

@@ -153,6 +153,8 @@ export interface ReinforceOutcome {
 
 /** 周复盘（对应 Weekly_Reviews 表） */
 export interface WeeklyReview {
+  totalsSource?: "live" | "snapshot";
+  createdAt?: string;
   id: string;
   /** 周起始日期，ISO 日期 */
   weekStart: string;
