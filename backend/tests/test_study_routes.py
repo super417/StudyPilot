@@ -133,11 +133,13 @@ class StudyRouteTests(unittest.TestCase):
     # --- POST /api/check-ins -----------------------------------------------
 
     def test_create_check_in_returns_201_and_persists(self) -> None:
+        _, _, task = self._seed_plan_with_task(date(2025, 2, 10))
         response = self.client.post(
             "/api/check-ins",
             json={
                 "checkDate": "2025-02-10",
                 "durationMinutes": 90,
+                "taskId": str(task.id),
                 "difficulty": 3,
                 "energy": 4,
                 "note": "专注",
@@ -313,12 +315,13 @@ class StudyRouteTests(unittest.TestCase):
     # --- GET /api/metrics/overview -----------------------------------------
 
     def test_metrics_overview_returns_structure(self) -> None:
-        self._seed_plan_with_task(date(2025, 2, 10))
+        _, _, task = self._seed_plan_with_task(date(2025, 2, 10))
         self.client.post(
             "/api/check-ins",
             json={
                 "checkDate": "2025-02-10",
                 "durationMinutes": 90,
+                "taskId": str(task.id),
                 "difficulty": 3,
                 "energy": 4,
             },

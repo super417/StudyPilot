@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.models.entities import CheckIn
+from app.models.entities import CheckIn, DailyTask, Plan
 
 
 class CheckInValidationError(ValueError):
@@ -55,6 +55,7 @@ def create_check_in(
     difficulty: int,
     energy: int,
     note: str | None = None,
+    task_id: uuid.UUID | None = None,
 ) -> CheckIn:
     """Validate and persist one check-in for the user (requirement 16.1).
 
@@ -64,12 +65,18 @@ def create_check_in(
     """
     _validate(duration_minutes, difficulty, energy)
 
-    if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.check_date == check_date)):
-        raise CheckInValidationError('今天已打卡，无需重复')
+    if task_id is None:
+        raise CheckInValidationError('请选择打卡任务')
+    if not session.scalar(select(DailyTask.id).join(Plan, Plan.id == DailyTask.plan_id).where(DailyTask.id == task_id, Plan.user_id == user_id)):
+        raise CheckInValidationError('任务不存在或不属于当前用户')
+
+    if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.task_id == task_id)):
+        raise CheckInValidationError('该任务已打卡，无需重复')
 
     check_in = CheckIn(
         user_id=user_id,
         check_date=check_date,
+        task_id=task_id,
         duration_minutes=duration_minutes,
         difficulty=difficulty,
         energy=energy,
@@ -80,8 +87,8 @@ def create_check_in(
         session.commit()
     except IntegrityError:
         session.rollback()
-        if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.check_date == check_date)):
-            raise CheckInValidationError('今天已打卡，无需重复') from None
+        if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.task_id == task_id)):
+            raise CheckInValidationError('该任务已打卡，无需重复') from None
         raise
     except Exception:
         session.rollback()

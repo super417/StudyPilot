@@ -215,6 +215,7 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
     try {
       await createCheckIn({
         checkDate: today,
+        taskId: values.taskId,
         durationMinutes: values.durationMinutes,
         difficulty: values.difficulty,
         energy: values.energy,

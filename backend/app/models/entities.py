@@ -357,7 +357,7 @@ class ReinforceTaskEvidence(Base):
 class CheckIn(Base):
     __tablename__ = "check_ins"
     __table_args__ = (
-        UniqueConstraint('user_id', 'check_date', name='uq_check_ins_user_date'),
+        UniqueConstraint('user_id', 'task_id', name='uq_check_ins_user_task'),
         CheckConstraint(
             "duration_minutes > 0", name="ck_check_ins_duration_minutes_positive"
         ),
@@ -373,6 +373,7 @@ class CheckIn(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("daily_tasks.id", ondelete="RESTRICT"), nullable=True)
     check_date: Mapped[date] = mapped_column(Date, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     difficulty: Mapped[int] = mapped_column(Integer, nullable=False)

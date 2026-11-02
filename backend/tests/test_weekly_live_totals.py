@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.base import Base
 from app.models.entities import CheckIn, DailyTask, Phase, Plan, User
 from app.routers.weekly_reviews import _review
-from app.services.weekly_review_service import generate_weekly_review
+from app.services.weekly_review_service import generate_weekly_review, live_weekly_totals
 
 
 def test_existing_weekly_review_uses_current_records():
@@ -39,4 +39,24 @@ def test_existing_weekly_review_uses_current_records():
         # The week ends on the 16th, which has no check-in: strict streak is zero.
         assert (actual["totalMinutes"], actual["completionRate"], actual["streakDays"]) == (90, 100, 0)
         assert review.total_minutes == 30  # original snapshot is not rewritten
+    engine.dispose()
+
+
+def test_streak_anchors_open_week_at_today_and_closed_week_at_end(monkeypatch):
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as session:
+        user = User(username="weekly-anchor-test", password_hash="x")
+        session.add(user)
+        session.flush()
+        for day in (date(2025, 2, 9), date(2025, 2, 10), date(2025, 2, 11)):
+            session.add(CheckIn(user_id=user.id, check_date=day, duration_minutes=5, difficulty=3, energy=3))
+        session.commit()
+        monkeypatch.setattr("app.services.weekly_review_service.local_today", lambda: date(2025, 2, 11))
+        start, end = date(2025, 2, 10), date(2025, 2, 16)
+        assert live_weekly_totals(session, user.id, start, end)[1] == 3
+        assert generate_weekly_review(session, user.id, start, end).streak_days == 3
+        assert live_weekly_totals(session, user.id, date(2025, 2, 17), date(2025, 2, 23))[1] == 0
+        monkeypatch.setattr("app.services.weekly_review_service.local_today", lambda: date(2025, 2, 17))
+        assert live_weekly_totals(session, user.id, start, end)[1] == 0
     engine.dispose()

@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import get_settings
 from app.core.crypto import get_cipher
 from app.models.base import Base
-from app.models.entities import CheckIn, User
+from app.models.entities import CheckIn, DailyTask, Phase, Plan, User
 from app.services import checkin_service
 from app.services.checkin_service import CheckInValidationError
 
@@ -62,29 +62,59 @@ class CheckInServiceTests(unittest.TestCase):
         self.session.commit()
         return user
 
+    def _task(self, user):
+        day = date(2025, 2, 10)
+        plan = Plan(user_id=user.id, goal_name='study', start_date=day, goal_date=day, current_level='beginner', daily_minutes=60, total_phases=2)
+        self.session.add(plan)
+        self.session.flush()
+        phase = Phase(plan_id=plan.id, phase_index=0, name='phase', start_date=day, end_date=day)
+        self.session.add(phase)
+        self.session.flush()
+        task = DailyTask(plan_id=plan.id, phase_id=phase.id, task_date=day, week_label='W01', description='task', status='done')
+        self.session.add(task)
+        self.session.commit()
+        return task
+
     def test_create_check_in_persists_and_reads_back(self) -> None:
         user = self._make_user()
         check_in = checkin_service.create_check_in(
-            self.session, user.id, date(2025, 2, 10), 90, 3, 4, "专注"
+            self.session, user.id, date(2025, 2, 10), 90, 3, 4, "专注", task_id=self._task(user).id
         )
         stored = self.session.scalar(
             select(CheckIn).where(CheckIn.id == check_in.id)
         )
         self.assertIsNotNone(stored)
+        from app.services.task_service import protected_practice_task_ids
+        task = self.session.get(DailyTask, check_in.task_id)
+        self.assertIn(task.id, protected_practice_task_ids(self.session, task.plan_id, user.id))
         self.assertEqual(stored.duration_minutes, 90)
         self.assertEqual(stored.difficulty, 3)
         self.assertEqual(stored.energy, 4)
         self.assertEqual(stored.note, "专注")
         self.assertEqual(stored.check_date, date(2025, 2, 10))
 
-    def test_duplicate_day_rejected_without_adding_minutes(self) -> None:
+    def test_duplicate_task_rejected_without_adding_minutes(self) -> None:
         user = self._make_user()
-        checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 30, 3, 3)
-        with self.assertRaisesRegex(CheckInValidationError, '今天已打卡，无需重复'):
-            checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 90, 3, 3)
+        task = self._task(user)
+        checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 30, 3, 3, task_id=task.id)
+        with self.assertRaisesRegex(CheckInValidationError, '该任务已打卡，无需重复'):
+            checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 90, 3, 3, task_id=task.id)
         rows = list(self.session.scalars(select(CheckIn).where(CheckIn.user_id == user.id)))
         self.assertEqual(len(rows), 1)
         self.assertEqual(sum(row.duration_minutes for row in rows), 30)
+
+    def test_two_tasks_same_day_sum_and_foreign_rejected(self):
+        user = self._make_user()
+        a, b = self._task(user), self._task(user)
+        day = date(2025, 2, 10)
+        checkin_service.create_check_in(self.session, user.id, day, 30, 3, 3, task_id=a.id)
+        checkin_service.create_check_in(self.session, user.id, day, 45, 3, 3, task_id=b.id)
+        self.assertEqual(sum(self.session.scalars(select(CheckIn.duration_minutes))), 75)
+        foreign = self._make_user('foreign')
+        with self.assertRaisesRegex(CheckInValidationError, '任务不存在'):
+            checkin_service.create_check_in(self.session, foreign.id, day, 20, 3, 3, task_id=a.id)
+        with self.assertRaisesRegex(CheckInValidationError, '请选择'):
+            checkin_service.create_check_in(self.session, user.id, day, 20, 3, 3)
 
     def _assert_rejected(self, duration: int, difficulty: int, energy: int) -> None:
         user = self._make_user()

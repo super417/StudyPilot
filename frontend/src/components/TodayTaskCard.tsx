@@ -158,7 +158,7 @@ function TodayTaskCard({
 
       {/* 打卡表单（需求 4.6），初始时长跟随所选快捷时长 */}
       <div className="mt-6">
-        <CheckInForm onSubmit={onCheckIn} />
+        <CheckInForm tasks={tasks.filter((task) => task.status !== 'carried')} onSubmit={onCheckIn} />
       </div>
     </section>
   );

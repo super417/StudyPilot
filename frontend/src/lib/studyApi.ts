@@ -70,6 +70,7 @@ export async function fetchDailyTasksForDates(dates: string[]): Promise<DailyTas
 }
 
 export function createCheckIn(input: {
+  taskId: string;
   checkDate: string;
   durationMinutes: number;
   difficulty: number;

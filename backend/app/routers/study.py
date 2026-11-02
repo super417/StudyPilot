@@ -54,6 +54,7 @@ class CheckInPayload(BaseModel):
 
     model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
+    task_id: uuid.UUID | None = None
     check_date: str = ""
     duration_minutes: int | None = None
     difficulty: int | None = None
@@ -181,6 +182,7 @@ def create_check_in_route(
             payload.difficulty,
             payload.energy,
             payload.note,
+            task_id=payload.task_id,
         )
     except CheckInValidationError as error:
         return _json_error(400, error.code, str(error))

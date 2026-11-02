@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 /** 打卡表单提交负载（对应 Check_Ins 表可写字段的前端子集） */
 export interface CheckInFormValues {
   /** 实际学习时长（分钟） */
+  taskId: string;
   durationMinutes: number;
   /** 主观难度 1-5 */
   difficulty: number;
@@ -13,6 +14,7 @@ export interface CheckInFormValues {
 }
 
 export interface CheckInFormProps {
+  tasks?: { id: string; description: string }[];
   /** 完成打卡回调；总览页传入后会 POST /api/check-ins。 */
   onSubmit?: (values: CheckInFormValues) => void;
 }
@@ -24,7 +26,8 @@ const SCALE = [1, 2, 3, 4, 5] as const;
  * CheckInForm — 总览页打卡表单（需求 4.6）
  * 本地受控：学习分钟、主观难度、精力、备注；提交交由父组件写库。
  */
-function CheckInForm({ onSubmit }: CheckInFormProps) {
+function CheckInForm({ onSubmit, tasks = [] }: CheckInFormProps) {
+  const [taskId, setTaskId] = useState('');
   const [durationMinutes, setDurationMinutes] = useState<number | ''>('');
   const [difficulty, setDifficulty] = useState<number>(3);
   const [energy, setEnergy] = useState<number>(3);
@@ -32,8 +35,8 @@ function CheckInForm({ onSubmit }: CheckInFormProps) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (durationMinutes === '' || !Number.isInteger(durationMinutes) || durationMinutes <= 0) return;
-    const values: CheckInFormValues = { durationMinutes, difficulty, energy, note };
+    if (!taskId || durationMinutes === '' || !Number.isInteger(durationMinutes) || durationMinutes <= 0) return;
+    const values: CheckInFormValues = { taskId, durationMinutes, difficulty, energy, note };
     onSubmit?.(values);
   };
 
@@ -44,6 +47,8 @@ function CheckInForm({ onSubmit }: CheckInFormProps) {
     >
       <p className="text-sm font-semibold text-brandDark">今日打卡</p>
 
+      <label className="mt-4 block">打卡任务<select required value={taskId} onChange={(event) => setTaskId(event.target.value)}><option value="">请选择任务</option>{tasks.map((task) => <option key={task.id} value={task.id}>{task.description}</option>)}</select></label>
+      {!tasks.length && <p>暂无可选择的任务，请先安排学习任务。</p>}
       {/* 实际学习分钟 */}
       <label className="mt-4 block">
         <span className="text-xs font-medium text-gray-500">学习分钟（由你填写）</span>
@@ -79,6 +84,7 @@ function CheckInForm({ onSubmit }: CheckInFormProps) {
 
       <button
         type="submit"
+        disabled={!tasks.length}
         className="btn-pill mt-5 w-full px-6 py-3 text-sm font-semibold"
       >
         完成打卡

@@ -11,6 +11,7 @@ export default function OverviewDetailsDialog({ mode, data, message, addingToday
   onToggleTask: (task: DailyTask) => Promise<void>; onAddToday: () => Promise<void>; onCheckIn: (values: CheckInFormValues) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [taskId, setTaskId] = useState('');
   const [minutes, setMinutes] = useState<number | ''>('');
   const [difficulty, setDifficulty] = useState(3);
   const [energy, setEnergy] = useState(3);
@@ -26,13 +27,15 @@ export default function OverviewDetailsDialog({ mode, data, message, addingToday
       {!data.ready ? <p role="status">正在读取今日任务…</p> : data.unavailable.includes('tasks') ? <p role="alert">今日任务暂时无法读取，请重新读取后再操作。</p> : data.tasks.filter((task) => task.status !== 'carried').length ? data.tasks.filter((task) => task.status !== 'carried').map((task) => <label className="spp-task-choice" key={task.id}><input type="checkbox" checked={task.status === 'done'} disabled={busy || !data.ready} onChange={() => void run(() => onToggleTask(task))} /><span>{task.description}</span></label>) : <p>今天还没有安排任务。可以先开始一项轻量练习，或补上当前阶段的任务。</p>}
       <div className="spp-dialog-actions"><button className="spp-button spp-button-lime" type="button" onClick={() => onAction('start')}>先确认今天的量</button><button className="spp-button" type="button" onClick={() => onAction('checkin')}>填写今日打卡</button>{data.plan && !data.tasks.length && <button className="spp-button" type="button" disabled={busy || addingToday || data.unavailable.includes('tasks')} onClick={() => void run(onAddToday)}>{addingToday ? '正在补上…' : '补上今天的任务'}</button>}</div>
     </>}
-    {mode === 'checkin' && <form className="spp-feedback-form" onSubmit={(event) => { event.preventDefault(); void run(() => onCheckIn({ durationMinutes: Number(minutes), difficulty, energy, note })); }}>
+    {mode === 'checkin' && <form className="spp-feedback-form" onSubmit={(event) => { event.preventDefault(); void run(() => onCheckIn({ taskId, durationMinutes: Number(minutes), difficulty, energy, note })); }}>
       <p className="spp-muted">填写实际完成的学习情况，确认的可用时间不会自动算成学习记录。</p>
+      <label>打卡任务<select required value={taskId} onChange={(event) => setTaskId(event.target.value)}><option value="">请选择任务</option>{data.tasks.filter((task) => task.status !== 'carried').map((task) => <option key={task.id} value={task.id}>{task.description}</option>)}</select></label>
+      {!data.tasks.some((task) => task.status !== 'carried') && <p>暂无可选择的任务，请先安排学习任务。</p>}
       <label>实际学习分钟<input required type="number" min="1" max="1440" value={minutes} onChange={(event) => setMinutes(event.target.value === '' ? '' : Number(event.target.value))} /></label>
       <label>主观难度<select value={difficulty} onChange={(event) => setDifficulty(Number(event.target.value))}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
       <label>精力状态<select value={energy} onChange={(event) => setEnergy(Number(event.target.value))}>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
       <label>备注<textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder="今天的感受或遇到的问题…" /></label>
-      <button className="spp-button spp-button-lime" type="submit" disabled={busy}>{busy ? '正在保存…' : '完成打卡'}</button>
+      <button className="spp-button spp-button-lime" type="submit" disabled={busy || !data.ready || data.unavailable.includes('tasks') || !taskId}>{busy ? '正在保存…' : '完成打卡'}</button>
     </form>}
     {mode === 'mastery' && <>
       <p className="spp-muted">以下为最近周报的练习证据得分，不代表今天的实时状态。正确记 100、部分掌握记 50、错误记 0。</p>

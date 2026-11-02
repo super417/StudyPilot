@@ -14,6 +14,7 @@ import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from app.core.clock import local_today
 
 from app.models.entities import (
     CheckIn,
@@ -202,8 +203,7 @@ def live_weekly_totals(session: Session, user_id: uuid.UUID, week_start: date, w
 
     total_minutes = sum(c.duration_minutes for c in week_check_ins)
 
-    # Streak is the consecutive-check-in-days count anchored at the week's end,
-    # over the user's full check-in history (reuses the metrics contract).
+    # An open week is anchored at today; a closed week at its end.
     all_check_dates = set(
         session.scalars(
             select(CheckIn.check_date)
@@ -211,7 +211,8 @@ def live_weekly_totals(session: Session, user_id: uuid.UUID, week_start: date, w
             .distinct()
         )
     )
-    streak_days = compute_streak(all_check_dates, week_end)
+    today = local_today()
+    streak_days = 0 if today < week_start else compute_streak(all_check_dates, min(today, week_end))
 
     total_tasks = (
         session.scalar(

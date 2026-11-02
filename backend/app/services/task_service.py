@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import local_today
 from app.models.entities import (
     DailyTask,
+    CheckIn,
     DailySelection,
     MasteryEvidence,
     Phase,
@@ -87,7 +88,8 @@ def protected_practice_task_ids(
     )
     protected = {task_id for task_id in rows if task_id is not None}
     selected = session.scalars(select(DailySelection.task_id).join(DailyTask, DailyTask.id == DailySelection.task_id).join(Plan, Plan.id == DailyTask.plan_id).where(DailyTask.plan_id == plan_id, Plan.user_id == user_id, DailySelection.user_id == user_id))
-    return protected | set(selected)
+    checked_in = session.scalars(select(CheckIn.task_id).join(DailyTask, DailyTask.id == CheckIn.task_id).where(CheckIn.user_id == user_id, DailyTask.plan_id == plan_id))
+    return protected | set(selected) | set(checked_in)
 
 
 class TaskStatusValidationError(ValueError):
