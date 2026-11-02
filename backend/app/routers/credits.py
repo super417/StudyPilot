@@ -18,7 +18,7 @@ router = APIRouter(prefix='/api/credits', tags=['credits'])
 @router.get('/catalog')
 def catalog(user: User = Depends(get_current_user)):
     available = service.enabled()
-    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':service.MODEL_ID, 'provider':'deepseek', 'displayName':'DeepSeek-V4.1-Flash', 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096}] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':0,'freeChatLimit':5,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
+    return {'status':'ok', 'platformAvailable':available, 'models':[{'id':model_id, 'provider':'deepseek', 'displayName':model[1], 'inputPointsPerMillion':'40', 'outputPointsPerMillion':'160', 'maxInputTokens':16000, 'maxOutputTokens':4096} for model_id, model in service.MODELS.items()] if available else [], 'plans':[{'id':'free','name':'免费版','priceFen':0,'basePoints':0,'freeChatLimit':5,'bonusPoints':0,'purchaseAvailable':False},{'id':'qihang','name':'启航版','priceFen':9900,'recurringMonthPriceFen':7000,'recurringYearPriceFen':67200,'basePoints':2000,'bonusPoints':2000,'purchaseAvailable':False},{'id':'supply','name':'补给包','priceFen':5000,'basePoints':1000,'bonusPoints':0,'purchaseAvailable':False}]}
 
 
 @router.get('/account')
@@ -39,7 +39,7 @@ class Preferences(BaseModel):
 
 @router.put('/preferences')
 def preferences(payload: Preferences, user: User = Depends(get_current_user), session: Session = Depends(get_db)):
-    if payload.mode == 'platform' and (payload.modelId != service.MODEL_ID or not service.enabled()):
+    if payload.mode == 'platform' and (payload.modelId not in service.MODELS or not service.enabled()):
         return error_response(service.BillingError('PLATFORM_UNAVAILABLE','该积分模型暂不可用',503))
     row = account(session,user.id)
     row.mode, row.model_id = payload.mode, payload.modelId if payload.mode == 'platform' else None

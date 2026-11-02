@@ -19,6 +19,7 @@ export interface PracticeQuestion {
   latestGrade?: { answerText: string; result: 'correct' | 'partial' | 'wrong'; reason: string | null } | null;
   createdAt: string;
   sourceTaskId?: string | null;
+  dailySelectionId?: string | null;
   sourceMistakeId?: string | null;
   /** 生成时检索命中；旧题 / 上传题为 null */
   sourceRefs?: PracticeSourceRef[] | null;
@@ -50,7 +51,7 @@ export function listPractice(date: string): Promise<PracticeListResponse> {
 }
 
 export function generatePractice(date: string): Promise<{ status: string; questions: PracticeQuestion[] }> {
-  return apiRequest('/api/practice/generate', {
+  return apiRequest('/api/practice/generate-daily', {
     method: 'POST',
     body: JSON.stringify({ date }),
   });

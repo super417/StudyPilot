@@ -18,7 +18,7 @@ import {
   type PracticeQuestion,
   type PracticeSourceRef,
 } from '@/lib/practiceApi';
-import { practiceDayISO } from '@/lib/dates';
+import { practiceDayISO, todayISO } from '@/lib/dates';
 import { gradePracticeBatch } from '@/lib/practiceBatch';
 
 export interface PracticeBoardProps {
@@ -338,8 +338,8 @@ function PracticeBoard({ tab, onWrong, controlsTarget }: PracticeBoardProps) {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await generatePractice(practiceDay);
-      setMessage(res.questions.length ? `已生成 ${res.questions.length} 题` : '今天还没有完成的任务，先去勾选今天的任务');
+      const res = await generatePractice(todayISO());
+      setMessage(res.questions.length ? `今日练习共 ${res.questions.length} 题` : '请先选择今日任务，并在 Roadmap 标记学完');
       // 先追加新题，保留旧卡片的 id 与作答/判分状态；reload 再与服务端同步。
       if (res.questions.length) {
         setQuestions((current) => mergeGeneratedQuestions(current, res.questions));
@@ -388,6 +388,7 @@ function PracticeBoard({ tab, onWrong, controlsTarget }: PracticeBoardProps) {
           ));
           setQuestions(update);
           setReview(update);
+          if (body.result === 'wrong' || body.result === 'partial') onWrong();
           const verdict = body.result === 'correct' ? '答对' : body.result === 'partial' ? '部分正确' : '答错';
           setNotes((prev) => ({ ...prev, [item.id]: `${verdict}。${body.reason ?? ''}` }));
         },

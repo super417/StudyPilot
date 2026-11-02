@@ -16,6 +16,10 @@ from app.services.billing_service import BillingError
 
 MICRO = 1000000
 MODEL_ID = 'credits:deepseek-flash'
+MODELS = {
+    MODEL_ID: ('deepseek-flash', 'DeepSeek-V4.1-Flash'),
+    'credits:deepseek-v4-pro': ('deepseek-v4-pro', 'DeepSeek-V4-Pro'),
+}
 
 
 class CreditsSettings(BaseSettings):
@@ -178,13 +182,19 @@ async def complete(session, user_id, payload, *, request_id=None, transport=None
         raise BillingError('PLATFORM_INPUT_TOO_LARGE', '上下文超过积分模型上限')
     call_id = request_id or uuid.uuid4().hex
     with Session(bind=session.get_bind(), expire_on_commit=False) as ledger:
+        from app.models.billing import BillingAccount
+        preference = ledger.get(BillingAccount, user_id)
+        model_id = (preference.model_id if preference else None) or MODEL_ID
+        model = MODELS.get(model_id)
+        if model is None:
+            raise BillingError('PLATFORM_UNAVAILABLE', '请选择已开放的积分模型', 503)
         prepare(ledger, user_id)
         if allow_free_chat and not spendable_lots(ledger, user_id, datetime.now(timezone.utc)):
             reserve_free_chat(ledger, user_id, call_id)
         else:
             reserve(ledger, user_id, call_id, amount(16000, 4096))
         try:
-            body = {**payload, 'messages':messages, 'model':'deepseek-flash', 'stream':False, 'max_tokens':4096, 'thinking':{'type':'disabled'}}
+            body = {**payload, 'messages':messages, 'model':model[0], 'stream':False, 'max_tokens':4096, 'thinking':{'type':'disabled'}}
             body.pop('stream_options', None)
             async with httpx.AsyncClient(timeout=60, transport=transport, follow_redirects=False) as client:
                 response = await client.post('https://api.deepseek.com/chat/completions', headers={'Authorization':f'Bearer {key()}'}, json=body)

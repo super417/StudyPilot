@@ -15,6 +15,21 @@ export interface DailyTasksResponse {
   tasks: DailyTask[];
 }
 
+export type SelectedDailyTask = DailyTask & { learned: boolean; learningState: 'today' | 'verify' | 'reinforce' | 'done' };
+export type DailySelectionResponse = { status: string; tasks: SelectedDailyTask[]; minutes: number | null };
+
+export function fetchDailySelection(date: string): Promise<DailySelectionResponse> {
+  return apiRequest(`/api/daily-selection?date=${encodeURIComponent(date)}`);
+}
+
+export function saveDailySelection(date: string, taskIds: string[], minutes: number): Promise<DailySelectionResponse> {
+  return apiRequest('/api/daily-selection', { method: 'PUT', body: JSON.stringify({ date, taskIds, minutes }) });
+}
+
+export function markDailyTaskLearned(taskId: string, date: string): Promise<{ status: string }> {
+  return apiRequest(`/api/daily-selection/${encodeURIComponent(taskId)}/learned?date=${encodeURIComponent(date)}`, { method: 'POST' });
+}
+
 export interface CheckInResponse {
   status: string;
   checkInId: string;

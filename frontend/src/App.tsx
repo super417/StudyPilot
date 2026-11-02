@@ -88,6 +88,12 @@ function App() {
   }, [checkSession]);
 
   useEffect(() => {
+    const openRoadmap = () => { setActiveTab('roadmap'); setResumeRoute(null); };
+    window.addEventListener('studypilot:open-roadmap', openRoadmap);
+    return () => window.removeEventListener('studypilot:open-roadmap', openRoadmap);
+  }, []);
+
+  useEffect(() => {
     const sync = () => {
       setShowMainframe(isMainframeRoute());
       const route = currentResumeRoute();
@@ -229,6 +235,8 @@ function App() {
                       <OverviewPage onNavigate={changeTab} />
                     </div>
                   </>
+                ) : activeTab === 'roadmap' ? (
+                  <RoadmapPage onNavigate={changeTab} />
                 ) : activeTab === 'weekly' ? (
                   <StatisticsPage onNavigate={changeTab} />
                 ) : (

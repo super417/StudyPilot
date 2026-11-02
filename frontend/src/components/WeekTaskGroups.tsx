@@ -105,7 +105,7 @@ function WeekTaskGroups({ tasks, onToggleStatus }: WeekTaskGroupsProps) {
                         >
                           {task.description}
                           <span className="ml-2 text-xs text-gray-400">
-                            {task.status === 'done' ? '已完成 · 点击撤销' : '待完成 · 点击完成'}
+                            {task.status === 'done' ? '已打卡' : '待完成 · 到总览选择今日任务'}
                           </span>
                         </button>
                       ) : (

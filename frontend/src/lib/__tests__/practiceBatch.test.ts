@@ -16,6 +16,11 @@ const question = (id: string, graded?: string): PracticeQuestion => ({
 const callbacks = () => ({ progress: vi.fn(), success: vi.fn(), failure: vi.fn() });
 beforeEach(() => vi.clearAllMocks());
 describe('batch grading', () => {
+  it('submits a blank daily verification answer as unanswered', async () => {
+    vi.mocked(gradePractice).mockResolvedValue({ result: 'wrong' } as never);
+    await gradePracticeBatch([{ ...question('daily'), dailySelectionId: 'selection' }], ['daily'], {}, callbacks());
+    expect(gradePractice).toHaveBeenCalledExactlyOnceWith('daily', '');
+  });
   it('grades selected answered questions only, skipping blank and unchanged persisted grades', async () => {
     vi.mocked(gradePractice).mockResolvedValue({ result: 'correct' } as never);
     const result = await gradePracticeBatch(

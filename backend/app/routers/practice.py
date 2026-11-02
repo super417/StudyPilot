@@ -149,6 +149,29 @@ async def generate_practice_route(
     )
 
 
+@router.post('/generate-daily')
+async def generate_daily_practice_route(payload: PracticeGeneratePayload, user: User = Depends(get_current_user), session: Session = Depends(get_db), generator: QuestionGenerator | None = Depends(get_question_generator)):
+    day = _parse_date(payload.date)
+    if day is None:
+        return _json_error(400, 'VALIDATION', '日期参数不合法')
+    try:
+        rows = await practice_service.generate_selected_for_day(session, user.id, day, generator)
+    except PracticeValidationError as error:
+        session.rollback()
+        return _json_error(400, error.code, str(error))
+    except NoVerifiedApiConfigError as error:
+        session.rollback()
+        return _json_error(400, error.code, str(error))
+    except CredentialUnavailableError as error:
+        session.rollback()
+        safe = build_client_error(error)
+        return _json_error(429 if safe['code'] in {'CREDITS_BUSY', 'FREE_CHAT_LIMIT'} else 503, safe['code'], safe['message'])
+    except PracticeGradeError as error:
+        session.rollback()
+        return _json_error(502, error.code, str(error))
+    return {'status': 'ok', 'questions': [practice_service._question_json(row) for row in rows]}
+
+
 @router.post("/reinforce-retest")
 async def reinforce_retest_route(
     payload: ReinforceRetestPayload,
@@ -399,6 +422,8 @@ def delete_practice_route(
         return _json_error(404, PracticeNotFoundError.code, str(PracticeNotFoundError()))
     try:
         practice_service.delete_question(session, user.id, parsed)
+    except PracticeValidationError as error:
+        return _json_error(400, error.code, str(error))
     except PracticeNotFoundError as error:
         return _json_error(404, error.code, str(error))
     return JSONResponse(status_code=200, content={"status": "ok", "deletedId": question_id})

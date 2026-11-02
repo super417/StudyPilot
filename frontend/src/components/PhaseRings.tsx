@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { MasteryDetailItem, ReinforceOutcome } from '@/mocks/types';
+import type { RoutePhaseItem } from '@/lib/statisticsApi';
+import { todayISO } from '@/lib/dates';
+import './PhaseRingsStack.css';
 
 /**
  * 完成度比掌握度高出这么多（百分点）才标出差距。
@@ -20,6 +23,22 @@ export interface PhaseRingsProps {
   reinforceBusy?: boolean;
   /** 按 phaseId 索引；有条目才显示补强前后对比（重测入口在页面「触发补强」卡片）。 */
   reinforceOutcomesByPhase?: Record<string, ReinforceOutcome>;
+  stackRoute?: RoutePhaseItem[];
+}
+
+export function sortPhaseRings(items: MasteryDetailItem[], route: RoutePhaseItem[], today: string): MasteryDetailItem[] {
+  const phases = new Map(route.map((phase) => [phase.phaseId, phase]));
+  const day = Date.parse(`${today}T00:00:00Z`);
+  const distance = (item: MasteryDetailItem) => {
+    const phase = item.phaseId ? phases.get(item.phaseId) : undefined;
+    if (!phase) return Infinity;
+    if (phase.isCurrent) return -1;
+    const start = Date.parse(`${phase.startDate}T00:00:00Z`);
+    const end = Date.parse(`${phase.endDate}T00:00:00Z`);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return Infinity;
+    return day < start ? start - day : day > end ? day - end : 0;
+  };
+  return [...items].sort((a, b) => distance(a) - distance(b));
 }
 
 function formatOverall(outcome: ReinforceOutcome): string {
@@ -238,7 +257,41 @@ function PhaseRings({
   onRequestReinforce,
   reinforceBusy,
   reinforceOutcomesByPhase,
+  stackRoute,
 }: PhaseRingsProps) {
+  const [selected, setSelected] = useState<string | null>(null);
+  if (stackRoute) {
+    const today = todayISO();
+    const routeIds = new Set(stackRoute.map((phase) => phase.phaseId));
+    const available = items.filter((item) => item.phaseId && routeIds.has(item.phaseId));
+    const known = new Set(available.map((item) => item.phaseId));
+    const missing = stackRoute.filter((phase) => !known.has(phase.phaseId)).map((phase) => ({
+      phaseId: phase.phaseId, subject: phase.name, percent: null, completionRate: null,
+    }));
+    const hasData = (item: MasteryDetailItem) => (item.taskTotal ?? 0) > 0 || (item.evidenceCount ?? 0) > 0;
+    const ordered = [
+      ...sortPhaseRings(available.filter(hasData), stackRoute, today),
+      ...sortPhaseRings([...available.filter((item) => !hasData(item)), ...missing], stackRoute, today),
+    ];
+    const activeIndex = Math.max(0, ordered.findIndex((item) => (item.phaseId ?? item.subject) === selected));
+    const active = ordered[activeIndex];
+    if (!active) return <p className="text-sm text-gray-400">当前规划的已到达阶段暂无双环数据</p>;
+    return (
+      <div className="phase-ring-stack">
+        <div className="phase-ring-stack__card">
+          <ul><PhaseRing key={active.phaseId ?? active.subject} item={active}
+            onRequestReinforce={onRequestReinforce} reinforceBusy={reinforceBusy}
+            outcome={active.phaseId ? reinforceOutcomesByPhase?.[active.phaseId] : undefined} /></ul>
+        </div>
+        {ordered.length > 1 && <nav className="phase-ring-stack__nav" aria-label="切换阶段双环">
+          {ordered.map((item, index) => <button key={item.phaseId ?? item.subject} type="button"
+            aria-pressed={index === activeIndex} onClick={() => setSelected(item.phaseId ?? item.subject)}>
+            {item.subject}
+          </button>)}
+        </nav>}
+      </div>
+    );
+  }
   if (items.length === 0) {
     return <p className="text-sm text-gray-400">本周期暂无掌握度证据</p>;
   }

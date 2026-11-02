@@ -330,15 +330,19 @@ def build_context(
                 .order_by(UserDocument.chunk_index)
             ).all()
         )
-    candidates = [
-        {
+    candidates = []
+    seen = set()
+    for row in rows:
+        key = (row.filename, row.content)
+        if key in seen:
+            continue
+        seen.add(key)
+        candidates.append({
             "doc_id": row.doc_id,
             "filename": row.filename,
             "chunk_index": row.chunk_index,
             "content": row.content,
-        }
-        for row in rows
-    ]
+        })
     ranked = rank(query, candidates, k=k, min_coverage=min_coverage)
     if not ranked:
         return "", []

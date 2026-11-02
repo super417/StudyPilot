@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import PhaseRings from '@/components/PhaseRings';
+import PhaseRings, { sortPhaseRings } from '@/components/PhaseRings';
 import type { MasteryDetailItem } from '@/mocks/types';
 
 function html(items: MasteryDetailItem[]): string {
@@ -10,6 +10,33 @@ function html(items: MasteryDetailItem[]): string {
 }
 
 describe('PhaseRings', () => {
+  it('保留当前规划全部阶段，将实际返回数据的阶段排在前面', () => {
+    const route = [
+      { phaseId: 'current', name: '当前', index: 1, startDate: '2000-01-01', endDate: '2099-01-01', progress: 0, isCurrent: true },
+      { phaseId: 'future', name: '未来', index: 2, startDate: '2999-01-01', endDate: '2999-02-01', progress: 0, isCurrent: false },
+      { phaseId: 'missing', name: '无数据', index: 3, startDate: '2000-01-01', endDate: '2000-02-01', progress: 0, isCurrent: false },
+    ];
+    const items = ['current', 'future', 'old'].map((phaseId) => ({ phaseId, subject: phaseId, percent: null, taskTotal: phaseId === 'current' ? 1 : 0 }));
+    const markup = renderToStaticMarkup(createElement(PhaseRings, { items, stackRoute: route }));
+    expect(markup).toContain('current');
+    expect(markup).toContain('future');
+    expect(markup).not.toContain('>old<');
+    expect(markup).toContain('无数据');
+    expect(markup.indexOf('>current</button>')).toBeLessThan(markup.indexOf('>无数据</button>'));
+    expect(renderToStaticMarkup(createElement(PhaseRings, { items: [], stackRoute: [] }))).toContain('暂无双环数据');
+  });
+  it('按当前阶段及与今天的时间距离排序，缺少日期的放最后', () => {
+    const items = ['past', 'future', 'current', 'unknown'].map((phaseId) => ({ phaseId, subject: phaseId, percent: null }));
+    const route = [
+      { phaseId: 'past', name: 'past', index: 1, startDate: '2026-10-01', endDate: '2026-10-30', progress: 0, isCurrent: false },
+      { phaseId: 'future', name: 'future', index: 3, startDate: '2026-11-03', endDate: '2026-11-09', progress: 0, isCurrent: false },
+      { phaseId: 'current', name: 'current', index: 2, startDate: '2026-11-01', endDate: '2026-11-02', progress: 0, isCurrent: true },
+    ];
+    expect(sortPhaseRings(items, route, '2026-11-02').map((item) => item.phaseId)).toEqual(['current', 'future', 'past', 'unknown']);
+    const markup = renderToStaticMarkup(createElement(PhaseRings, { items, stackRoute: route }));
+    expect(markup).toContain('切换阶段双环');
+    expect(markup).toContain('aria-pressed="true"');
+  });
   it('掌握度为 null 时写暂无掌握度证据，不写 0%，也不写基于次数', () => {
     const markup = html([
       {

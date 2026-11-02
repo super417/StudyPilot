@@ -192,6 +192,19 @@ class Phase(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class DailySelection(Base):
+    __tablename__ = "daily_selections"
+    __table_args__ = (UniqueConstraint("user_id", "study_date", "task_id", name="uq_daily_selection_user_day_task"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    task_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("daily_tasks.id", ondelete="CASCADE"), nullable=False)
+    study_date: Mapped[date] = mapped_column(Date, nullable=False)
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    learned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
 class DailyTask(Base):
     __tablename__ = "daily_tasks"
     __table_args__ = (
@@ -256,6 +269,9 @@ class PracticeQuestion(Base):
     explanation: Mapped[str] = mapped_column(Text, default="", nullable=False)
     source_task_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("daily_tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    daily_selection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("daily_selections.id", ondelete="SET NULL"), nullable=True
     )
     source_mistake_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("mistakes.id", ondelete="SET NULL"), nullable=True

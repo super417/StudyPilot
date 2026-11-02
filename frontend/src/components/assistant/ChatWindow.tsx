@@ -16,7 +16,7 @@ import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
 import { isMainframeChatExpand, openMainframeFromWidget } from '@/lib/mainframeRoute';
-import { displayAssistantName, getBasicProfile } from '@/lib/profilePrefs';
+import { displayAssistantName, getBasicProfile, PROFILE_CHANGED } from '@/lib/profilePrefs';
 
 const CONTEXT_LABEL: Record<AssistantContext['type'], string> = {
   mistake: '错题',
@@ -109,6 +109,11 @@ function ChatWindow() {
   const [assistantTitle, setAssistantTitle] = useState(() =>
     displayAssistantName(getBasicProfile().assistantName),
   );
+  useEffect(() => {
+    const sync = () => setAssistantTitle(displayAssistantName(getBasicProfile().assistantName));
+    window.addEventListener(PROFILE_CHANGED, sync);
+    return () => window.removeEventListener(PROFILE_CHANGED, sync);
+  }, []);
   const dragRef = useRef<{
     dir: ResizeDir;
     x: number;

@@ -194,7 +194,6 @@ function StudyPilotJourney() {
     const dots = [...root.querySelectorAll<HTMLElement>('.spj-engine-dots i')];
     const labels = [...root.querySelectorAll<HTMLElement>('.spj-olab')];
     const loop = root.querySelector<HTMLElement>('.spj-loop')!;
-    const flow = root.querySelector<HTMLElement>('.spj-flow')!;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame = 0;
 
@@ -239,8 +238,7 @@ function StudyPilotJourney() {
       resolvedChips.forEach((chip, i) => chip.classList.toggle('is-visible', okT >= (i + 1) / resolvedChips.length * 0.9));
 
       const a = reduced.matches ? 1 : clamp((window.innerHeight * .85 - about.getBoundingClientRect().top) / (window.innerHeight * .60));
-      const groupHeight = about.offsetHeight + flow.offsetHeight;
-      const reveal = reduced.matches ? 1 : clamp((window.innerHeight * .85 - about.getBoundingClientRect().top) / (window.innerHeight * .85 + groupHeight * .5));
+      const reveal = reduced.matches ? 1 : clamp((window.innerHeight * .85 - about.getBoundingClientRect().top) / (window.innerHeight * .65));
       words.forEach((word, i) => word.classList.toggle('is-on', (i + 1) / words.length <= reveal));
       floats.forEach((item, i) => {
         item.classList.toggle('is-visible', reduced.matches || a > .10 + i * .09);

@@ -19,6 +19,8 @@ import { ApiError } from '@/lib/httpClient';
 import { useAuthStore } from '@/store/authStore';
 import { stripAssistantMarkup } from '@/lib/assistantMarkdown';
 import { prewarmAssistantSpeech } from '@/lib/assistantSpeech';
+import { extractAssistantRename } from '@/lib/assistantRename';
+import { saveAssistantName } from '@/lib/profilePrefs';
 
 function replyError(err: unknown, fallback: string, pushAssistant: (text: string) => void) {
   if (err instanceof ApiError && (err.status === 401 || err.code === 'UNAUTHENTICATED')) {
@@ -111,6 +113,22 @@ export function useAssistantChat(acceptQueued = true) {
         role: 'user',
         content: text,
       });
+
+      const newName = extractAssistantRename(text);
+      if (newName) {
+        setStreaming(true);
+        void (async () => {
+          try {
+            const saved = await saveAssistantName(newName);
+            pushAssistant(`好，我的名字已改为「${saved.assistantName}」。`);
+          } catch (err) {
+            replyError(err, '名字没有保存成功，请稍后重试。', pushAssistant);
+          } finally {
+            stopStreaming();
+          }
+        })();
+        return;
+      }
 
       const sessionNow = usePlanSessionStore.getState();
       const activeConversationId = useAssistantStore.getState().activeId;

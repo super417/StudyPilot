@@ -19,7 +19,7 @@ export async function gradePracticeBatch(
     .filter((item) => ids.includes(item.id))
     .flatMap((item) => {
       const answer = (answers[item.id] ?? item.latestGrade?.answerText ?? '').trim();
-      if (!answer) {
+      if (!answer && !item.dailySelectionId) {
         blank++;
         return [];
       }

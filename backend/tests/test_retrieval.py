@@ -153,6 +153,8 @@ class BuildContextQueryTests(unittest.TestCase):
         self.session.commit()
 
     def tearDown(self) -> None:
+        self.session.query(UserDocument).filter_by(user_id=self.user.id).delete()
+        self.session.commit()
         self.session.close()
 
     def test_empty_query_does_not_concatenate_every_chunk(self) -> None:
@@ -160,3 +162,18 @@ class BuildContextQueryTests(unittest.TestCase):
         self.assertEqual(text, "")
         self.assertEqual(hits, [])
         self.assertNotIn("中值定理", text)
+
+    def test_duplicate_uploads_do_not_crowd_out_distinct_chunks(self) -> None:
+        for doc_id in ("docB", "docC"):
+            self.session.add(UserDocument(user_id=self.user.id, doc_id=doc_id,
+                filename="docA.txt", file_type="txt", chunk_index=0,
+                content="中值定理的应用写在这一段"))
+        self.session.add(UserDocument(user_id=self.user.id, doc_id="docD",
+            filename="docA.txt", file_type="txt", chunk_index=0,
+            content="中值定理的另一个例子"))
+        self.session.commit()
+        text, hits = build_context(self.session, self.user.id,
+            ["docA", "docB", "docC", "docD"], "中值定理的应用写在这一段", k=2)
+        self.assertEqual(len(hits), 2)
+        self.assertEqual(text.count("中值定理的应用写在这一段"), 1)
+        self.assertIn("中值定理的另一个例子", text)

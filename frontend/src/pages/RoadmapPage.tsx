@@ -9,17 +9,18 @@ import {
   fetchDailyTasksForDates,
   fetchOverviewMetrics,
   addTodayTask,
-  setDailyTaskStatus,
 } from '@/lib/studyApi';
 import { fetchLatestPlan, patchPhase, setPlanStart } from '@/lib/plansApi';
 import { ApiError } from '@/lib/httpClient';
 import { useAssistantStore } from '@/store';
 import { usePlanSessionStore } from '@/store/planSessionStore';
+import { requestPracticeBoard } from '@/lib/practiceApi';
+import type { TabKey } from '@/components/TabNav';
 
 /**
  * Roadmap：阶段来自 GET /api/plans/latest；本周任务来自每日 daily-tasks。
  */
-function RoadmapPage() {
+function RoadmapPage({ onNavigate }: { onNavigate?: (tab: TabKey) => void } = {}) {
   const today = todayISO();
   const openAssistantWithContext = useAssistantStore((s) => s.openAssistantWithContext);
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
@@ -36,7 +37,27 @@ function RoadmapPage() {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [addingToday, setAddingToday] = useState(false);
   /** 全屏阶段详情（替代卡片内展开） */
-  const [detailPhaseId, setDetailPhaseId] = useState<string | null>(null);
+  const [target] = useState<{ phaseId: string; taskId: string } | null>(() => {
+    const value = sessionStorage.getItem('studypilot.roadmapTarget');
+    try { return value ? JSON.parse(value) : null; } catch { return null; }
+  });
+  const [detailPhaseId, setDetailPhaseId] = useState<string | null>(target?.phaseId ?? null);
+  const [detailTaskId, setDetailTaskId] = useState<string | undefined>(target?.taskId);
+  useEffect(() => {
+    sessionStorage.removeItem('studypilot.roadmapTarget');
+    const openTarget = () => {
+      const value = sessionStorage.getItem('studypilot.roadmapTarget');
+      if (!value) return;
+      try {
+        const next = JSON.parse(value) as { phaseId: string; taskId: string };
+        setDetailTaskId(next.taskId);
+        setDetailPhaseId(next.phaseId);
+        sessionStorage.removeItem('studypilot.roadmapTarget');
+      } catch { sessionStorage.removeItem('studypilot.roadmapTarget'); }
+    };
+    window.addEventListener('studypilot:open-roadmap', openTarget);
+    return () => window.removeEventListener('studypilot:open-roadmap', openTarget);
+  }, []);
   const [needsStartDate, setNeedsStartDate] = useState(false);
   const [startReply, setStartReply] = useState('');
   const [savingStart, setSavingStart] = useState(false);
@@ -120,40 +141,13 @@ function RoadmapPage() {
   };
 
   const openPhaseDetail = (phaseId: string) => {
+    setDetailTaskId(undefined);
     setDetailPhaseId(phaseId);
     setStatusMsg(null);
   };
 
-  const handleToggle = async (task: DailyTask) => {
-    const next = task.status === 'done' ? 'pending' : 'done';
-    setStatusMsg(null);
-    try {
-      const res = await setDailyTaskStatus(task.id, next);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: res.task.status } : t)),
-      );
-      setStatusMsg(
-        next === 'done' ? '已标记完成；阶段进度与当前阶段会跟着更新' : '已改回待完成',
-      );
-      // 任务状态可能推动阶段进度，轻量刷新阶段列表
-      const latest = await fetchLatestPlan().catch(() => null);
-      if (latest?.phases) {
-        setPhases(
-          latest.phases.map((p) => ({
-            id: p.id,
-            phaseIndex: p.phaseIndex,
-            name: p.name,
-            startDate: p.startDate,
-            endDate: p.endDate,
-            progressPercent: p.progressPercent,
-            isCurrent: p.isCurrent,
-            isCompleted: p.isCompleted,
-          })),
-        );
-      }
-    } catch (e) {
-      setStatusMsg(e instanceof ApiError ? e.message : '状态更新失败');
-    }
+  const handleToggle = async (_task: DailyTask) => {
+    setStatusMsg('请先在总览选择今日任务，学完后通过练习验证。');
   };
 
   if (loading) return <p role="status" className="text-sm text-gray-400">加载本周学习任务…</p>;
@@ -264,6 +258,9 @@ function RoadmapPage() {
         <PhaseDetailPage
           key={detailPhaseId}
           phaseId={detailPhaseId}
+          initialTaskId={detailTaskId}
+          onOpenTask={(task) => { setDetailTaskId(task.id); setDetailPhaseId(task.phaseId); }}
+          onPractice={() => { requestPracticeBoard('today'); onNavigate?.('mistakes'); }}
           onClose={() => setDetailPhaseId(null)}
           onAdjust={() => {
             setDetailPhaseId(null);

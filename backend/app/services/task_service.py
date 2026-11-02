@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import local_today
 from app.models.entities import (
     DailyTask,
+    DailySelection,
     MasteryEvidence,
     Phase,
     Plan,
@@ -84,7 +85,9 @@ def protected_practice_task_ids(
             ),
         )
     )
-    return {task_id for task_id in rows if task_id is not None}
+    protected = {task_id for task_id in rows if task_id is not None}
+    selected = session.scalars(select(DailySelection.task_id).join(DailyTask, DailyTask.id == DailySelection.task_id).join(Plan, Plan.id == DailyTask.plan_id).where(DailyTask.plan_id == plan_id, Plan.user_id == user_id, DailySelection.user_id == user_id))
+    return protected | set(selected)
 
 
 class TaskStatusValidationError(ValueError):
@@ -197,6 +200,9 @@ def set_task_status(
     if task is None:
         raise TaskNotFoundError()
 
+    if status == 'done' and task.status != 'done' and session.scalar(select(DailySelection.id).where(DailySelection.user_id == user_id, DailySelection.task_id == task.id).limit(1)):
+        raise TaskStatusValidationError('今日任务需要通过练习验证后才能完成')
+
     phase = session.scalar(select(Phase).where(Phase.id == task.phase_id))
     if phase is None:
         # A task always has a phase; treat a dangling reference as not found.
@@ -297,6 +303,7 @@ def settle_overdue_tasks(
             DailyTask.task_date >= Plan.start_date,
             DailyTask.task_date < today,
             DailyTask.status == "pending",
+            ~select(DailySelection.id).where(DailySelection.task_id == DailyTask.id).exists(),
         )
     )
     if user_id is not None:

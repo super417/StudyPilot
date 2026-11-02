@@ -12,10 +12,11 @@ import uuid
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.entities import DailyTask, User
+from app.models.entities import DailySelection, DailyTask, MasteryEvidence, Plan, PracticeQuestion, User
 from app.routers.dependencies import get_current_user
 from app.services import checkin_service, direction_service, metrics_service, task_service
 from app.services.checkin_service import CheckInValidationError
@@ -75,6 +76,74 @@ class TaskStatusPayload(BaseModel):
     model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
 
     status: str = ""
+
+
+class DailySelectionPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel, populate_by_name=True)
+    date: str = ""
+    task_ids: list[str] = []
+    minutes: int = 30
+
+
+@router.get('/daily-selection')
+def get_daily_selection(date: str, user: User = Depends(get_current_user), session: Session = Depends(get_db)):
+    day = _parse_date(date)
+    if day is None:
+        return _json_error(400, _VALIDATION_CODE, '日期参数不合法')
+    rows = session.execute(select(DailySelection, DailyTask).join(DailyTask, DailySelection.task_id == DailyTask.id).where(DailySelection.user_id == user.id, DailySelection.study_date == day).order_by(DailySelection.position)).all()
+    items = []
+    for item, task in rows:
+        questions = list(session.scalars(select(PracticeQuestion).where(PracticeQuestion.daily_selection_id == item.id, PracticeQuestion.user_id == user.id)))
+        results = []
+        for question in questions:
+            evidence = session.scalar(select(MasteryEvidence).where(MasteryEvidence.question_id == question.id, MasteryEvidence.user_id == user.id, MasteryEvidence.evidence_type == 'quiz').order_by(MasteryEvidence.created_at.desc(), MasteryEvidence.id.desc()).limit(1))
+            results.append(evidence.result if evidence else None)
+        state = 'done' if task.status == 'done' else 'reinforce' if any(result in ('wrong', 'partial') for result in results) else 'verify' if item.learned else 'today'
+        items.append({**_task_result(task), 'learned': item.learned, 'learningState': state})
+    return {'status': 'ok', 'tasks': items, 'minutes': rows[0][0].minutes if rows else None}
+
+
+@router.post('/daily-selection/{task_id}/learned')
+def mark_selection_learned(task_id: str, date: str, user: User = Depends(get_current_user), session: Session = Depends(get_db)):
+    day = _parse_date(date)
+    try:
+        task_uuid = uuid.UUID(task_id)
+    except (ValueError, TypeError, AttributeError):
+        return _json_error(404, 'NOT_FOUND', '今日任务不存在')
+    item = session.scalar(select(DailySelection).join(DailyTask, DailyTask.id == DailySelection.task_id).join(Plan, Plan.id == DailyTask.plan_id).where(DailySelection.user_id == user.id, Plan.user_id == user.id, DailySelection.study_date == day, DailySelection.task_id == task_uuid, DailyTask.status == 'pending'))
+    if item is None:
+        return _json_error(404, 'NOT_FOUND', '今日任务不存在')
+    item.learned = True
+    session.commit()
+    return {'status': 'ok'}
+
+
+@router.put('/daily-selection')
+def put_daily_selection(payload: DailySelectionPayload, user: User = Depends(get_current_user), session: Session = Depends(get_db)):
+    day = _parse_date(payload.date)
+    try:
+        ids = [uuid.UUID(value) for value in payload.task_ids]
+    except (ValueError, TypeError, AttributeError):
+        return _json_error(400, _VALIDATION_CODE, '任务参数不合法')
+    if day is None or not ids or len(set(ids)) != len(ids) or not 5 <= payload.minutes <= 240:
+        return _json_error(400, _VALIDATION_CODE, '请选择任务和有效时间')
+    tasks = list(session.scalars(select(DailyTask).join(Plan, Plan.id == DailyTask.plan_id).where(Plan.user_id == user.id, DailyTask.id.in_(ids), DailyTask.status == 'pending')))
+    if len(tasks) != len(ids) or len({task.plan_id for task in tasks}) != 1:
+        return _json_error(400, _VALIDATION_CODE, '任务不存在或不可选择')
+    existing = list(session.scalars(select(DailySelection).where(DailySelection.user_id == user.id, DailySelection.study_date == day)))
+    by_task = {item.task_id: item for item in existing}
+    for item in existing:
+        if item.task_id not in ids and not item.learned:
+            session.delete(item)
+    for position, task_id in enumerate(ids):
+        item = by_task.get(task_id)
+        if item is None:
+            item = DailySelection(user_id=user.id, task_id=task_id, study_date=day, learned=False)
+            session.add(item)
+        item.position = position
+        item.minutes = payload.minutes
+    session.commit()
+    return get_daily_selection(payload.date, user, session)
 
 
 def _task_result(task: DailyTask) -> dict:

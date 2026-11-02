@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
+    DailySelection,
     DailyTask,
     MasteryEvidence,
     Mistake,
@@ -104,6 +105,7 @@ def _question_json(row: PracticeQuestion) -> dict:
         "status": row.status,
         "createdAt": row.created_at.isoformat(),
         "sourceTaskId": str(row.source_task_id) if row.source_task_id else None,
+        "dailySelectionId": str(row.daily_selection_id) if row.daily_selection_id else None,
         "sourceMistakeId": str(row.source_mistake_id) if row.source_mistake_id else None,
         "sourceRefs": _visible_source_refs(row.question, row.source_refs),
     }
@@ -305,6 +307,8 @@ def delete_question(session: Session, user_id: uuid.UUID, question_id: uuid.UUID
     )
     if row is None:
         raise PracticeNotFoundError()
+    if row.daily_selection_id:
+        raise PracticeValidationError('今日任务的验证题需要保留，以免丢失验证记录')
     session.delete(row)
     session.commit()
 
@@ -457,6 +461,49 @@ async def generate_for_day(
     session.commit()
     for row in rows:
         session.refresh(row)
+    return rows
+
+
+async def generate_selected_for_day(session: Session, user_id: uuid.UUID, day: date, generator: QuestionGenerator | None = None) -> list[PracticeQuestion]:
+    selections = list(session.scalars(select(DailySelection).join(DailyTask, DailyTask.id == DailySelection.task_id).join(Plan, Plan.id == DailyTask.plan_id).where(DailySelection.user_id == user_id, Plan.user_id == user_id, DailySelection.study_date == day, DailySelection.learned.is_(True), DailyTask.status == 'pending').order_by(DailySelection.position)))
+    if not selections:
+        return []
+    if len(selections) > 10:
+        raise PracticeValidationError('本次最多验证 10 项，请分批选择任务')
+    doc_ids = list(session.scalars(select(UserDocument.doc_id).where(UserDocument.user_id == user_id).distinct()))
+    existing_by_selection = {item.id: list(session.scalars(select(PracticeQuestion).where(PracticeQuestion.user_id == user_id, PracticeQuestion.daily_selection_id == item.id))) for item in selections}
+    rows = [question for item in selections for question in existing_by_selection[item.id]]
+    remaining = max(0, 10 - len(rows))
+    for selection in selections:
+        if existing_by_selection[selection.id] or remaining == 0:
+            continue
+        task = session.get(DailyTask, selection.task_id)
+        lines = [task.description]
+        context, _ = document_service.build_context(session, user_id, doc_ids, task.description) if doc_ids else ('', [])
+        if not context:
+            raise PracticeValidationError('找不到与任务相关的学习资料，无法生成验证题')
+        require_ai_access(session, user_id)
+        try:
+            if generator is None:
+                produced = await _default_generator(session, user_id, lines, context)
+                questions = _parse_questions(str(produced.get('raw') or ''))
+            else:
+                produced = generator(lines, context)
+                if hasattr(produced, '__await__'):
+                    produced = await produced
+                questions = _parse_questions(json.dumps(produced))
+        except (NoVerifiedApiConfigError, CredentialUnavailableError):
+            raise
+        except Exception as exc:
+            raise PracticeGradeError('生成练习失败，请重试') from exc
+        for item in questions[:min(remaining, max(1, 10 // len(selections)))]:
+            if not item['answer'] or not item['explanation']:
+                raise PracticeValidationError('生成的练习缺少答案或解释，请重试')
+            row = PracticeQuestion(user_id=user_id, source='generated', subject=item['subject'], question=item['question'], answer=item['answer'], explanation=item['explanation'], source_task_id=task.id, daily_selection_id=selection.id, source_refs=_refs_for_question(session, user_id, doc_ids, item['question']), status='pending')
+            session.add(row)
+            rows.append(row)
+            remaining -= 1
+    session.commit()
     return rows
 
 
@@ -869,8 +916,6 @@ async def _grade_and_record(
     require_source: bool,
 ) -> tuple[MasteryEvidence, dict]:
     answer = (answer_text or "").strip()
-    if not answer:
-        raise PracticeValidationError("请先写下你的作答")
     question = session.scalar(
         select(PracticeQuestion).where(
             PracticeQuestion.id == question_id,
@@ -879,11 +924,15 @@ async def _grade_and_record(
     )
     if question is None:
         raise PracticeNotFoundError()
+    if not answer and not (question.daily_selection_id and evidence_type == 'quiz'):
+        raise PracticeValidationError("请先写下你的作答")
     source_text, source_ref = _source_for_grade(session, user_id, question.question)
     if require_source and not source_text.strip():
         raise ExplanationInsufficientEvidenceError()
     try:
-        if grader is None:
+        if not answer:
+            produced = {'result': 'wrong', 'reason': '提交时未作答', 'error_tag': 'unanswered'}
+        elif grader is None:
             produced = await default_grader(
                 session, user_id, question.question, answer, source_text
             )
@@ -932,6 +981,31 @@ async def _grade_and_record(
         question_id=question.id,
     )
     session.add(row)
+    if evidence_type == "quiz" and verdict["result"] in ("wrong", "partial"):
+        mistake = session.get(Mistake, question.source_mistake_id) if question.source_mistake_id else None
+        if mistake is None:
+            mistake = Mistake(user_id=user_id, question=question.question, subject=question.subject or "", review_status="pending")
+            session.add(mistake)
+            session.flush()
+            question.source_mistake_id = mistake.id
+        if mistake.user_id == user_id and mistake.question == question.question:
+            mistake.my_answer = answer or '（未作答）'
+            mistake.why_wrong = row.grade_reason
+            mistake.correct_understanding = question.answer or question.explanation or None
+    if evidence_type == 'quiz' and question.daily_selection_id and verdict['result'] == 'correct':
+        selection = session.get(DailySelection, question.daily_selection_id)
+        if selection and selection.user_id == user_id and selection.learned and selection.task_id == question.source_task_id:
+            task = session.get(DailyTask, selection.task_id)
+            session.flush()
+            siblings = list(session.scalars(select(PracticeQuestion).where(PracticeQuestion.daily_selection_id == selection.id, PracticeQuestion.user_id == user_id)))
+            results = [session.scalar(select(MasteryEvidence.result).where(MasteryEvidence.question_id == sibling.id, MasteryEvidence.user_id == user_id, MasteryEvidence.evidence_type == 'quiz').order_by(MasteryEvidence.created_at.desc(), MasteryEvidence.id.desc()).limit(1)) for sibling in siblings]
+            if task and task.status == 'pending' and siblings and all(result == 'correct' for result in results):
+                from app.services import task_service
+                task.status = 'done'
+                session.flush()
+                phase = session.get(Phase, task.phase_id)
+                if phase:
+                    task_service.recompute_phase_progress(session, phase)
     session.commit()
     session.refresh(row)
     return row, verdict

@@ -12,7 +12,8 @@ export function dailyStartChoices(tasks: DailyTask[], today: string): DailyTask[
 export function dailyStartSummary(description: string): string {
   const text = description.replace(/\s+/g, ' ').trim();
   const lead = text.split(/[：:，,。；;\n]/)[0]?.trim();
-  const summary = lead && lead.length >= 4 ? lead : text;
+  const generic = /^(python|java|javascript|统计学)$/i.test(lead ?? '');
+  const summary = generic ? text.replace(/^[^：:]+[：:]\s*/, '') : lead && lead.length >= 4 ? lead : text;
   return summary.length > 36 ? `${summary.slice(0, 35)}…` : summary || '学习线路任务';
 }
 

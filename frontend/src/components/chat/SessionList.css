@@ -1,0 +1,74 @@
+/* 聊天记录删除按钮 —— 圆形垃圾桶，悬停展开成红色胶囊并显示 Delete */
+.session-delete-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: rgb(20, 20, 20);
+  border: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0px 0px 12px rgba(0, 0, 0, 0.164);
+  cursor: pointer;
+  transition-duration: 0.3s;
+  overflow: hidden;
+  position: relative;
+}
+
+.session-delete-icon {
+  width: 11px;
+  transition-duration: 0.3s;
+}
+
+.session-delete-icon path {
+  fill: white;
+}
+
+.session-delete-spinner {
+  width: 11px;
+  height: 11px;
+  color: white;
+}
+
+.session-delete-button:hover {
+  width: 96px;
+  border-radius: 50px;
+  transition-duration: 0.3s;
+  background-color: rgb(255, 69, 69);
+  align-items: center;
+}
+
+.session-delete-button:hover .session-delete-icon {
+  width: 30px;
+  transition-duration: 0.3s;
+  transform: translateY(60%);
+}
+
+.session-delete-button::before {
+  position: absolute;
+  top: -20px;
+  content: "Delete";
+  color: white;
+  transition-duration: 0.3s;
+  font-size: 2px;
+}
+
+.session-delete-button:hover::before {
+  font-size: 13px;
+  opacity: 1;
+  transform: translateY(30px);
+  transition-duration: 0.3s;
+}
+
+/* 删除中锁住：不动画、不可点 */
+.session-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 展开态会挤压列表行，限制在行内不换行 */
+.session-delete-button {
+  flex: none;
+}

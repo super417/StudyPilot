@@ -8,12 +8,18 @@ import { ArrowLeft, BookOpen, ExternalLink, Map } from 'lucide-react';
 import { ApiError } from '@/lib/httpClient';
 import { fetchPhaseDetail, type PhaseDetailResponse } from '@/lib/phasesApi';
 import type { DailyTask } from '@/mocks/types';
+import { fetchDailySelection, markDailyTaskLearned, type SelectedDailyTask } from '@/lib/studyApi';
+import { todayISO } from '@/lib/dates';
+import './PhaseDetailPage.css';
 
 export interface PhaseDetailPageProps {
   phaseId: string;
+  initialTaskId?: string;
   onClose: () => void;
   onAdjust?: () => void;
   onToggleTask?: (task: DailyTask) => void;
+  onPractice?: () => void;
+  onOpenTask?: (task: SelectedDailyTask) => void;
 }
 
 /** 左侧简述学习路线正文（冒号后的内容），完整页码清单留在右侧。 */
@@ -29,9 +35,11 @@ function taskSummary(description: string, max = 48): string {
 export function LearningModuleCard({
   task,
   index,
+  learningState,
 }: {
   task: DailyTask;
   index: number;
+  learningState?: SelectedDailyTask['learningState'];
 }) {
   const resourceLocation = [task.chapterTitle?.trim(), task.sectionTitle?.trim()]
     .filter(Boolean)
@@ -48,11 +56,11 @@ export function LearningModuleCard({
         </div>
         {task.status === 'done' ? (
           <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-            已完成
+            {learningState === 'done' ? '已完成' : '已打卡（未验证）'}
           </span>
         ) : (
           <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-            待学习
+            {learningState === 'verify' ? '待验证' : learningState === 'reinforce' ? '待巩固' : learningState === 'today' ? '今日待完成' : '待完成'}
           </span>
         )}
       </div>
@@ -92,12 +100,18 @@ export function LearningModuleCard({
   );
 }
 
-function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDetailPageProps) {
+function PhaseDetailPage({ phaseId, initialTaskId, onClose, onAdjust, onPractice, onOpenTask }: PhaseDetailPageProps) {
   const [detail, setDetail] = useState<PhaseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** 左侧勾选：决定右侧展示哪些学习模块（与「完成」状态分开） */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [todayTasks, setTodayTasks] = useState<SelectedDailyTask[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void fetchDailySelection(todayISO()).then((result) => setTodayTasks(result.tasks)).catch(() => setError('今日任务读取失败'));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -106,7 +120,7 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
       .then((res) => {
         setDetail(res);
         // 默认勾选第一项，右侧立刻有内容
-        setSelectedIds(res.tasks[0] ? [res.tasks[0].id] : []);
+        setSelectedIds(initialTaskId && res.tasks.some((task) => task.id === initialTaskId) ? [initialTaskId] : res.tasks[0] ? [res.tasks[0].id] : []);
       })
       .catch((err) => {
         setDetail(null);
@@ -114,7 +128,11 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
         setError(err instanceof ApiError ? err.message : '阶段详情加载失败');
       })
       .finally(() => setLoading(false));
-  }, [phaseId]);
+  }, [phaseId, initialTaskId]);
+
+  useEffect(() => {
+    if (detail && initialTaskId) document.getElementById(`phase-task-${initialTaskId}`)?.scrollIntoView({ block: 'center' });
+  }, [detail, initialTaskId]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -216,17 +234,21 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
                   </span>
                 </div>
                 <p className="mb-4 text-xs text-slate-400">
-                  勾选左侧任务，右侧显示对应学习路线与课程资源；点「完成」标记打卡状态。
+                  勾选任务查看学习路线；学完今日任务后可前往练习验证。
                 </p>
+                {todayTasks.length > 1 && <div className="mb-3 flex flex-wrap gap-2">{todayTasks.map((task, index) => <button key={task.id} type="button" className="phase-today-task-button" onClick={() => task.phaseId === phaseId ? setSelectedIds([task.id]) : onOpenTask?.(task)}>今日任务 {index + 1}</button>)}</div>}
                 {detail.tasks.length === 0 ? (
                   <p className="text-sm text-slate-400">该阶段还没有每日任务</p>
                 ) : (
                   <ul className="space-y-2">
                     {detail.tasks.map((task, index) => {
                       const selected = selectedIds.includes(task.id);
+                      const todayTask = todayTasks.find((item) => item.id === task.id);
+                      const state = todayTask?.learningState;
                       return (
                         <li
                           key={task.id}
+                          id={`phase-task-${task.id}`}
                           className={index % 2 === 0 ? 'mr-6' : 'ml-6'}
                         >
                           <div
@@ -251,30 +273,22 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
                               <p className="text-xs text-slate-400">
                                 {task.taskDate}
                                 {task.weekLabel ? ` · ${task.weekLabel}` : ''}
-                                {task.status === 'done' ? ' · 已完成' : ''}
+                                {' · ' + (state === 'done' ? '已完成' : task.status === 'done' ? '已打卡（未验证）' : state === 'reinforce' ? '待巩固' : state === 'verify' ? '待验证' : state === 'today' ? '今日待完成' : '待完成')}
                               </p>
                               <p className="mt-0.5 text-sm text-brandDark">{taskSummary(task.description)}</p>
                             </button>
-                            <button
+                            {todayTask && task.status !== 'done' && <button
                               type="button"
+                              disabled={saving}
                               className="shrink-0 rounded-full px-2 py-1 text-[11px] font-medium text-brandDark ring-1 ring-brand/25 hover:bg-white"
                               onClick={() => {
-                                onToggleTask?.(task);
-                                setDetail((prev) => {
-                                  if (!prev) return prev;
-                                  const nextStatus =
-                                    task.status === 'done' ? 'pending' : 'done';
-                                  return {
-                                    ...prev,
-                                    tasks: prev.tasks.map((t) =>
-                                      t.id === task.id ? { ...t, status: nextStatus } : t,
-                                    ),
-                                  };
-                                });
+                                if (todayTask.learned) { onPractice?.(); return; }
+                                setSaving(true);
+                                void markDailyTaskLearned(task.id, todayISO()).then(() => onPractice?.()).catch((err) => setError(err instanceof Error ? err.message : '保存失败，请重试')).finally(() => setSaving(false));
                               }}
                             >
-                              {task.status === 'done' ? '改回待做' : '完成'}
-                            </button>
+                              {todayTask.learned ? '去练习' : '学完了，去练习'}
+                            </button>}
                           </div>
                         </li>
                       );
@@ -295,7 +309,7 @@ function PhaseDetailPage({ phaseId, onClose, onAdjust, onToggleTask }: PhaseDeta
                 ) : (
                   <div className="space-y-4">
                     {selectedTasks.map((task, index) => (
-                      <LearningModuleCard key={task.id} task={task} index={index} />
+                      <LearningModuleCard key={task.id} task={task} index={index} learningState={todayTasks.find((item) => item.id === task.id)?.learningState} />
                     ))}
                   </div>
                 )}

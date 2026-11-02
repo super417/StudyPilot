@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 
 /** 打卡表单提交负载（对应 Check_Ins 表可写字段的前端子集） */
 export interface CheckInFormValues {
@@ -13,8 +13,6 @@ export interface CheckInFormValues {
 }
 
 export interface CheckInFormProps {
-  /** 时长输入的初始值（分钟），默认 60 */
-  initialDurationMinutes?: number;
   /** 完成打卡回调；总览页传入后会 POST /api/check-ins。 */
   onSubmit?: (values: CheckInFormValues) => void;
 }
@@ -26,18 +24,15 @@ const SCALE = [1, 2, 3, 4, 5] as const;
  * CheckInForm — 总览页打卡表单（需求 4.6）
  * 本地受控：学习分钟、主观难度、精力、备注；提交交由父组件写库。
  */
-function CheckInForm({ initialDurationMinutes = 60, onSubmit }: CheckInFormProps) {
-  const [durationMinutes, setDurationMinutes] = useState<number>(initialDurationMinutes);
+function CheckInForm({ onSubmit }: CheckInFormProps) {
+  const [durationMinutes, setDurationMinutes] = useState<number | ''>('');
   const [difficulty, setDifficulty] = useState<number>(3);
   const [energy, setEnergy] = useState<number>(3);
   const [note, setNote] = useState<string>('');
 
-  useEffect(() => {
-    setDurationMinutes(initialDurationMinutes);
-  }, [initialDurationMinutes]);
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (durationMinutes === '' || !Number.isInteger(durationMinutes) || durationMinutes <= 0) return;
     const values: CheckInFormValues = { durationMinutes, difficulty, energy, note };
     onSubmit?.(values);
   };
@@ -51,13 +46,15 @@ function CheckInForm({ initialDurationMinutes = 60, onSubmit }: CheckInFormProps
 
       {/* 实际学习分钟 */}
       <label className="mt-4 block">
-        <span className="text-xs font-medium text-gray-500">实际学习分钟</span>
+        <span className="text-xs font-medium text-gray-500">学习分钟（由你填写）</span>
         <input
           type="number"
-          min={0}
+          required
+          min={1}
+          step={1}
           inputMode="numeric"
           value={durationMinutes}
-          onChange={(event) => setDurationMinutes(Number(event.target.value))}
+          onChange={(event) => setDurationMinutes(event.target.value === '' ? '' : Number(event.target.value))}
           className="mt-1.5 w-full rounded-xl border border-brandFaint bg-white px-3 py-2 font-display text-lg font-semibold text-brandDark outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
       </label>

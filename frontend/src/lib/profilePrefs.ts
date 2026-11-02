@@ -19,6 +19,7 @@ const STORAGE_KEY = 'studypilot.basicProfile.v1';
 const MIGRATED_KEY = 'studypilot.basicProfile.migrated.v1';
 export const ASSISTANT_NAME_SKIPPED_KEY = 'studypilot.assistantName.skipped.v1';
 export const DEFAULT_ASSISTANT_LABEL = '你的学伴';
+export const PROFILE_CHANGED = 'studypilot-profile-changed';
 
 const DEFAULT_PROFILE: BasicProfile = {
   nickname: '',
@@ -156,6 +157,7 @@ export async function saveBasicProfile(profile: BasicProfile): Promise<BasicProf
   });
   const saved = normalize(res.profile);
   writeLocal(saved);
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(PROFILE_CHANGED));
   try {
     localStorage.setItem(MIGRATED_KEY, '1');
   } catch {

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { AssistantMarkdown, stripAssistantMarkup } from '@/lib/assistantMarkdown';
 import { extractChatPractice } from '@/lib/chatPracticeExtract';
+import { groupCitations } from '@/lib/citationDedup';
 import { ApiError } from '@/lib/httpClient';
 import { savePracticeFromChat } from '@/lib/practiceApi';
 import { playAssistantSpeech, type SpeechPlayback } from '@/lib/assistantSpeech';
@@ -66,18 +67,9 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
     [message.content, message.streaming],
   );
 
-  // 同一份资料（按 docId）只保留一条，避免多 chunk 重复列出文件名
+  // 同名来源合并展示，保留不同摘录。
   const uniqueCitations = useMemo(() => {
-    const list = message.citations ?? [];
-    const seen = new Set<string>();
-    const out: NonNullable<ChatMessage['citations']> = [];
-    for (const item of list) {
-      const key = item.docId || item.filename;
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
-    }
-    return out;
+    return groupCitations(message.citations ?? []);
   }, [message.citations]);
 
   const closeMore = () => {
@@ -207,7 +199,7 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
             <p className="mb-1 text-[11px] font-medium text-brandDark/50">资料来源</p>
             <ul className="space-y-1">
               {uniqueCitations.map((item, index) => (
-                <li key={item.docId || item.filename} className="text-xs text-brandDark/80">
+                <li key={item.filename} className="text-xs text-brandDark/80">
                   <button
                     type="button"
                     className="font-medium underline-offset-2 hover:underline"
@@ -216,7 +208,14 @@ function AssistantMessage({ message, bubbleClassName, onResend }: AssistantMessa
                     {item.filename}
                   </button>
                   {openCitation === index ? (
-                    <p className="mt-1 whitespace-pre-wrap text-brandDark/70">{item.snippet}</p>
+                    <ol className="mt-1 space-y-3 text-brandDark/70">
+                      {item.snippets.map((snippet, snippetIndex) => (
+                        <li key={snippetIndex}>
+                          <span className="font-medium">第 {snippetIndex + 1} 条：</span>
+                          <p className="whitespace-pre-wrap">{snippet}</p>
+                        </li>
+                      ))}
+                    </ol>
                   ) : null}
                 </li>
               ))}

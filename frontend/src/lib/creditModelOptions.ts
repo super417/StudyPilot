@@ -3,6 +3,11 @@ import { platformProviderId } from './platformProviders';
 
 export const CREDIT_SELECTION_CHANGED = 'studypilot:credit-selection-changed';
 
+export function creditModelLabel(model: CreditModel): string {
+  if (model.id === 'credits:deepseek-flash') return 'DeepSeek-V4.1-Flash';
+  return model.displayName;
+}
+
 export function creditModelGroups(models: CreditModel[]) {
   const groups = [
     { id: 'deepseek', name: 'DeepSeek', pending: ['DeepSeek-V4.1-Flash', 'DeepSeek-V4-Pro'] },
@@ -19,7 +24,10 @@ export function creditModelGroups(models: CreditModel[]) {
     const id = platformProviderId(model.provider);
     let group = groups.find((item) => item.id === id);
     if (!group) { group = { id, name: model.provider, models: [], pending: [] }; groups.push(group); }
-    group.models.push(model);
+    group.models.push({ ...model, displayName: creditModelLabel(model) });
+  }
+  for (const group of groups) {
+    group.pending = group.pending.filter((name) => !group.models.some((model) => model.displayName.toLowerCase() === name.toLowerCase()));
   }
   return groups;
 }

@@ -22,6 +22,7 @@ describe('学习前从线路挑选任务', () => {
     expect(dailyStartSummary(item.description)).toBe('NumPy 统计');
     expect(buildDailyStartPrompt(30, [item], [item.id])).toContain(item.description);
     expect(dailyStartSummary('这是一段很长的没有标点的任务要求'.repeat(10)).length).toBeLessThanOrEqual(36);
+    expect(dailyStartSummary('Python：学习变量与赋值')).toBe('学习变量与赋值');
   });
   it('兜底练习也支持多选或全部取消，取消后不能开始', () => {
     expect(buildDailyStartPrompt(30, [], [], [MICRO_TASKS[0], MICRO_TASKS[2]])).toContain('以下 2 项');

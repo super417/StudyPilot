@@ -18,7 +18,6 @@ import {
   fetchDailyTasks,
   fetchOverviewMetrics,
   addTodayTask,
-  setDailyTaskStatus,
   toMetrics,
 } from '@/lib/studyApi';
 import { createRemedyPreview, fetchLatestPlan } from '@/lib/plansApi';
@@ -176,18 +175,9 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
     void reload();
   }, [reload, lastPlanId, planDataEpoch]);
 
-  const handleToggleTask = async (task: DailyTask) => {
-    const next = task.status === 'done' ? 'pending' : 'done';
-    setCheckInMsg(null);
-    try {
-      await setDailyTaskStatus(task.id, next);
-      setCheckInMsg(
-        next === 'done' ? '已标记完成；阶段进度与当前阶段会跟着更新' : '已改回待完成',
-      );
-      await reload();
-    } catch (e) {
-      setCheckInMsg(e instanceof ApiError ? e.message : '更新任务状态失败');
-    }
+  const handleToggleTask = async (_task: DailyTask) => {
+    setDialog(null);
+    setStarting(true);
   };
 
   const handleArrangeBacklog = async () => {
@@ -279,8 +269,13 @@ function OverviewPage({ onNavigate, presentation = 'postcards' }: OverviewPagePr
 
   if (presentation === 'postcards') return <div id="learning-overview" ref={pageRef}>
     <StudyPilotPostcards overview={overview} onAction={handleAction} onRetry={() => void reload()} />
-    {starting && <DailyStartDialog defaultMinutes={Math.min(plan?.dailyMinutes || 30, 30)} onClose={() => setStarting(false)} onConfirm={(prompt) => {
+    {starting && <DailyStartDialog defaultMinutes={Math.min(plan?.dailyMinutes || 30, 30)} onClose={() => setStarting(false)} onConfirm={(prompt, selectedTasks) => {
       setStarting(false);
+      if (selectedTasks.length) {
+        sessionStorage.setItem('studypilot.roadmapTarget', JSON.stringify({ phaseId: selectedTasks[0].phaseId, taskId: selectedTasks[0].id }));
+        go('roadmap');
+        return;
+      }
       openAssistantWithContext({ type: 'free', hint: prompt });
       useAssistantStore.getState().queuePrompt(prompt);
     }} />}

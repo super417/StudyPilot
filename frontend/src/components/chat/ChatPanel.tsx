@@ -29,7 +29,7 @@ import DailyStartDialog from '@/components/overview/DailyStartDialog';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { isPauseRequest } from '@/lib/pauseRequest';
-import { displayAssistantName, fetchBasicProfile, getBasicProfile } from '@/lib/profilePrefs';
+import { displayAssistantName, fetchBasicProfile, getBasicProfile, PROFILE_CHANGED } from '@/lib/profilePrefs';
 
 const CONTEXT_LABEL: Record<'mistake' | 'plan' | 'free', string> = {
   mistake: '错题',
@@ -103,6 +103,12 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
   );
   const [nickname, setNickname] = useState(() => getBasicProfile().nickname);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    const sync = () => setAssistantTitle(displayAssistantName(getBasicProfile().assistantName));
+    window.addEventListener(PROFILE_CHANGED, sync);
+    return () => window.removeEventListener(PROFILE_CHANGED, sync);
+  }, []);
 
   useEffect(() => {
     // 资料页改名后本地缓存已更新；全屏聊天挂载时同步标题（不另发 GET）。
@@ -356,7 +362,7 @@ function ChatPanel({ onClose, onShowWorkflow, onShowNotice }: ChatPanelProps) {
           />
         </div>
       </div>
-      {startingToday && <DailyStartDialog onClose={() => setStartingToday(false)} onConfirm={(prompt) => { setStartingToday(false); pinToBottom(); send(prompt); }} />}
+      {startingToday && <DailyStartDialog onClose={() => setStartingToday(false)} onConfirm={(prompt, tasks) => { setStartingToday(false); if (tasks.length) { sessionStorage.setItem('studypilot.roadmapTarget', JSON.stringify({ phaseId: tasks[0].phaseId, taskId: tasks[0].id })); window.dispatchEvent(new Event('studypilot:open-roadmap')); } else { pinToBottom(); send(prompt); } }} />}
     </motion.aside>
   );
 }

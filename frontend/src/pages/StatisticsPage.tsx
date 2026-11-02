@@ -666,7 +666,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         ) : reviewEmpty || !review ? (
           <p className="py-10 text-center text-sm text-slate-400">完成一周学习后，这里会显示各阶段的完成度与掌握度双环。</p>
         ) : (
-          <PhaseRings items={review.masteryDetail} reinforceOutcomesByPhase={reinforceOutcomesByPhase} />
+          <PhaseRings items={review.masteryDetail} reinforceOutcomesByPhase={reinforceOutcomesByPhase} stackRoute={data?.route ?? []} />
         );
       case 'activity':
         return hasActivity ? (
@@ -754,7 +754,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <div>
             <h2 className="text-base font-semibold text-slate-800">触发补强</h2>
             <p className="mt-1 text-sm text-slate-500">
-              完成度明显高于掌握度时生成补强任务；确认后先完成补强任务，再生成同阶段新题，到习题本「今日练习」作答后查看下方双环。
+              同一阶段本周任务完成率比练习证据得分高至少 30 个百分点，且本周有错误或部分正确的作答时，可生成补强候选；已用于补强或被其他预览占用的证据会排除。确认并完成补强任务后，再生成同阶段新题作答。
             </p>
           </div>
           <button
