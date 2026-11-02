@@ -36,6 +36,7 @@ def test_existing_weekly_review_uses_current_records():
         session.commit()
         actual = _review(session, user.id, review)
         assert actual["totalsSource"] == "live"
-        assert (actual["totalMinutes"], actual["completionRate"], actual["streakDays"]) == (90, 100, 2)
+        # The week ends on the 16th, which has no check-in: strict streak is zero.
+        assert (actual["totalMinutes"], actual["completionRate"], actual["streakDays"]) == (90, 100, 0)
         assert review.total_minutes == 30  # original snapshot is not rewritten
     engine.dispose()

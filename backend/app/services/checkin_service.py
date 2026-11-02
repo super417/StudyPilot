@@ -12,6 +12,8 @@ from datetime import date
 import uuid
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.entities import CheckIn
 
@@ -62,6 +64,9 @@ def create_check_in(
     """
     _validate(duration_minutes, difficulty, energy)
 
+    if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.check_date == check_date)):
+        raise CheckInValidationError('今天已打卡，无需重复')
+
     check_in = CheckIn(
         user_id=user_id,
         check_date=check_date,
@@ -73,6 +78,11 @@ def create_check_in(
     session.add(check_in)
     try:
         session.commit()
+    except IntegrityError:
+        session.rollback()
+        if session.scalar(select(CheckIn.id).where(CheckIn.user_id == user_id, CheckIn.check_date == check_date)):
+            raise CheckInValidationError('今天已打卡，无需重复') from None
+        raise
     except Exception:
         session.rollback()
         raise

@@ -9,7 +9,7 @@ import './TodayTaskCard.css';
 const DURATION_OPTIONS = [60, 75, 90] as const;
 
 export interface TodayTaskCardProps {
-  /** 今日任务状态徽标（未反馈 / 已安排 / 已完成，来自 metrics.todayStatus） */
+  /** 今日任务状态徽标（未反馈 / 未完成 / 已完成，来自 metrics.todayStatus） */
   todayStatus: TodayStatus;
   /** 今日日期展示文案，默认占位「今天」 */
   date?: string;

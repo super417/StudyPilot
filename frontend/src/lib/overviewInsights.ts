@@ -47,7 +47,7 @@ export function buildLearningInsights(
     body:
       todayStatus === '已完成'
         ? '今日已打卡完成。隔日可回看错题与周报，确认是否真正掌握。'
-        : todayStatus === '已安排'
+        : todayStatus === '未完成'
           ? '任务已安排，任务完成与打卡请分别记录。掌握评估还需要练习证据。'
           : '尚无今日反馈。「未反馈」不计入完成，打卡后总览与周报才会刷新。',
     evidence: `证据: metrics.todayStatus=${todayStatus}`,

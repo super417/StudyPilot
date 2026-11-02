@@ -77,6 +77,15 @@ class CheckInServiceTests(unittest.TestCase):
         self.assertEqual(stored.note, "专注")
         self.assertEqual(stored.check_date, date(2025, 2, 10))
 
+    def test_duplicate_day_rejected_without_adding_minutes(self) -> None:
+        user = self._make_user()
+        checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 30, 3, 3)
+        with self.assertRaisesRegex(CheckInValidationError, '今天已打卡，无需重复'):
+            checkin_service.create_check_in(self.session, user.id, date(2025, 2, 10), 90, 3, 3)
+        rows = list(self.session.scalars(select(CheckIn).where(CheckIn.user_id == user.id)))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(sum(row.duration_minutes for row in rows), 30)
+
     def _assert_rejected(self, duration: int, difficulty: int, energy: int) -> None:
         user = self._make_user()
         with self.assertRaises(CheckInValidationError) as ctx:

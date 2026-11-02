@@ -304,17 +304,17 @@ export async function fetchRecentActivities(): Promise<ActivityItem[]> {
     });
   }
 
-  // 三态取自后端 metrics_service.classify_today：未反馈 / 已安排 / 已完成
+  // 三态取自后端 metrics_service.classify_today：未反馈 / 未完成 / 已完成
   if (overview?.todayStatus === '已完成') {
     items.push({
       id: `checkin-${today}`,
       text: '今日已打卡',
       at: '今天',
     });
-  } else if (overview?.todayStatus === '已安排') {
+  } else if (overview?.todayStatus === '未完成') {
     items.push({
       id: `partial-${today}`,
-      text: '今日学习进行中（部分完成）',
+      text: '今日有学习任务，尚未打卡',
       at: '今天',
     });
   }

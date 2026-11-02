@@ -19,28 +19,13 @@ from app.services import task_service
 
 # Today three-state labels (requirement 4.4 / 16.3).
 TODAY_STATUS_NO_TASK = "未反馈"
-TODAY_STATUS_SCHEDULED = "已安排"
+TODAY_STATUS_SCHEDULED = "未完成"
 TODAY_STATUS_COMPLETED = "已完成"
 
 
 def compute_streak(dates: set[date], today: date) -> int:
-    """Consecutive check-in days ending at/before ``today`` (requirement 15.3).
-
-    Start the cursor at ``today`` if it was a check-in day, else at the most
-    recent check-in day on or before ``today`` (later days never seed the
-    walk-back). Then count backwards one day at a time, stopping at the first
-    gap. An empty set yields 0.
-    """
-    if not dates:
-        return 0
-
-    if today in dates:
-        cursor = today
-    else:
-        earlier = [d for d in dates if d <= today]
-        if not earlier:
-            return 0
-        cursor = max(earlier)
+    """Consecutive check-in days ending today; no check-in today means zero."""
+    cursor = today
 
     streak = 0
     while cursor in dates:
@@ -50,17 +35,12 @@ def compute_streak(dates: set[date], today: date) -> int:
 
 
 def classify_today(has_task: bool, has_checkin: bool) -> str:
-    """Map (has Daily_Task today, has Check_In today) to the three states.
-
-    No task -> 未反馈; task but no check-in -> 已安排; task and check-in ->
-    已完成 (requirement 16.3). A check-in with no task still reads 未反馈: the
-    state is anchored on whether the day was scheduled.
-    """
-    if not has_task:
-        return TODAY_STATUS_NO_TASK
+    """Check-in takes precedence; an unchecked scheduled day is incomplete."""
     if has_checkin:
         return TODAY_STATUS_COMPLETED
-    return TODAY_STATUS_SCHEDULED
+    if has_task:
+        return TODAY_STATUS_SCHEDULED
+    return TODAY_STATUS_NO_TASK
 
 
 @dataclass(frozen=True)

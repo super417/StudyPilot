@@ -357,6 +357,7 @@ class ReinforceTaskEvidence(Base):
 class CheckIn(Base):
     __tablename__ = "check_ins"
     __table_args__ = (
+        UniqueConstraint('user_id', 'check_date', name='uq_check_ins_user_date'),
         CheckConstraint(
             "duration_minutes > 0", name="ck_check_ins_duration_minutes_positive"
         ),

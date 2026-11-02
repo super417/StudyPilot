@@ -2,7 +2,7 @@
  * 个人中心右栏「最近动态」的今日三态派生回归测试。
  *
  * 契约来自后端 `app/services/metrics_service.py` 的 `classify_today()`：
- * todayStatus ∈ {未反馈, 已安排, 已完成}（中文）。
+ * todayStatus ∈ {未反馈, 未完成, 已完成}（中文）。
  * 这里曾误写成 checked_in / partial —— 因 `tsconfig.json` 是空壳
  * （`"files": []` + references，`tsc --noEmit` 不编译任何文件），
  * 该错误长期未被发现：类型检查假绿，vitest 也不做类型检查。
@@ -66,12 +66,12 @@ describe('fetchRecentActivities 今日三态', () => {
     expect(texts).toContain('今日已打卡');
   });
 
-  it('已安排 → 追加「今日学习进行中（部分完成）」', async () => {
-    mocks.fetchOverviewMetrics.mockResolvedValue(overviewWith('已安排'));
+  it('未完成 → 追加「今日有学习任务，尚未打卡」', async () => {
+    mocks.fetchOverviewMetrics.mockResolvedValue(overviewWith('未完成'));
 
     const texts = (await fetchRecentActivities()).map((i) => i.text);
 
-    expect(texts).toContain('今日学习进行中（部分完成）');
+    expect(texts).toContain('今日有学习任务，尚未打卡');
   });
 
   it('未反馈 → 不追加任何今日状态动态', async () => {

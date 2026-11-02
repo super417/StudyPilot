@@ -23,10 +23,10 @@ class ComputeStreakTests(unittest.TestCase):
         days = {date(2025, 2, 8), date(2025, 2, 9), date(2025, 2, 10)}
         self.assertEqual(compute_streak(days, date(2025, 2, 10)), 3)
 
-    def test_today_not_checked_in_walks_back_from_latest(self) -> None:
+    def test_today_not_checked_in_is_zero(self) -> None:
         # today is the 12th, no check-in that day; latest run ends on the 10th.
         days = {date(2025, 2, 9), date(2025, 2, 10)}
-        self.assertEqual(compute_streak(days, date(2025, 2, 12)), 2)
+        self.assertEqual(compute_streak(days, date(2025, 2, 12)), 0)
 
     def test_gap_breaks_the_streak(self) -> None:
         # Missing the 9th: only the 10th counts from today.
@@ -42,10 +42,10 @@ class ComputeStreakTests(unittest.TestCase):
 class ClassifyTodayTests(unittest.TestCase):
     def test_no_task_is_no_feedback(self) -> None:
         self.assertEqual(classify_today(False, False), "未反馈")
-        self.assertEqual(classify_today(False, True), "未反馈")
+        self.assertEqual(classify_today(False, True), "已完成")
 
     def test_task_without_checkin_is_scheduled(self) -> None:
-        self.assertEqual(classify_today(True, False), "已安排")
+        self.assertEqual(classify_today(True, False), "未完成")
 
     def test_task_with_checkin_is_completed(self) -> None:
         self.assertEqual(classify_today(True, True), "已完成")
@@ -224,7 +224,7 @@ class ComputeOverviewTests(unittest.TestCase):
         scheduled = metrics_service.compute_overview(
             self.session, user.id, date(2025, 2, 10)
         )
-        self.assertEqual(scheduled.today_status, "已安排")
+        self.assertEqual(scheduled.today_status, "未完成")
 
         self._add_check_in(user, date(2025, 2, 10), 60)
         completed = metrics_service.compute_overview(

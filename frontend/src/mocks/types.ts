@@ -18,7 +18,7 @@ export type ReviewStatus = 'pending' | 'scheduled' | 'done';
 export type DocumentFileType = 'pdf' | 'docx' | 'txt' | 'md';
 
 /** 今日任务三态（总览页任务卡片） */
-export type TodayStatus = '未反馈' | '已安排' | '已完成';
+export type TodayStatus = '未反馈' | '未完成' | '已完成';
 
 /** 学习规划（对应 Plans 表） */
 export interface Plan {

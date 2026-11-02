@@ -3,7 +3,7 @@ import { buildPostcardsOverview, type PostcardsOverview } from '../postcardsOver
 const data: PostcardsOverview = {
   ready: true, error: null, unavailable: [], insights: [],
   plan: { id: 'p', goalName: '真实学习目标', startDate: '2026-10-01', goalDate: '2026-12-31', subtitle: '', currentLevel: '', dailyMinutes: 45, totalPhases: 3, updatedAt: '2026-10-29', completionCriterion: '独立完成数据分析报告' },
-  metrics: { totalMinutes: 180, streakDays: 3, remainingDays: 63, phaseProgress: { completed: 1, total: 3 }, todayStatus: '已安排' },
+  metrics: { totalMinutes: 180, streakDays: 3, remainingDays: 63, phaseProgress: { completed: 1, total: 3 }, todayStatus: '未完成' },
   tasks: [{ id: 't1', phaseId: 'p1', taskDate: '2026-10-29', weekLabel: 'W44', description: '今日列表练习', status: 'pending' }, { id: 't2', phaseId: 'p1', taskDate: '2026-10-29', weekLabel: 'W44', description: '已完成的原题', status: 'done' }],
   review: { id: 'w', weekStart: '2026-10-19', weekEnd: '2026-10-25', totalMinutes: 90, streakDays: 2, completionRate: 75, masteryAvg: 50, masteryDetail: [
     { phaseId: 'p1', subject: 'Python循环', percent: 25, evidenceCount: 2, taskDone: 1, taskTotal: 2, completionRate: 50 },

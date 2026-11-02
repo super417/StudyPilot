@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildPostcardsOverview, type PostcardsOverview } from '../postcardsOverview';
 
-const base: PostcardsOverview = { ready: true, error: null, plan: null, metrics: { totalMinutes: 90, streakDays: 1, remainingDays: 65, phaseProgress: { completed: 1, total: 4 }, todayStatus: '已安排' }, tasks: [
+const base: PostcardsOverview = { ready: true, error: null, plan: null, metrics: { totalMinutes: 90, streakDays: 1, remainingDays: 65, phaseProgress: { completed: 1, total: 4 }, todayStatus: '未完成' }, tasks: [
   { id: 'a', phaseId: 'p', taskDate: '2026-10-27', weekLabel: 'W44', description: '我的真实任务', status: 'pending' },
   { id: 'b', phaseId: 'p', taskDate: '2026-10-27', weekLabel: 'W44', description: '完成的练习', status: 'done' },
 ], review: null, insights: [], pendingMistakeCount: 3, dueMistakeCount: 1, unavailable: [] };
