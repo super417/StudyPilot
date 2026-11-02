@@ -44,7 +44,7 @@ import { fetchLatestWeeklyReview, toWeeklyReview } from '@/lib/weeklyReviewsApi'
 const DETAIL_PANELS = [
   { key: 'rings', title: '阶段双环' },
   { key: 'activity', title: '近 30 日作答量' },
-  { key: 'mastery', title: '掌握度分布' },
+  { key: 'mastery', title: '作答结果分布' },
   { key: 'mistakes', title: '高频错题 TOP5' },
   { key: 'stars', title: '近 30 日练习日历' },
   { key: 'route', title: '学习航线' },
@@ -378,9 +378,9 @@ function FeedbackAndRemedy({
 
 function PieChart({ mastery }: { mastery: MasteryDistribution }) {
   const slices: RingSlice[] = [
-    { key: 'correct', label: '已掌握', value: mastery.correct, color: MASTERY_COLORS.correct },
-    { key: 'partial', label: '基本掌握', value: mastery.partial, color: MASTERY_COLORS.partial },
-    { key: 'wrong', label: '未掌握', value: mastery.wrong, color: MASTERY_COLORS.wrong },
+    { key: 'correct', label: '正确', value: mastery.correct, color: MASTERY_COLORS.correct },
+    { key: 'partial', label: '部分正确', value: mastery.partial, color: MASTERY_COLORS.partial },
+    { key: 'wrong', label: '错误', value: mastery.wrong, color: MASTERY_COLORS.wrong },
   ];
   return <AnimatedRing slices={slices} unitLabel="题" />;
 }
@@ -640,9 +640,9 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
         /* 轴线只显示「N 天前」，所以这里要把完整 ISO 日期带给它 */
         date: d.date,
         segs: [
-          { label: '已掌握', value: d.correct ?? 0 },
-          { label: '基本掌握', value: d.partial ?? 0 },
-          { label: '未掌握', value: d.wrong ?? 0 },
+          { label: '正确', value: d.correct ?? 0 },
+          { label: '部分正确', value: d.partial ?? 0 },
+          { label: '错误', value: d.wrong ?? 0 },
         ],
         esc: d.mistakes ?? 0,
       })),
@@ -708,7 +708,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
       <header>
         <p className="text-xs font-semibold tracking-wide text-brand/80">STATISTICS</p>
         <h1 className="mt-1 text-2xl font-semibold text-brandDark">数据统计</h1>
-        <p className="mt-1 text-sm text-slate-500">用作答、打卡与掌握度证据，看清学习投入与薄弱环节。</p>
+        <p className="mt-1 text-sm text-slate-500">练习证据得分按正确 100、部分正确 50、错误 0 计算，重复作答分别计数，不代表整体知识掌握。</p>
       </header>
 
       <StatisticsWeeklyReview
@@ -778,7 +778,7 @@ function StatisticsPage({ onNavigate }: StatisticsPageProps = {}) {
           <div className="mt-4 border-t border-slate-100 pt-4">
             <p className="text-sm font-medium text-slate-700">补强后重测</p>
             <p className="mt-1 text-xs text-slate-400">
-              请先完成该阶段全部已确认补强任务，再生成同阶段新题；到习题本「今日练习」作答后查看下方补强前/后记录。
+              请先完成该阶段全部已确认补强任务，再生成同阶段新题；到习题本「今日练习」作答后查看下方补强关联重测记录。
             </p>
             <ul className="mt-3 space-y-2">
               {retestPhases.map((phase) => (

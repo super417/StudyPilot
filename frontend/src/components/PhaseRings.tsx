@@ -55,7 +55,7 @@ function formatAfterDetail(outcome: ReinforceOutcome): string {
   }
   const n = outcome.after.evidenceCount;
   const correct = outcome.after.correctCount ?? 0;
-  return `补强后新增 ${n} 次作答，其中 ${correct} 次正确`;
+  return `补强关联重测 ${n} 次作答，其中 ${correct} 次正确`;
 }
 
 /** 与掌握度分布 AnimatedRing 同款：灰底轨、厚环、圆角端、进入动画、悬停加粗 */
@@ -230,6 +230,7 @@ function PhaseRing({
           <>
             <p className="text-slate-700">{formatOverall(outcome)}</p>
             <p className="text-slate-700">{formatAfterDetail(outcome)}</p>
+            <p className="text-xs text-slate-500">按题目是否关联补强任务分组，不是严格按补强前后时间划分。</p>
           </>
         ) : null}
         {diverged ? (

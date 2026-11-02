@@ -187,7 +187,8 @@ describe('PhaseRings', () => {
       }),
     );
     expect(markup).toContain('阶段掌握度 63%（基于 15 次）');
-    expect(markup).toContain('补强后新增 3 次作答，其中 3 次正确');
+    expect(markup).toContain('补强关联重测 3 次作答，其中 3 次正确');
+    expect(markup).toContain('不是严格按补强前后时间划分');
     expect(markup).not.toContain('补强后 100%');
   });
 
