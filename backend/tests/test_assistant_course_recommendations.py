@@ -193,6 +193,8 @@ class _ChatCase(unittest.IsolatedAsyncioTestCase):
             context_type=None,
             mistake_excerpt="",
             rag_text="",
+            profile=assistant_service.get_user_profile(self.session, self.user.id),
+            has_materials=assistant_service.check_if_user_has_materials(self.session, self.user.id),
         )
 
     async def _capture(self, message: str) -> dict:

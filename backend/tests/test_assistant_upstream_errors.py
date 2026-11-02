@@ -105,6 +105,7 @@ class UpstreamChatErrorTests(unittest.IsolatedAsyncioTestCase):
                     patch.object(assistant_service, "has_verified_api_config", return_value=True),
                     patch.object(assistant_service, "resolve_credential", return_value=credential),
                     patch.object(assistant_service, "_list_user_doc_ids", return_value=[]),
+                    patch.object(assistant_service, "get_user_profile", return_value={}),
                     patch.object(assistant_service, "_course_candidates_note", return_value=None),
                     patch.object(assistant_service.document_service, "build_context", return_value=("", [])),
                     patch.object(assistant_service.httpx, "AsyncClient", FakeClient),
