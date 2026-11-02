@@ -81,6 +81,14 @@ export const selectActiveMessages = (state: AssistantState): ChatMessage[] => {
  */
 const saveTimers = new Map<string, number>();
 
+/** Send only after the current conversation snapshot has reached the server. */
+export async function flushConversation(conversationId: string): Promise<void> {
+  const timer = saveTimers.get(conversationId);
+  if (timer) window.clearTimeout(timer);
+  saveTimers.delete(conversationId);
+  await conversationRepository.saveMessages(conversationId, useAssistantStore.getState().messagesByConversation[conversationId] ?? []);
+}
+
 function scheduleSave(conversationId: string, delay = 400): void {
   const existing = saveTimers.get(conversationId);
   if (existing) window.clearTimeout(existing);

@@ -322,6 +322,7 @@ def build_chat_messages(
     assistant_name: str = "",
     profile: dict[str, str] | None = None,
     has_materials: bool = False,
+    history: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     parts = [f"用户问题：{message}"]
     if profile is not None:
@@ -376,6 +377,7 @@ def build_chat_messages(
     system = _SYSTEM_PROMPT + "\n" + _assistant_name_system_note(assistant_name)
     return [
         {"role": "system", "content": system},
+        *[row for row in (history or [])[-20:] if row.get("role") in ("user", "assistant")],
         {"role": "user", "content": "\n\n".join(parts)},
     ]
 
@@ -801,6 +803,7 @@ async def _stream_chat_reply(
         assistant_name=assistant_name,
         profile=get_user_profile(session, user_id),
         has_materials=bool(doc_ids),
+        history=ctx.get("history"),
     )
     # Appended as its own message: splicing it into the system prompt or the
     # user question would change the request on paths that have no trigger.

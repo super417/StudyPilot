@@ -28,11 +28,13 @@ export function streamAssistantChat(
   context: AssistantChatContext | null | undefined,
   handlers: AssistantChatHandlers,
   signal?: AbortSignal,
+  conversationId?: string,
 ): Promise<void> {
   const prefs = getModelPrefs();
   const body: Record<string, unknown> = {
     message,
     reasoningStrength: prefs.strength,
+    conversationId,
   };
   if (context) {
     body.context = {

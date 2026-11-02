@@ -8,6 +8,7 @@ import { CREDIT_SELECTION_CHANGED } from '@/lib/creditModelOptions';
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useAssistantStore } from '@/store';
+import { flushConversation } from '@/store/assistantStore';
 import { usePlanSessionStore } from '@/store/planSessionStore';
 import { useDocumentsStore } from '@/store/documentsStore';
 import { planStartQuestion, setPlanStart, streamPlanClarify, streamPlanRegenerate } from '@/lib/plansApi';
@@ -298,6 +299,7 @@ export function useAssistantChat(acceptQueued = true) {
         let completed = false;
         let replyBody = '';
         try {
+          if (activeConversationId) await flushConversation(activeConversationId);
           await streamAssistantChat(
             text,
             context
@@ -340,6 +342,7 @@ export function useAssistantChat(acceptQueued = true) {
               },
             },
             ac.signal,
+            activeConversationId ?? undefined,
           );
         } catch (err) {
           completed = false;

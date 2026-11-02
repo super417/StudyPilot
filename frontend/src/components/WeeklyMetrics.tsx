@@ -34,6 +34,7 @@ function WeeklyMetrics({ review }: WeeklyMetricsProps) {
 
   return (
     <div>
+      {review && <p className="mb-3 text-xs text-slate-500">本周报汇总您所有规划在所示统计周期内的数据；学习时长按该周期的打卡记录汇总。</p>}
       {review && <p className="mb-3 text-xs text-slate-500">{weeklyTotalsSourceLabel(review)}</p>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {items.map((item, i) => (

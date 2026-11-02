@@ -1,16 +1,17 @@
 """Assistant chat SSE route: POST /api/assistant/chat (needs 3, 8)."""
 
 from collections.abc import AsyncIterator
+import uuid
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.entities import User
 from app.routers.dependencies import get_current_user
-from app.services import assistant_service
+from app.services import assistant_service, conversation_service
 from app.services.ai_proxy import guard_sse_stream, internal_error_frame
 from app.services.assistant_service import ChatStreamFactory
 
@@ -39,6 +40,7 @@ class ChatPayload(BaseModel):
     message: str = ""
     context: ChatContext | None = None
     reasoning_strength: str | None = None
+    conversation_id: str | None = None
 
 
 def get_assistant_stream_factory() -> ChatStreamFactory | None:
@@ -62,6 +64,16 @@ async def assistant_chat_route(
             "refId": payload.context.ref_id,
             "hint": payload.context.hint,
         }
+
+    if payload.conversation_id:
+        try:
+            rows = conversation_service.load_messages(session, user.id, uuid.UUID(payload.conversation_id))
+        except (ValueError, conversation_service.ConversationNotFoundError):
+            return JSONResponse(status_code=404, content={"status": "error", "code": "CONVERSATION_NOT_FOUND", "message": "会话不存在"})
+        history = [{"role": row.role, "content": row.content} for row in rows if row.role in ("user", "assistant") and row.content.strip()]
+        if history and history[-1] == {"role": "user", "content": payload.message}:
+            history.pop()
+        context = {**(context or {}), "history": history[-20:]}
 
     async def stream() -> AsyncIterator[str]:
         async for frame in assistant_service.stream_assistant_reply(
