@@ -14,7 +14,9 @@
 .spb-tier-frame:hover { border-color: var(--spb-accent); }
 .spb-scene { height: 340px; position: relative; overflow: hidden; perspective: 1100px; }
 .spb-stack-motion { position: absolute; top: 50%; left: 49%; scale: 1.25; transform-style: flat; }
-.spb-art-card, .spb-front { position: absolute; left: 0; top: 0; width: 135px; height: 180px; margin: -90px 0 0 -67.5px !important; background: #fff8e9; border: 1px solid #c5bca4; box-shadow: 1px 1px 0 #ada895, 0 8px 14px #0004; transform: translate3d(var(--spb-x), 0, 0) rotateY(-31deg) skewY(-20deg); transform-origin: 50% 50%; backface-visibility: hidden; }
+/* --spb-shift 只承担横向位移，由 GSAP 单独驱动；rotateY/skewY 始终留在 CSS 里，
+   这样入场动画不会重写 transform，hover 与轨道拖动都不受影响。 */
+.spb-art-card, .spb-front { --spb-shift: 0px; position: absolute; left: 0; top: 0; width: 135px; height: 180px; margin: -90px 0 0 -67.5px !important; background: #fff8e9; border: 1px solid #c5bca4; box-shadow: 1px 1px 0 #ada895, 0 8px 14px #0004; transform: translate3d(calc(var(--spb-x) + var(--spb-shift)), 0, 0) rotateY(-31deg) skewY(-20deg); transform-origin: 50% 50%; backface-visibility: hidden; }
 .spb-art-card { z-index: var(--spb-layer); overflow: hidden; }
 .spb-art-card img { width: 100%; height: 100%; display: block; object-fit: contain; background: #f6f0e5; }
 .spb-front { z-index: 8; display: grid; grid-template-columns: 46% 54%; width: 248px; height: 170px; margin: -85px 0 0 -124px !important; overflow: hidden; color: #1e3936; background: #f9f4e7; border: 7px solid #f0ebdc; outline: 1px solid #c5bca4; transition: translate .6s cubic-bezier(.2,.8,.2,1); }

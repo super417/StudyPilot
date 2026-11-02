@@ -84,6 +84,7 @@ function ChatCharacter({ mode, onAnswerEnd }: ChatCharacterProps) {
       const start = () => {
         video.removeEventListener('seeked', start);
         if (stopped || settled) return;
+        video.playbackRate = segment.hold ? 1 : 1.2;
         video.play().then(() => { if (!settled) tick(); }).catch(onError);
       };
       const seek = () => {

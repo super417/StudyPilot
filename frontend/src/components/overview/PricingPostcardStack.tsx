@@ -74,6 +74,7 @@ function TierPostcard({ tier, index, onDetails }: { tier: Tier; index: number; o
 export default function PricingPostcardStack() {
   const rootRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
+  const introRef = useRef<gsap.core.Timeline | null>(null);
   const drag = useRef<{ x: number; scroll: number; moved: boolean } | null>(null);
   const [details, setDetails] = useState<number | null>(null);
   const [active, setActive] = useState(0);
@@ -84,12 +85,24 @@ export default function PricingPostcardStack() {
     const media = gsap.matchMedia();
     const context = gsap.context(() => {
       media.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.fromTo('.spb-stack-motion', { x: -18, y: 12, rotateY: -5 }, { x: 18, y: -12, rotateY: 5, ease: 'none', scrollTrigger: { trigger: rootRef.current, start: 'top bottom', end: 'bottom top', scrub: .6 } });
+        const rail = railRef.current;
+        if (rail) {
+          const position = { left: 0 };
+          const intro = gsap.timeline({
+            scrollTrigger: { trigger: rootRef.current, start: 'top 10%', once: true },
+            onUpdate: () => { rail.scrollLeft = position.left; },
+          });
+          intro.to(position, { left: () => rail.scrollWidth - rail.clientWidth, duration: 2, ease: 'power2.inOut' })
+            .to(position, { left: 0, duration: 2, ease: 'power2.inOut' }, '+=0.3');
+          introRef.current = intro;
+        }
       });
     }, rootRef);
-    return () => { window.cancelAnimationFrame(initialFrame); media.revert(); context.revert(); };
+    return () => { window.cancelAnimationFrame(initialFrame); media.revert(); context.revert(); introRef.current = null; };
   }, []);
+  const stopIntro = () => { introRef.current?.scrollTrigger?.kill(); introRef.current?.kill(); introRef.current = null; };
   const pointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    stopIntro();
     if (event.pointerType !== 'mouse' || event.button !== 0 || (event.target as HTMLElement).closest('button, a')) return;
     drag.current = { x: event.clientX, scroll: event.currentTarget.scrollLeft, moved: false };
   };
@@ -99,8 +112,11 @@ export default function PricingPostcardStack() {
       const rail = event.currentTarget;
       const step = (rail.firstElementChild?.getBoundingClientRect().width ?? rail.clientWidth) + 48;
       setActive(Math.max(0, Math.min(PRICING_POSTCARDS.length - 1, Math.round(rail.scrollLeft / step))));
+    }} onWheel={(event) => {
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || (event.shiftKey && event.deltaY !== 0)) stopIntro();
     }} onKeyDown={(event) => {
       if (event.target !== event.currentTarget || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      stopIntro();
       event.preventDefault();
       const step = (event.currentTarget.firstElementChild?.getBoundingClientRect().width ?? event.currentTarget.clientWidth) + 48;
       event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? step : -step, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
