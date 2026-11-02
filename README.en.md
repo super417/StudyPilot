@@ -27,10 +27,10 @@ Built for students taking AI micro-majors or general AI courses — non-CS backg
 | Goal & planning | Conversational goal intake → SSE-streamed plan generation (clarify / notice / done events); full regeneration and per-phase editing; "撤销最近一次已确认调整" only shows when the plan really has a confirmed adjustment to undo, sits inside the chat preview's "计划操作" disclosure, and stays hidden if the availability read fails |
 | Overview | Hero + scroll-narrated study loop + postcard-style overview, all reading real endpoints; the "进入我的总览" entry scrolls to the content block instead of switching tabs; unreadable modules are marked unavailable — **no fake plan card stitched from metrics** |
 | Roadmap | Latest plan's phases and progress; toggle this week's task states; daily tasks can carry a link that opens a concrete course/video page |
-| Daily tasks & check-ins | Today's task list, time logging, and three today-states (未反馈 / 已安排 / 已完成) |
+| Daily tasks & check-ins | Today's task list, time logging, and three today-states (未反馈 / 已安排 / 已完成); the daily tasks and duration picked in "开始今天的学习" are saved and restored next time |
 | Practice & grading | Practice cards; grading mode selectable — **grade all / grade selected / auto-grade every n questions** — results (correct / partial / wrong) written as mastery evidence, with per-item retry on failure |
 | Mistake book | Manual entry or photo OCR, detail view, review-status marking, spaced review at 1/2/4/7/15/30 days |
-| Statistics | Metric cards, 30-day stacked answer chart, mastery distribution, top mistakes, 30-day practice calendar (click a day for that day's evidence and score), learning route, weekly report |
+| Statistics | Metric cards, 30-day stacked answer chart, answer-result distribution, top mistakes, 30-day practice calendar (click a day for that day's evidence and score), learning route, weekly report |
 | Learning diagnosis | AI diagnosis report grounded in graded evidence, with latest / history / search views and a persisted rename |
 | AI assistant | SSE streaming chat; domain guard for off-topic questions; excerpts from uploaded documents; adjustable reasoning effort; the main panel and the floating widget share one credential and one audio cache; the companion can be dragged, click to chat, double-click to expand, collapsed into a small avatar, and yields to page controls |
 | Speech playback | Xiaoxiao online female voice; reply body streamed sentence by sentence, new replies pre-generated |
@@ -90,10 +90,10 @@ Full details (signature checks, precision, concurrency and failure boundaries) i
 
 A second metering scheme that coexists with the platform balance, on a **separate ledger that never converts to or from the currency balance**: the balance uses the four `billing_*` tables, credits use `credit_lots` / `credit_calls` / `credit_ledger`. Switching still goes through `PUT /api/credits/preferences` with `mode` set to `platform` and `modelId` set to `credits:deepseek-flash`.
 
-- **Endpoints**: `GET /api/credits/catalog` (available models, rates, plan display slots), `GET /api/credits/account` (available / reserved micro-points, grant lots, latest 30 ledger entries), `PUT /api/credits/preferences` (only `credits:deepseek-flash` is accepted; anything else returns 503).
+- **Endpoints**: `GET /api/credits/catalog` (available models, rates, plan display slots), `GET /api/credits/account` (available / reserved micro-points, grant lots, latest 30 ledger entries), `PUT /api/credits/preferences` (only credit-model IDs in the catalog are accepted; anything else returns 503).
 - **Arithmetic**: 1 point = 1,000,000 micro-points; cost = input tokens × 40 + output tokens × 160, rounded up once to a whole micro-point. Each call reserves the cap (16,000 input / 4,096 output) first, settles on verified usage and releases the remainder; missing usage, timeouts and empty output are not charged, and an unsettled reservation is released after 10 minutes.
 - **Free allowance**: a plain free user gets **5 platform AI assistant rounds per Beijing calendar month**; one successful question-and-answer counts as one round and a failed call releases it. Free rounds cover assistant chat only — never planning, question generation or grading. Plan credits and your own key are not limited by the 5 rounds. The former 500 free points per month are no longer granted; existing `free:` lots stay in the ledger for audit but are no longer spendable.
-- **Model constraints**: pinned to `deepseek-flash`, non-streaming, thinking disabled, text only. Image OCR, material comparison / material tasks and resume polish still require your own key. The credit-model menu and the model select in the profile page group entries by vendor: any model missing from the catalog is listed as "待接入" (not integrated), disabled and display-only, and the catalog decides the display name.
+- **Model constraints**: the catalog offers two credit models — `credits:deepseek-flash` (DeepSeek-V4.1-Flash) and `credits:deepseek-v4-pro` (DeepSeek-V4-Pro) — both going through the same DeepSeek vendor key, non-streaming, thinking disabled, text only; a model's actual availability depends on whether the upstream vendor supports that model. Image OCR, material comparison / material tasks and resume polish still require your own key. The credit-model menu and the model select in the profile page group entries by vendor: any model missing from the catalog is listed as "待接入" (not integrated), disabled and display-only, and the catalog decides the display name.
 - **Enablement**: `CREDITS_DEEPSEEK_ENABLED=true` **and** a `deepseek` entry in `BILLING_PROVIDER_KEYS_JSON`; without both the catalog is empty and switching is rejected. The key is read server-side only.
 - **Review gift**: with `CREDITS_REVIEW_USER_ID` (an existing user UUID, not a username) and `CREDITS_REVIEW_UNTIL` (ISO-8601 with a timezone, exclusive) both set, that account receives the 启航 test pack (2,000 base + 2,000 bonus points) once per Beijing month on first account read or first credit-model use. The grant ID is fixed, so repeated reads in the same month do not re-issue; the lot expires at the earlier of month end and the review deadline. Ledger entries are marked as test grants, not purchases.
 - **Not implemented**: purchase, activation, auto-renewal and refunds are all closed — the free / 启航 / 补给 tiers in the catalog always report `purchaseAvailable=false`, with prices and point amounts shown for display only. Trial points are minted by an operator-run local grant function, **not a payment record**, and do not mean a paid subscription is live.
@@ -125,7 +125,7 @@ Effect and sync behaviour:
 
 **"近 30 日作答量"**: a stacked bar chart where each bar splits into correct / partial / wrong, sharing the colour scale with the mastery donut. A separate baseline bar below marks "new mistakes" — a different metric, not a fourth answer segment.
 
-**Seven detail panels**: phase rings, 30-day answers, mastery distribution, top-5 mistakes, 30-day practice calendar, learning route, positive feedback and deferrals. Clicking a title opens that panel alone (the rest collapse into a thumbnail strip); "收起详情" returns to the two-column grid. The practice calendar stays expanded — it never enters the single-panel view and is not listed in the thumbnail strip.
+**Seven detail panels**: phase rings, 30-day answers, answer-result distribution, top-5 mistakes, 30-day practice calendar, learning route, positive feedback and deferrals. Clicking a title opens that panel alone (the rest collapse into a thumbnail strip); "收起详情" returns to the two-column grid. The practice calendar stays expanded — it never enters the single-panel view and is not listed in the thumbnail strip.
 
 **"近 30 日练习日历"** (`PracticeCalendar`, replacing the former star map):
 
@@ -180,6 +180,14 @@ Daily tasks can carry a `resourceUrl` pointing at a concrete course or video pag
 - **The frontend filters again**: `TaskResourceLink` runs `isConcreteResourceUrl` so legacy home-page links are not rendered.
 
 Honest boundaries: not every task has a video; backfill is metadata matching against the local course library, not a per-item online verification; and a reachable link does not prove the content matches the task exactly.
+
+### Daily task selection
+
+The tasks and duration picked in "开始今天的学习" (`DailyStartDialog`) are saved, so reopening it on the same day restores the previous selection.
+
+- **Endpoints**: `GET /api/daily-selection?date=YYYY-MM-DD` (read the day's selection), `PUT /api/daily-selection` (save with `date` + `taskIds` + `minutes`), `POST /api/daily-selection/{task_id}/learned` (mark a task as learned).
+- **Persistence**: stored in the `daily_selections` table (unique per user + date + task), applied by migration `e9a0b1c2d3e4`; survives a restart.
+- **Scope**: records only the tasks and duration the user actively chose, not an automatic check-in log; with no selection it falls back to the default (first pending task or a micro task).
 
 ## Tech stack
 
