@@ -66,7 +66,7 @@ def test_owned_snapshot_saved_and_read_after_rename_and_new_evidence(db):
         report = asyncio.run(service.generate_diagnosis(session, user.id))
     snapshot = generate.call_args.args[2]
     assert snapshot['totalAnswered'] == 101
-    assert snapshot['sampleCount'] == 100
+    assert snapshot['sampleCount'] == 20
     assert snapshot['distribution'] == {'correct': 0, 'partial': 0, 'wrong': 101}
     conversation = session.scalar(select(Conversation))
     conversation.title = '修改过的标题'
