@@ -180,7 +180,7 @@ export function DiagnosisContent({ report }: { report: DiagnosisReport }) {
       </p>
       <p className="mt-2 text-xs text-slate-500">
         这是生成时的数据快照。AI
-        建议供参考，不会自动调整学习计划；作答记录包含练习与讲解反馈，不等同于去重题数。
+        生成的内容可能与证据不一致，请对照上方证据快照核对。建议供参考，不会自动调整学习计划；作答记录包含练习与讲解反馈，不等同于去重题数。
       </p>
       <div className="mt-5 text-sm leading-7 text-slate-700">
         <AssistantMarkdown text={report.content} />

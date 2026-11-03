@@ -134,6 +134,9 @@ async def generate_practice_route(
         return _json_error(400, "VALIDATION", "日期参数不合法")
     try:
         rows = await practice_service.generate_for_day(session, user.id, day, generator)
+    except PracticeValidationError as error:
+        session.rollback()
+        return _json_error(400, error.code, str(error))
     except NoVerifiedApiConfigError as error:
         return _json_error(400, error.code, str(error))
     except CredentialUnavailableError as error:

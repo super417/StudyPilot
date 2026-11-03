@@ -441,8 +441,8 @@ async def generate_for_day(
             questions = _parse_questions(json.dumps(produced))
     except (NoVerifiedApiConfigError, CredentialUnavailableError):
         raise
-    except Exception:
-        questions = _heuristic_questions(lines)
+    except Exception as error:
+        raise PracticeValidationError('生成练习失败，本次没有保存题目，请重试') from error
     rows = [
         PracticeQuestion(
             user_id=user_id,
@@ -677,8 +677,8 @@ async def generate_phase_quiz(
             questions = _parse_questions(json.dumps(produced))
     except (NoVerifiedApiConfigError, CredentialUnavailableError):
         raise
-    except Exception:
-        questions = _heuristic_questions(lines)
+    except Exception as error:
+        raise PracticeValidationError('生成练习失败，本次没有保存题目，请重试') from error
     rows = [
         PracticeQuestion(
             user_id=user_id,
