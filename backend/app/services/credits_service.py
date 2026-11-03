@@ -1,6 +1,8 @@
 """Expiring integer micro-point grants and usage settlement; no payment grants."""
 import asyncio
 import json
+import logging
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_CEILING
@@ -13,6 +15,8 @@ from sqlalchemy.orm import Session
 from app.models.credits import CreditLot, CreditCall, CreditLedger
 from app.services.billing_config import BillingSettings
 from app.services.billing_service import BillingError
+
+logger = logging.getLogger(__name__)
 
 MICRO = 1000000
 MODEL_ID = 'credits:deepseek-flash'
@@ -193,6 +197,7 @@ async def complete(session, user_id, payload, *, request_id=None, transport=None
             reserve_free_chat(ledger, user_id, call_id)
         else:
             reserve(ledger, user_id, call_id, amount(16000, 4096))
+        started = time.monotonic()
         try:
             body = {**payload, 'messages':messages, 'model':model[0], 'stream':False, 'max_tokens':4096, 'thinking':{'type':'disabled'}}
             body.pop('stream_options', None)
@@ -216,7 +221,25 @@ async def complete(session, user_id, payload, *, request_id=None, transport=None
             finish(ledger, call_id, None)
             if isinstance(error, (BillingError, asyncio.CancelledError, GeneratorExit)):
                 raise
-            raise BillingError('PLATFORM_AI_FAILED', 'DeepSeek 调用失败，预留积分已释放', 502) from None
+            status = error.response.status_code if isinstance(error, httpx.HTTPStatusError) else None
+            # Never log exception text, response bodies or requests: they can
+            # contain credentials, prompts and private learning materials.
+            logger.error('DeepSeek call failed call_id=%s model=%s error_type=%s http_status=%s elapsed_seconds=%.2f',
+                         call_id, model[0], type(error).__name__, status, time.monotonic() - started)
+            message = 'DeepSeek 响应异常，请稍后重试'
+            if isinstance(error, httpx.TimeoutException):
+                message = 'DeepSeek 响应超时，请稍后重试'
+            elif isinstance(error, httpx.ConnectError):
+                message = '无法连接 DeepSeek，请检查服务器网络后重试'
+            elif status in (401, 403):
+                message = 'DeepSeek 密钥或访问权限异常，请联系管理员检查配置'
+            elif status == 402:
+                message = 'DeepSeek 服务账户余额不足，请联系管理员'
+            elif status == 429:
+                message = 'DeepSeek 请求过于频繁，请稍后重试'
+            elif status is not None and status >= 500:
+                message = 'DeepSeek 服务暂时异常，请稍后重试'
+            raise BillingError('PLATFORM_AI_FAILED', f'{message}，预留积分已释放', 502) from None
 
 
 def grant_test_qihang(session, user_id, now=None, *, expires_at=None):
