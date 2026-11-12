@@ -44,7 +44,10 @@ from app.services import (
 # 29 = +b1c2d3e4f5a6 平台计费四表、+b2f9e8d7c6a5 调用单价快照，
 #      以及此前批次漏计的一支迁移（27 时该断言已失败，本轮一并校正）。
 # 30 = +c3a1b2c3d4e5 积分批次（credit_lots / credit_calls / credit_ledger）。
-MIGRATION_FILE_COUNT = 30
+# 34 = 后续四支迁移入库时未同步本计数，全量因此多一条失败；本轮补齐：
+#      +d4e5f6a7b8c1 grade_quote_check（e422f3f）、+e9a0b1c2d3e4 daily_selection（d5ff258）、
+#      +f1b2c3d4e5f6 unique_checkin_day（ac8faf8）、+a2b3c4d5e6f7 task_checkins（f14bcdb）。
+MIGRATION_FILE_COUNT = 34
 
 
 def _structure() -> dict:
