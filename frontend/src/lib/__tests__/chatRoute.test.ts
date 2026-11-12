@@ -201,3 +201,17 @@ describe('decideChatRoute', () => {
     expect(summaryForDraft('old-draft', 'other-draft', '别的规划摘要')).toBeNull();
   });
 });
+
+
+describe('当前计划重新分配', () => {
+  const instruction = '把当前计划尚未完成的任务重新分配，每天总计不超过30分钟。超出的任务顺延，保留已完成任务及历史记录；若已有记录导致当天无法满足上限，请明确说明冲突。';
+  it('有当前计划时生成预览，不让普通聊天索要已有任务', () => {
+    expect(decideChatRoute({ ...idle, targetPlanId: 'current-plan', text: instruction }).kind).toBe('regenerate');
+  });
+  it('无计划或只是询问、否定时不修改', () => {
+    expect(decideChatRoute({ ...idle, text: instruction }).kind).toBe('chat');
+    for (const text of ['为什么要重新分配当前计划', '不要重新分配当前计划', '重新分配当前计划有什么影响？']) {
+      expect(decideChatRoute({ ...idle, targetPlanId: 'current-plan', text }).kind).toBe('chat');
+    }
+  });
+});
