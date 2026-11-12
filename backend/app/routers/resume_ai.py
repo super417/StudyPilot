@@ -40,10 +40,12 @@ async def ai_test(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
-    # Body is accepted for magic-resume compatibility; credentials come from personal center.
-    _ = await request.json()
+    body = await request.json()
+    connection = _body_field(body, "connection")
     try:
-        return await resume_ai_proxy_service.test_connection(session, user.id)
+        return await resume_ai_proxy_service.test_connection(
+            session, user.id, connection
+        )
     except ResumeAiProxyError as error:
         return _error_response(error)
 
@@ -56,8 +58,11 @@ async def grammar(
 ):
     body = await request.json()
     content = _body_field(body, "content")
+    connection = _body_field(body, "connection")
     try:
-        return await resume_ai_proxy_service.check_grammar(session, user.id, content)
+        return await resume_ai_proxy_service.check_grammar(
+            session, user.id, content, connection
+        )
     except ResumeAiProxyError as error:
         return _error_response(error)
 
@@ -71,9 +76,10 @@ async def polish(
     body = await request.json()
     content = _body_field(body, "content")
     custom = _body_field(body, "customInstructions", "custom_instructions") or ""
+    connection = _body_field(body, "connection")
     try:
-        chunks = resume_ai_proxy_service.iter_polish_chunks(
-            session, user.id, content, str(custom)
+        chunks = await resume_ai_proxy_service.iter_polish_chunks(
+            session, user.id, content, str(custom), connection
         )
 
         async def stream():
@@ -95,8 +101,15 @@ async def models(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_db),
 ):
-    _ = await request.json()
+    body = await request.json()
+    connection = {
+        "provider": _body_field(body, "provider"),
+        "apiKey": _body_field(body, "apiKey"),
+        "baseUrl": _body_field(body, "baseUrl"),
+    }
     try:
-        return await resume_ai_proxy_service.list_models_for_resume(session, user.id)
+        return await resume_ai_proxy_service.list_models_for_resume(
+            session, user.id, connection
+        )
     except ResumeAiProxyError as error:
         return _error_response(error)

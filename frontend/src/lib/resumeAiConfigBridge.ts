@@ -124,6 +124,25 @@ function writeStorage(payload: {
   }
 }
 
+/** 简历侧是否已存在非哨兵（真实）Key 的独立配置。 */
+function hasRealKeyConfigured(): boolean {
+  try {
+    const raw = window.localStorage.getItem(RESUME_AI_CONFIG_STORAGE_KEY);
+    if (!raw) return false;
+    const models = (JSON.parse(raw)?.state?.models) as unknown;
+    if (!Array.isArray(models)) return false;
+    return models.some(
+      (model) =>
+        model &&
+        typeof (model as { apiKey?: unknown }).apiKey === 'string' &&
+        ((model as { apiKey?: string }).apiKey ?? '').length > 0 &&
+        (model as { apiKey?: string }).apiKey !== STUDYPILOT_MANAGED_API_KEY,
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** 清除简历侧 AI 配置（个人中心清除时调用）。 */
 export function clearResumeAiConfig(): void {
   writeStorage({ models: [], textModelId: null, pdfModelId: null });
@@ -136,11 +155,42 @@ export function clearResumeAiConfig(): void {
 export function syncResumeAiConfigFromPersonal(
   snapshot: PersonalApiConfigSnapshot | null,
 ): void {
+  // 简历里已存在的非哨兵（真实）Key 独立配置保留，不用 managed profile 覆盖。
+  if (hasRealKeyConfigured()) return;
   if (!snapshot || !snapshot.isVerified || !snapshot.modelType.trim() || !snapshot.baseUrl.trim()) {
     clearResumeAiConfig();
     return;
   }
   const profile = buildProfile(snapshot);
+  writeStorage({
+    models: [profile],
+    textModelId: profile.id,
+    pdfModelId: profile.supportsPdf ? profile.id : null,
+  });
+}
+
+/** 个人中心积分模型 id → 简历侧 DeepSeek 展示模型名。 */
+const PLATFORM_MODEL_TO_DEEPSEEK: Record<string, string> = {
+  'credits:deepseek-flash': 'deepseek-flash',
+  'credits:deepseek-v4-pro': 'deepseek-v4-pro',
+};
+
+/**
+ * 平台积分模式（无 BYOK）投影：用所选积分模型写入 managed 哨兵 + 对应
+ * DeepSeek 展示 profile；未知模型视为未配置并清空。
+ */
+export function syncResumeAiConfigFromPlatform(modelId: string | null): void {
+  if (hasRealKeyConfigured()) return;
+  const model = (modelId && PLATFORM_MODEL_TO_DEEPSEEK[modelId]) || null;
+  if (!model) {
+    clearResumeAiConfig();
+    return;
+  }
+  const profile = buildProfile({
+    modelType: model,
+    baseUrl: 'https://api.deepseek.com',
+    isVerified: true,
+  });
   writeStorage({
     models: [profile],
     textModelId: profile.id,

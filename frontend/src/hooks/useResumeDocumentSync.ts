@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiConfigApiError, getApiConfig } from '@/lib/apiConfigApi';
+import { fetchCreditAccount } from '@/lib/creditsApi';
 import {
   clearResumeAiConfig,
   syncResumeAiConfigFromPersonal,
+  syncResumeAiConfigFromPlatform,
 } from '@/lib/resumeAiConfigBridge';
 import { fetchResumeDocument, saveResumeDocument } from '@/lib/resumeDocumentApi';
 import { mergeResumePayloads, RESUME_STORAGE_KEY } from '@/lib/resumeStorage';
@@ -28,8 +30,27 @@ function writeLocal(payload: string): void {
   }
 }
 
-/** 进入简历页时把个人中心 API 状态投影到简历侧 ai-config-storage（须在 iframe 挂载前完成）。 */
+/** 进入简历页时把个人中心 AI 状态投影到简历侧 ai-config-storage（须在 iframe 挂载前完成）。 */
 async function syncPersonalAiIntoResumeStorage(): Promise<void> {
+  let mode: 'byok' | 'platform' | null = null;
+  let modelId: string | null = null;
+  try {
+    const account = await fetchCreditAccount();
+    mode = account.mode;
+    modelId = account.modelId;
+  } catch {
+    // 网络/鉴权失败时不盲目清空，避免短暂离线把本地已同步配置冲掉。
+  }
+  if (mode === 'platform') {
+    // 平台积分模式：用所选积分模型写入 managed 哨兵 + DeepSeek 展示 profile。
+    syncResumeAiConfigFromPlatform(modelId);
+    return;
+  }
+  if (mode === null) {
+    // 无法确认计费模式，保留现有投影。
+    return;
+  }
+  // BYOK：保持现有 getApiConfig 投影。
   try {
     const cfg = await getApiConfig();
     syncResumeAiConfigFromPersonal(cfg);
