@@ -318,6 +318,13 @@ def undo_reinforce(
             uuid.UUID(task_id) for task_id in (record.get("createdTaskIds") or [])
         ]
         if task_ids:
+            for question in session.scalars(select(PracticeQuestion).where(PracticeQuestion.source_task_id.in_(task_ids))):
+                has_evidence = session.scalar(select(MasteryEvidence.id).where(MasteryEvidence.question_id == question.id).limit(1))
+                if has_evidence:
+                    question.source_task_id = None
+                else:
+                    session.delete(question)
+            session.flush()
             session.execute(
                 delete(ReinforceTaskEvidence).where(
                     ReinforceTaskEvidence.task_id.in_(task_ids)
@@ -604,6 +611,16 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
         session.add(
             ReinforceTaskEvidence(task_id=task.id, evidence_id=evidence_id)
         )
+        if item.get("kind") == "redo" and item.get("questionId"):
+            original = session.get(PracticeQuestion, uuid.UUID(str(item["questionId"])))
+            if original is None or original.user_id != plan.user_id:
+                raise AdjustmentConflictError("重做原题不存在")
+            session.add(PracticeQuestion(
+                user_id=plan.user_id, source=original.source, subject=original.subject,
+                question=original.question, answer=original.answer,
+                explanation=original.explanation, source_refs=original.source_refs,
+                source_task_id=task.id, status="pending",
+            ))
         created_ids.append(str(task.id))
         created_copies.append(
             {
@@ -628,6 +645,6 @@ def _apply_reinforce(session: Session, plan: Plan, row: PlanAdjustment) -> None:
     row.decision_summary = (
         f"已确认补强：新增 {len(created_ids)} 条任务，已写入今日任务。\n"
         "下一步：\n"
-        "1. 在「触发补强」卡片里点对应阶段的「重测」，开始本阶段的重测题\n"
-        "2. 做完后到「阶段双环」看「补强前/后」的掌握度变化"
+        "1. 到习题本「今日练习」完成「补强重做」；答对后该任务自动完成，重读任务请在 Roadmap 完成\n"
+        "2. 全部补强任务完成后，在「触发补强」点对应阶段的「重测」生成新题，再到习题本作答"
     )

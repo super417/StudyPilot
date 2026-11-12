@@ -4,7 +4,7 @@ import { fetchPracticeEvidence, type PracticeEvidenceResponse } from '@/lib/prac
 
 export function PracticeEvidenceView({ data }: { data: PracticeEvidenceResponse }) {
   return <div className="mt-2 space-y-3 text-xs text-slate-600">
-    <p>{data.question.practiceType === 'reinforce_retest' ? '补强完成后的同阶段新题重测' : '普通练习'} · 所属阶段：{data.question.phaseName ?? '未关联阶段'}</p>
+    <p>{data.question.practiceType === 'reinforce_redo' ? '补强重做原题' : data.question.practiceType === 'reinforce_retest' ? '补强完成后的同阶段新题重测' : '普通练习'} · 所属阶段：{data.question.phaseName ?? '未关联阶段'}</p>
     {data.question.practiceType === 'reinforce_retest' && <p>用于检验补强后的同阶段知识；重新作答会追加记录，保留历史判分。</p>}
     {!data.evidence.length && <p>尚无判分记录，作答后可查看依据。</p>}
     {data.evidence.map((row) => <article key={row.id} className="rounded-xl bg-slate-50 p-3">

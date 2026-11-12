@@ -161,7 +161,7 @@ function PracticeCard({
     <article className="pressable-card rounded-3xl bg-card p-4 text-brandDark">
       {selecting ? <label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={selected} disabled={locked} onChange={onSelect} />选择此题</label> : null}
       <fieldset disabled={locked || busy} className="min-w-0">
-        <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
+        <p className="text-xs text-gray-500">{item.subject || '综合'} · {item.practiceType === 'reinforce_redo' ? '补强重做 · 请重新作答' : item.practiceType === 'reinforce_retest' ? '补强后新题重测' : item.source === 'uploaded' ? '自己上传' : '今日生成'}</p>
         <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{item.question}</p>
         {showAnswer ? (
           <>
@@ -246,7 +246,7 @@ function PracticeCard({
         {explainOpen ? (
           <div className="mt-3 rounded-2xl bg-brandFaint/60 px-3 py-3">
             <label className="block text-xs text-gray-500">
-              用文字讲一遍（不做语音）
+              用文字讲一遍
               <textarea
                 value={explainText}
                 onChange={(event) => setExplainText(event.target.value)}

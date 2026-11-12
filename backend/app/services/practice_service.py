@@ -22,7 +22,7 @@ from app.models.entities import (
     ReinforceTaskEvidence,
     UserDocument,
 )
-from app.services import document_service
+from app.services import document_service, planner_service
 from app.services.ai_proxy import (
     require_ai_access, request_ai_completion,
     CredentialUnavailableError,
@@ -119,6 +119,18 @@ def list_practice(session: Session, user_id: uuid.UUID, day: date) -> dict:
             .order_by(PracticeQuestion.created_at)
         )
     )
+    plan = planner_service.get_latest_plan(session, user_id)
+    if plan:
+        task_ids = set(session.scalars(select(DailyTask.id).where(DailyTask.plan_id == plan.id)))
+        rows = [row for row in rows if row.source_task_id is None or row.source_task_id in task_ids]
+    redo_texts = {}
+    for task_id, text in session.execute(
+        select(ReinforceTaskEvidence.task_id, PracticeQuestion.question)
+        .join(MasteryEvidence, MasteryEvidence.id == ReinforceTaskEvidence.evidence_id)
+        .join(PracticeQuestion, PracticeQuestion.id == MasteryEvidence.question_id)
+        .where(PracticeQuestion.user_id == user_id)
+    ):
+        redo_texts.setdefault(task_id, set()).add(text)
     latest = {}
     if rows:
         evidence_rows = session.scalars(
@@ -141,10 +153,13 @@ def list_practice(session: Session, user_id: uuid.UUID, day: date) -> dict:
     for row in rows:
         created = row.created_at.astimezone(timezone.utc).date() if row.created_at.tzinfo else row.created_at.date()
         item = {**_question_json(row), "latestGrade": latest.get(row.id)}
+        if row.source_task_id in redo_texts:
+            item["practiceType"] = "reinforce_redo" if row.question in redo_texts[row.source_task_id] else "reinforce_retest"
         if created == day:
             questions.append(item)
         elif row.status == "pending" and created < day:
             review.append(item)
+    questions.sort(key=lambda item: (item.get("latestGrade") is not None, item.get("practiceType") not in ("reinforce_redo", "reinforce_retest")))
     return {"questions": questions, "review": review}
 
 
@@ -155,6 +170,13 @@ def practice_evidence(session: Session, user_id: uuid.UUID, question_id: uuid.UU
     phase_id = _knowledge_point(session, user_id, question)
     phase = session.get(Phase, phase_id) if phase_id else None
     is_retest = bool(question.source_task_id and session.scalar(select(ReinforceTaskEvidence.task_id).where(ReinforceTaskEvidence.task_id == question.source_task_id).limit(1)))
+    original_texts = set(session.scalars(
+        select(PracticeQuestion.question)
+        .join(MasteryEvidence, MasteryEvidence.question_id == PracticeQuestion.id)
+        .join(ReinforceTaskEvidence, ReinforceTaskEvidence.evidence_id == MasteryEvidence.id)
+        .where(ReinforceTaskEvidence.task_id == question.source_task_id, PracticeQuestion.user_id == user_id)
+    )) if is_retest else set()
+    practice_type = ('reinforce_redo' if question.question in original_texts else 'reinforce_retest') if is_retest else question.source
     rows = session.scalars(select(MasteryEvidence).where(MasteryEvidence.user_id == user_id, MasteryEvidence.question_id == question_id).order_by(MasteryEvidence.created_at.desc(), MasteryEvidence.id.desc())).all()
     evidence = []
     for row in rows:
@@ -172,7 +194,7 @@ def practice_evidence(session: Session, user_id: uuid.UUID, question_id: uuid.UU
         source['quoteCheck'] = row.quote_check or 'unverified'
         source['sourceQuote'] = row.source_quote
         evidence.append({'id': str(row.id), 'evidenceType': row.evidence_type, 'createdAt': (row.created_at.replace(tzinfo=timezone.utc) if row.created_at.tzinfo is None else row.created_at.astimezone(timezone.utc)).isoformat(), 'phaseId': str(row.knowledge_point) if row.knowledge_point else None, 'phaseName': evidence_phase.name if evidence_phase else None, 'answerText': row.answer_text or '', 'result': row.result, 'reason': row.grade_reason, 'sourceRef': row.source_ref, 'source': source})
-    return {'question': {'id': str(question.id), 'phaseId': str(phase_id) if phase_id else None, 'phaseName': phase.name if phase else None, 'practiceType': 'reinforce_retest' if is_retest else question.source}, 'evidence': evidence}
+    return {'question': {'id': str(question.id), 'phaseId': str(phase_id) if phase_id else None, 'phaseName': phase.name if phase else None, 'practiceType': practice_type}, 'evidence': evidence}
 
 
 def create_uploaded(
@@ -1006,6 +1028,20 @@ async def _grade_and_record(
                 phase = session.get(Phase, task.phase_id)
                 if phase:
                     task_service.recompute_phase_progress(session, phase)
+    if evidence_type == 'quiz' and verdict['result'] == 'correct' and question.source_task_id:
+        original_texts = list(session.scalars(
+            select(PracticeQuestion.question)
+            .join(MasteryEvidence, MasteryEvidence.question_id == PracticeQuestion.id)
+            .join(ReinforceTaskEvidence, ReinforceTaskEvidence.evidence_id == MasteryEvidence.id)
+            .where(ReinforceTaskEvidence.task_id == question.source_task_id, PracticeQuestion.user_id == user_id)
+        ))
+        if question.question in original_texts:
+            task = session.get(DailyTask, question.source_task_id)
+            if task and task.status == 'pending':
+                from app.services import task_service
+                task.status = 'done'
+                session.flush()
+                task_service.recompute_phase_progress(session, session.get(Phase, task.phase_id))
     session.commit()
     session.refresh(row)
     return row, verdict

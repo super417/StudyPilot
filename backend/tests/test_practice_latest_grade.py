@@ -32,14 +32,16 @@ def test_latest_grade_is_quiz_only_owned_and_deterministic():
             evidence(other, "quiz", "private", now+timedelta(seconds=3), 6),
         ])
         session.commit()
-        # Avoid counting ORM expiry reloads as part of list's two queries.
+        # Avoid counting ORM expiry reloads as part of list's fixed queries.
+        # 固定 4 条：题目、最新证据、当前计划（本用例无计划）、补强重做原文。
+        # 断言的是「与题量无关的常量查询数」，不是某条 SQL 的形状。
         owner_id = owner.id
         queries = []
         def count(*args): queries.append(1)
         event.listen(engine, "before_cursor_execute", count)
         result = list_practice(session, owner_id, now.date())
         event.remove(engine, "before_cursor_execute", count)
-        assert len(queries) == 2
+        assert len(queries) == 4
         by_question = {row["question"]: row for row in result["questions"]}
         assert by_question["Q"]["latestGrade"] == {"answerText": "latest", "result": "partial", "reason": "reason"}
         assert by_question["blank"]["latestGrade"] is None
