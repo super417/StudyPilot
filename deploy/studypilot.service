@@ -1,0 +1,28 @@
+[Unit]
+Description=StudyPilot FastAPI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=studypilot
+Group=studypilot
+WorkingDirectory=/srv/studypilot/backend
+EnvironmentFile=/srv/studypilot/backend/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=Asia/Shanghai
+
+# The in-process session store and SQLite require exactly one worker.
+ExecStart=/srv/studypilot/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillSignal=SIGINT
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

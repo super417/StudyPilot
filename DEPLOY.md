@@ -16,12 +16,14 @@
 
 或双击根目录 `start-all.bat` 一键启动前后端：自动跑 alembic 迁移、清理 8000/5173 残留进程、开两个窗口（后端 `--reload`、前端 `--strictPort`）并在 6 秒后打开浏览器。只想单独起某一个服务时，按上面 1 / 2 节手动执行命令。
 
-## 公网部署建议（可选，不属于本次评委主路径）
+## 公网部署建议（阿里云 Ubuntu 可执行步骤见 `deploy/README.md`）
 
-- **推荐同域反代**：Nginx/Caddy 将 `/` → 前端静态，`/api` → 后端，避免跨域丢 Cookie
+- **推荐同域反代**：Nginx 将 `/` → 前端静态，`/api` → 后端，避免跨域丢 Cookie
 - 若前后端不同域：需后端配置 CORS + Cookie `SameSite=None; Secure`（**当前后端未改契约，优先同域**）
-- 构建：`npm run build`，产物在 `frontend/dist`
+- 构建：**在本地执行 `npx vite build`**，产物在 `frontend/dist`；不要把 Node 构建放到 2G 服务器上
 - 环境变量：构建时注入 `VITE_API_BASE_URL`（同域反代时留空即可）
+- 后端固定单 worker：会话存储在进程内和 `.sessions.json`，SQLite 也不适合多进程并发写
+- Nginx 配置、systemd 服务、上传/迁移/备份命令：见 `deploy/README.md`
 
 ### 「实用简历管理」内嵌编辑器
 
