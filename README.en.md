@@ -2,7 +2,7 @@
 
 > An evidence-grounded capability map for AI-micro-major students.
 
-Upload your lecture notes and your goal. The Agent reads the material, drafts an iterable study plan, and carries it down to daily tasks, check-ins, practice grading, mistakes and weekly reviews. Graded answers become evidence, and the statistics page turns that evidence into a learning diagnosis.
+Upload your lecture notes and your goal. The application reads the material, drafts an iterable study plan, and carries it down to daily tasks, check-ins, practice grading, mistakes and weekly reviews. Graded answers become evidence, and the statistics page turns that evidence into a learning diagnosis.
 
 The first public push of this repository was a bulk import; the commit history after it is the real development record.
 
@@ -36,7 +36,7 @@ Built for students taking AI micro-majors or general AI courses — non-CS backg
 | Speech playback | Xiaoxiao online female voice; reply body streamed sentence by sentence, new replies pre-generated |
 | Courses & notes | Course chapters (with user-supplied links, check-off when done) and free-form notes |
 | Resumes | Built-in "实用简历管理" editor (a local mirror of Magic Resume) with three possible polish credentials: the profile's own key, platform metering (balance or credits), or an independent DeepSeek key typed into the editor itself; plus a personal-website resume template |
-| Demo landing | `#/mainframe` presentation page: four-step Agent workflow animation, citation cards, notice card |
+| Demo landing | `#/mainframe` presentation page: four-step learning workflow animation, citation cards, notice card |
 
 > The mistake book can read a question from a photo or uploaded image, using the model configured in Settings. Pick a vision-capable model (e.g. GPT-4o, Gemini).
 
@@ -334,6 +334,10 @@ Goal: from a clean machine to the minimal loop of upload material → generate a
 Works without a key: registration and login, material upload and parsing, tasks and check-ins, mistake book, check-in-based statistics, plus 5 assistant rounds per month on the free allowance. Needs a key **or a platform balance / credits** (beyond the 5 free rounds): plan generation, assistant chat, grading, diagnosis; image OCR and resume polish accept only your own key.
 
 Speech playback is optional — run `speech/setup.ps1` separately.
+
+## Demo data and verification scope
+
+WorkBuddy runs a daily simulated user flow through the application APIs. The check-in fixture in `user_flow_simulator.py` records 30 minutes. The daily duration in the plan is a time budget, and the check-in duration comes from its own record. Demo check-ins, answers, and statistics are engineering test data. Model API runs, targeted regression tests, and user-flow checks provide separate evidence. Student learning outcomes require a separate evaluation.
 
 ## Tests
 
