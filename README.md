@@ -353,7 +353,13 @@ npm run test          # Vitest
 npm run build         # tsc -b && vite build（类型检查只在 build 阶段生效）
 ```
 
-**后端基线不是全绿。** 2026-10-29 于 `d49fab3` + 未提交计费批次实测：**2 failed，其余通过**。那 2 条固定是 `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` 的两个参数化用例，依赖真实 bilibili DNS，非回归。通过数随功能增长，以实跑为准，别抄旧数字。
+**后端基线不是全绿。** 2026-11-17 于 `4256ada` 分文件实测：**9 条已知失败，其余通过**。分三组：
+
+1. `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` 的两个参数化用例——依赖真实 bilibili DNS，非回归；
+2. `tests/test_billing_migration.py` 2 条 + `tests/test_credits.py::test_credit_migration_roundtrip_preserves_currency` 1 条——迁移测试里硬编码的 HEAD 与表集合断言停在 `c3a1b2c3d4e5`，实际 `alembic heads` 已是 `a2b3c4d5e6f7`；
+3. `tests/test_study_properties.py` 4 条——打卡改为任务级后 `create_check_in` 要求 `task_id`，属性测试仍按旧签名调用，报「请选择打卡任务」。
+
+后两组是既有漂移，未修（改断言口径属另一件事）。通过数随功能增长，以实跑为准，别抄旧数字。
 
 2026-10-30 交付阶段已修正当时那 19 条测试夹具与契约类型错误。没有排除测试、关闭类型检查或削弱断言；档案整体保存测试使用七字段严格比对，包含非空学校与专业。后端该批 15 个受影响文件定向回归为 147 passed、2 subtests passed；未据此宣称后端全量全绿。
 

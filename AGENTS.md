@@ -43,11 +43,16 @@ cd backend && ./.venv/Scripts/python.exe -m pytest -q
 
 ## 4. 测试基线
 
-**基线不是全绿。** 2026-10-20 于 `389925a` 实测：**2 failed, 609 passed, 86 subtests**。
+**基线不是全绿。** 2026-10-20 于 `389925a` 实测：**2 failed, 609 passed, 86 subtests**。**那是当时的数字，已不适用。**
 
-那 2 条固定是 `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable`（两个参数化用例），依赖真实 bilibili DNS，**非回归**。
+2026-11-17 于 `4256ada` 分文件复测：**9 条已知失败**，分三组——
 
-- 报告写「2 条已知失败 + 其余全绿」，**不要写「全量通过」**
+1. `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable`（两个参数化用例），依赖真实 bilibili DNS，**非回归**；
+2. `tests/test_billing_migration.py` 2 条 + `tests/test_credits.py::test_credit_migration_roundtrip_preserves_currency` 1 条：迁移测试硬编码的 HEAD 与表集合断言停在 `c3a1b2c3d4e5`，实际 `alembic heads` 已是 `a2b3c4d5e6f7`；
+3. `tests/test_study_properties.py` 4 条：打卡改任务级后 `create_check_in` 要求 `task_id`，属性测试仍按旧签名调用。
+
+- 报告写「9 条已知失败 + 其余全绿」，**不要写「全量通过」**，也不要再抄「2 条」
+- 第 2、3 组属既有漂移，**未修**；修不修、按哪边改断言，需单独定，别顺手改测试
 - **绝不为凑全绿去改无关测试**
 - `passed` 数随批次增长，不要抄旧数字，自己跑
 

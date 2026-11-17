@@ -353,7 +353,13 @@ npm run test          # Vitest
 npm run build         # tsc -b && vite build (type checking only runs here)
 ```
 
-**The backend baseline is not green.** Measured on 2026-10-29 at `d49fab3` plus the uncommitted billing batch: **2 failed, everything else passing**. Those 2 are the two parametrised cases in `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable`, which need real Bilibili DNS — not regressions. The passed count grows with each batch; run it, don't copy old numbers.
+**The backend baseline is not green.** Measured file by file on 2026-11-17 at `4256ada`: **9 known failures, everything else passing**. Three groups:
+
+1. The two parametrised cases in `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` — they need real Bilibili DNS, so they are not regressions.
+2. Two in `tests/test_billing_migration.py` plus `tests/test_credits.py::test_credit_migration_roundtrip_preserves_currency` — the hard-coded HEAD and table-set assertions in those migration tests are still pinned to `c3a1b2c3d4e5`, while `alembic heads` is already `a2b3c4d5e6f7`.
+3. Four in `tests/test_study_properties.py` — since check-ins became task-scoped, `create_check_in` requires a `task_id`, and the property tests still call the old signature, failing with "请选择打卡任务".
+
+The last two groups are pre-existing drift and remain unfixed (changing the assertion policy is a separate decision). The passed count grows with each batch; run it, don't copy old numbers.
 
 The 2026-10-30 delivery batch fixed the 19 test-fixture and contract type errors that existed then. No test was excluded, no type check disabled and no assertion weakened; the archive round-trip test compares seven fields strictly, including non-empty school and major. The backend result for that batch was 147 passed / 2 subtests across 15 affected files — not a claim that the whole backend is green.
 
