@@ -393,3 +393,13 @@ See [DEPLOY.md](DEPLOY.md) for the local path. Live instance: <https://8.137.203
 ## Note
 
 Course project / competition entry. For study and research use only.
+
+## License
+
+This repository is source-available. You may view, clone and run it locally for study, teaching and evaluation, but you may **not** use it commercially, redistribute it, or re-skin it and submit it as your own work to another competition or award. See [LICENSE](LICENSE) (StudyPilot Non-Commercial License 1.0) for the full terms; in short:
+
+- Allowed: public browsing, local clone and run, judging and teaching use, citation with attribution;
+- Prohibited: commercial use (paid deployment, SaaS, paid training, internal production systems), public forks and mirrors, repackaging and uploads elsewhere, re-submission to competitions, removing attribution;
+- For commercial licensing or other uses, contact the author via a GitHub Issue.
+
+This is a source-available license, not an OSI-approved open source license. If your competition rules require a specific open source license (e.g. MIT / Apache-2.0), those rules prevail — confirm with the author first.

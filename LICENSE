@@ -1,0 +1,114 @@
+StudyPilot 非商业许可 1.0
+StudyPilot Non-Commercial License 1.0
+
+版权所有 (c) 2026 super417（GitHub: https://github.com/super417）
+Copyright (c) 2026 super417 (GitHub: https://github.com/super417)
+保留所有权利 / All rights reserved.
+
+本许可适用于本仓库（https://github.com/super417/StudyPilot）内的全部源代码、文档、设计稿、
+图片、音视频与其他素材（以下统称「本项目」）。以中文文本为准，英文为参考译文。
+This License applies to all source code, documentation, designs, images, audio/video and other
+materials in this repository (the "Project"). The Chinese text prevails; the English text is a
+reference translation.
+
+────────────────────────────────────────────────────────────────────────────
+一、允许的行为 / Permitted
+────────────────────────────────────────────────────────────────────────────
+
+1. 访问与浏览：任何人可公开访问本仓库及其线上演示站，阅读源码与文档。
+   Access: anyone may publicly access this repository and its live demo, and read the code and docs.
+
+2. 本地运行：可为个人学习、教学演示、技术评审、竞赛评审之目的克隆或下载本项目，并在本地
+   运行、调试，包括修改本地配置文件（如 .env）以适配自己的环境。
+   Local use: you may clone or download the Project and run it locally for personal study,
+   teaching demos, technical review or competition judging, including editing local config files.
+
+3. 引用：可在文章、答辩、评审材料中引用本项目的截图、界面与结论，须注明来源与作者。
+   Citation: you may cite screenshots, UI and findings from the Project with attribution.
+
+4. 评审与验收：赛事主办方、评委、教师可为评审目的访问、部署与运行本项目。
+   Evaluation: organizers, judges and instructors may access, deploy and run the Project for review.
+
+────────────────────────────────────────────────────────────────────────────
+二、禁止的行为 / Prohibited
+────────────────────────────────────────────────────────────────────────────
+
+1. 商业使用：不得将本项目（含全部或部分代码、素材、文档）用于任何直接或间接获取经济利益的
+   场景，包括但不限于：付费产品、付费部署或托管服务、SaaS 对外提供、收费培训、企业内部生产
+   系统、以本项目为基础承接商业项目。
+   Commercial use: no use of the Project, in whole or in part, for any direct or indirect
+   commercial advantage, including paid products, paid hosting, SaaS offerings, paid training,
+   internal production systems, or client work built on the Project.
+
+2. 再分发：不得以任何形式公开分发本项目的源码或衍生作品，包括但不限于：公开 fork、镜像仓库、
+   打包上传至其他托管平台、发布到包管理器、以压缩包形式对外提供。
+   Redistribution: no public redistribution of the source code or derivative works in any form,
+   including public forks, mirrors, uploads to other hosting platforms or package registries.
+
+3. 二次投稿：不得将本项目的全部或部分（包括改名、换皮、重构、翻译、局部抽取模块、替换前端或
+   后端后复用核心逻辑）作为自己的作品或成果，提交至任何竞赛、评奖、评选、课程作业、毕业设计、
+   招标、创业项目申报或类似活动。
+   Re-submission: no use of the Project, in whole or in part (including renaming, re-skinning,
+   refactoring, translation, extracting modules, or reusing core logic behind a replaced frontend
+   or backend), as one's own work for any competition, award, course assignment, thesis, tender,
+   startup application or similar activity.
+
+4. 去除标识：不得移除、隐藏或篡改本许可、版权声明与作者署名。
+   No removal or concealment of this License, copyright notices or attribution.
+
+5. 署名暗示：不得使用项目名称或作者标识暗示获得作者背书、合作或授权。
+   No use of the project name or author identity to imply endorsement, partnership or authorization.
+
+6. 衍生作品公开：基于本项目修改产生的版本，仅可用于第一条所列的个人本地用途，不得公开。
+   Derivatives: modified versions may only be used locally as permitted in Section 1, and must not
+   be made public.
+
+────────────────────────────────────────────────────────────────────────────
+三、例外与授权申请 / Exceptions
+────────────────────────────────────────────────────────────────────────────
+
+1. 著作权人本人不受上述限制。
+   The copyright holder is not bound by the restrictions above.
+
+2. 需要商业使用、再分发或其他本许可未覆盖的用途，须事先取得著作权人的书面授权。
+   请通过 GitHub Issue 或仓库中公开的联系方式提出申请。
+   Any commercial use, redistribution or other use not covered here requires prior written
+   permission from the copyright holder. Requests may be filed via a GitHub Issue.
+
+3. 本许可不排除《中华人民共和国著作权法》规定的合理使用等法定情形。
+   This License does not exclude statutory exceptions such as fair use under applicable law.
+
+────────────────────────────────────────────────────────────────────────────
+四、终止 / Termination
+────────────────────────────────────────────────────────────────────────────
+
+违反本许可任一条款，授权自动终止，无需另行通知；使用者须立即停止使用并销毁全部副本。
+Any breach terminates this License automatically without notice; the user must immediately stop
+using the Project and destroy all copies.
+
+────────────────────────────────────────────────────────────────────────────
+五、免责 / Disclaimer
+────────────────────────────────────────────────────────────────────────────
+
+本项目按「现状」提供，不附带任何明示或默示的担保，包括但不限于适销性、特定用途适用性与不侵权
+担保。因使用本项目产生的任何直接或间接损失，作者不承担责任。
+The Project is provided "as is", without warranty of any kind, express or implied, including
+merCHANTABILITY, fitness for a particular purpose and non-infringement. The author is not liable
+for any direct or indirect damages arising from use of the Project.
+
+────────────────────────────────────────────────────────────────────────────
+六、其他 / Miscellaneous
+────────────────────────────────────────────────────────────────────────────
+
+本许可适用中华人民共和国法律。任一条款被认定无效，不影响其余条款的效力。
+This License is governed by the laws of the People's Republic of China. If any provision is held
+invalid, the remaining provisions remain in effect.
+
+────────────────────────────────────────────────────────────────────────────
+说明 / Note
+────────────────────────────────────────────────────────────────────────────
+
+本许可属「源码可见」（source-available），不是 OSI 认可的开源许可：它允许查看与本地学习使用，
+但限制商业使用、再分发与二次投稿。如需以开源许可发布，须由著作权人另行决定。
+This is a source-available license, not an OSI-approved open source license: viewing and local
+study use are permitted, while commercial use, redistribution and re-submission are restricted.
