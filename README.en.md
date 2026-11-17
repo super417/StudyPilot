@@ -331,7 +331,7 @@ Goal: from a clean machine to the minimal loop of upload material → generate a
 6. In a second terminal `cd frontend && npm install && npm run dev`, open `http://127.0.0.1:5173`;
 7. Operator configures the platform model and the review gift as described in [DEPLOY.md](DEPLOY.md#本地评委体验不需要个人-key) → sign in with the seeded account → pick the DeepSeek platform credit model in the profile page and enable it → upload a material → submit a goal to generate a plan → check in and answer and grade practice → confirm a remediation step and check the new task. Your own API key remains an optional path, configured under Advanced settings.
 
-Works without a key: registration and login, material upload and parsing, tasks and check-ins, mistake book, check-in-based statistics, plus 5 assistant rounds per month on the free allowance. Needs a key **or a platform balance / credits** (beyond the 5 free rounds): plan generation, assistant chat, grading, diagnosis; image OCR and resume polish accept only your own key.
+Works without a key: registration and login, material upload and parsing, tasks and check-ins, mistake book, check-in-based statistics, plus 5 assistant rounds per month on the free allowance. Needs a key **or a platform balance / credits** (beyond the 5 free rounds): plan generation, assistant chat, grading, diagnosis and resume polish; image OCR accepts only your own key.
 
 Speech playback is optional — run `speech/setup.ps1` separately.
 
