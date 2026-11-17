@@ -312,7 +312,7 @@ export default function ResumeInkCursor() {
 
     resize();
     new THREE.TextureLoader().load(
-      'https://assets.codepen.io/264161/noise_1.jpg',
+      '/resume-hero/noise.webp',
       (texture) => {
         if (disposed) {
           texture.dispose();

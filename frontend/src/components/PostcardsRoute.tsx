@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Alignment, Fit, Layout, RuntimeLoader, useRive, useViewModelInstanceNumber } from '@rive-app/react-canvas';
 
 RuntimeLoader.setWasmUrl('/postcards/animation/rive.wasm');
@@ -53,7 +53,25 @@ function RouteCanvas({ mobile }: { mobile: boolean }) {
 
 function PostcardsRoute() {
   const mobile = useSyncExternalStore(subscribe, getMobile, () => false);
-  return <RouteCanvas mobile={mobile} key={mobile ? 'mobile' : 'desktop'} />;
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    const target = host?.closest('section') ?? host;
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      setVisible(true);
+      observer.disconnect();
+    }, { rootMargin: '800px 0px' });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  // The Rive runtime is ~3MB; keep it off the critical path until the route
+  // section is near the viewport.
+  return <div ref={hostRef}>{visible && <RouteCanvas mobile={mobile} key={mobile ? 'mobile' : 'desktop'} />}</div>;
 }
 
 export default PostcardsRoute;

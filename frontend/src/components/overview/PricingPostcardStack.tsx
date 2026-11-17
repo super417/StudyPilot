@@ -8,15 +8,15 @@ import PlatformBillingCard from '@/components/profile/PlatformBillingCard';
 gsap.registerPlugin(ScrollTrigger);
 
 const imageRoot = '/postcards/pricing/';
-const art = (group: string, extension = 'jpg') => `${imageRoot}${group}/main.${extension}`;
+const art = (group: string) => `${imageRoot}${group}/main.webp`;
 
 export const PRICING_POSTCARDS = [
   { id: 'qihang', name: '免费版', category: '每月 5 轮 AI 对话', price: '免费', detail: '基础学习功能免费，每个北京时间自然月可进行 5 轮平台 AI 对话，失败不扣次数。', image: art('01-qihang-envelope'),
     blurb: '从目标到任务，留下真实学习记录。', features: ['学习目标与阶段路线', '今日任务、练习与学习记录', '每月 5 轮平台 AI 对话，成功回复计次'],
-    back: [art('02-voyage-map-letter'), art('03-checkin-stamp'), art('07-study-journal'), art('11-celebrate-step', 'png')] },
+    back: [art('02-voyage-map-letter'), art('03-checkin-stamp'), art('07-study-journal'), art('11-celebrate-step')] },
   { id: 'linghang', name: '启航版', category: '活动每月 4,000 积分', price: '¥99 / 月', detail: '单月 99 元；连续包月 70 元；连续包年 672 元。每月基础 2,000 积分，活动期间每月额外赠送 2,000 积分，共 4,000 积分。', image: art('05-linghang-member'),
     blurb: '套餐价格已确定；购买与自动续费暂未开放。', features: ['活动赠送每月发放，并非只赠首月', '积分当期有效、不结转', '学习助手、规划、诊断与练习按实际模型用量扣积分'],
-    back: [art('04-ai-helper'), art('08-deep-review'), art('12-diagnose-report', 'png'), art('14-weekly-review')] },
+    back: [art('04-ai-helper'), art('08-deep-review'), art('12-diagnose-report'), art('14-weekly-review')] },
   { id: 'supply', name: '补给包', category: '1,000 积分 / 包', price: '¥50 / 包', detail: '每包 50 元，补充 1,000 积分，自到账起一个月内有效。购买暂未开放。', image: art('06-supply-pack'),
     blurb: '需要时按需补充积分；积分购买暂未开放。', features: ['每包 1,000 积分', '有效期一个月，优先扣除临期积分', '不对应固定对话或调用次数'],
     back: [art('09-task-flags'), art('13-mistake-redo'), art('14-weekly-review')] },

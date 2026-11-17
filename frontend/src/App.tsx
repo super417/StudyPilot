@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import profileBg from '@/assets/profile-bg.jpg';
+import profileBg from '@/assets/profile-bg.webp';
 import AuthPage from '@/components/auth/AuthPage';
 import Header from '@/components/Header';
 import TabNav, { type TabKey } from '@/components/TabNav';

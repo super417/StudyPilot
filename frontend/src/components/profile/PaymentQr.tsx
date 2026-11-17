@@ -13,5 +13,5 @@ export default function PaymentQr({ codeUrl }: { codeUrl: string }) {
   }, [codeUrl]);
   if (error) return <p role="alert">二维码生成失败，请重新查询订单或稍后重试。</p>;
   if (!image) return <p role="status">正在本机生成支付二维码…</p>;
-  return <figure><img src={image} width="256" height="256" alt="微信支付二维码，请先核对订单金额后扫码" style={{ maxWidth: '100%', height: 'auto', background: '#fff' }} /><figcaption>使用微信扫码，核对收款方与金额后支付。</figcaption></figure>;
+  return <figure><img src={image} width="256" height="256" alt="微信支付二维码，请先核对订单金额后扫码" loading="lazy" decoding="async" style={{ maxWidth: '100%', height: 'auto', background: '#fff' }} /><figcaption>使用微信扫码，核对收款方与金额后支付。</figcaption></figure>;
 }

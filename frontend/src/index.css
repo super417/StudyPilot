@@ -6,14 +6,14 @@
   font-family: 'Inter', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   line-height: 1.5;
   /*
-   * 中文字体栈：Helvetica Now Display 是**纯拉丁字体，没有中文字形**，
-   * 不补中文就会 fallback 到系统默认（Windows 上字号/字重/字距全不匹配）。
-   * 拉丁部分仍走 Helvetica Now Display 保留原设计感，中文落到 Noto Sans SC。
+   * 字体栈：不再依赖 Helvetica Now Display（其 CDN 在国内会超时 12s 以上，
+   * 且它是 render-blocking 外部样式表，直接拖慢首屏）。
+   * 拉丁部分用 Inter（Google Fonts，非阻塞加载），中文落到 Noto Sans SC / 系统字体。
    * Arial 必须排在中文字体**之后** —— 它也没有中文字形，但会吃掉 fallback 链。
    */
-  --font-heading: 'HelveticaNowDisplay-Medium', 'Helvetica Neue', 'Noto Sans SC',
+  --font-heading: 'Inter', 'Helvetica Neue', 'Noto Sans SC',
     'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
-  --font-body: 'HelveticaNowDisplayW01-Rg', 'Helvetica Neue', 'Noto Sans SC',
+  --font-body: 'Inter', 'Helvetica Neue', 'Noto Sans SC',
     'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
 }
 

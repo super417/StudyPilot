@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
-import fallbackImage from '@/assets/chat-girl-idle.png';
+import fallbackImage from '@/assets/chat-girl-idle.webp';
 import { CHARACTER_ACTION_MS, CHARACTER_IMAGES, type CharacterMode } from '@/lib/assistantCharacter';
 import { CHARACTER_VIDEOS, clearAssistantGreenScreen, nextCharacterSegment, type CharacterSegment, type VideoPose } from '@/lib/assistantVideo';
 import './ChatCharacter.css';
@@ -100,7 +100,10 @@ function ChatCharacter({ mode, onAnswerEnd }: ChatCharacterProps) {
       video.addEventListener('ended', onEnded);
       if (video.error) onError();
       else if (video.readyState >= 1) seek();
-      else video.addEventListener('loadedmetadata', seek, { once: true });
+      else {
+        video.addEventListener('loadedmetadata', seek, { once: true });
+        video.load();
+      }
     });
     const run = async () => {
       try {
@@ -130,13 +133,13 @@ function ChatCharacter({ mode, onAnswerEnd }: ChatCharacterProps) {
   const showVideo = hasFrame && !failed && !reducedMotion;
   return (
     <span className="assistant-character" data-character-mode={mode} data-character-renderer={showVideo ? 'video' : 'image'} aria-hidden="true">
-      <img src={reducedMotion || failed ? CHARACTER_IMAGES[mode] : fallbackImage} alt="" draggable={false}
+      <img src={reducedMotion || failed ? CHARACTER_IMAGES[mode] : fallbackImage} alt="" draggable={false} width={512} height={688} decoding="async"
         onError={(event) => { if (event.currentTarget.getAttribute('src') !== fallbackImage) event.currentTarget.src = fallbackImage; }}
         className={`assistant-character__pose ${!showVideo ? 'assistant-character__pose--active' : ''}`} />
       <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} className={`assistant-character__pose ${showVideo ? 'assistant-character__pose--active' : ''}`} />
       {Object.entries(CHARACTER_VIDEOS).map(([name, src]) => (
         <video key={name} ref={(element) => { if (element) videos.current[name as keyof typeof CHARACTER_VIDEOS] = element; }}
-          src={src} muted playsInline preload="auto" className="assistant-character__source" />
+          src={src} muted playsInline preload="none" className="assistant-character__source" />
       ))}
     </span>
   );

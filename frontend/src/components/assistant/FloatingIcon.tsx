@@ -299,7 +299,7 @@ function FloatingIcon({ overviewEntrance = false }: { overviewEntrance?: boolean
           clickIntent.click(event.detail, event.detail !== 0 && draggingRef.current);
         }}
         onDoubleClick={(event) => { event.preventDefault(); clickIntent.doubleClick(draggingRef.current); }}
-        title={yielding ? '已收起人物以避让页面内容；单击聊天，双击展开，头像可拖动' : '单击聊天，双击展开人物；可拖动头像'}><span className="assistant-compact-dock__portrait" aria-hidden="true"><img src="/assistant/companion-avatar.png" alt="" draggable={false} /></span></button>
+        title={yielding ? '已收起人物以避让页面内容；单击聊天，双击展开，头像可拖动' : '单击聊天，双击展开人物；可拖动头像'}><span className="assistant-compact-dock__portrait" aria-hidden="true"><img src="/assistant/companion-avatar-160.webp" srcSet="/assistant/companion-avatar-160.webp 1x, /assistant/companion-avatar-320.webp 2x" sizes="95px" alt="" draggable={false} width="160" height="215" decoding="async" {...{ fetchpriority: 'high' }} /></span></button>
       <button type="button" className="assistant-compact-dock__expand" aria-label="展开助手人物" aria-expanded={false} aria-controls="assistant-character" onClick={() => setCompactPreference(false)}>展开</button>
     </div>}
     <motion.div

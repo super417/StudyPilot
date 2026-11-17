@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800;900&display=swap');
+/* Kanit is loaded non-blocking from index.html. */
 
 html:has(.jack-site), body:has(.jack-site), #root:has(.jack-site) { width: 100%; margin: 0; padding: 0; background: #0c0c0c; }
 .jack-site { min-height: 100vh; overflow-x: clip; background: #0c0c0c; color: #d7e2ea; font-family: 'Kanit', sans-serif; }

@@ -2,17 +2,17 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import './StudyPilotJourney.css';
 import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
-const assetRoot = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/';
+const assetRoot = '/journey/';
 const images = {
-  facilityA: assetRoot + 'hf_20260922_195936_f0de7dcd-eb12-4db3-8964-5403dc6472f6.png',
-  facilityB: assetRoot + 'hf_20260922_200129_317be2c2-73fc-461c-9980-139305628bc2.png',
-  quadruped: assetRoot + 'hf_20260922_200245_6438a01f-b0be-4ca6-84b5-05c2335db1ce.png',
-  drone: assetRoot + 'hf_20260922_200248_94585d80-5f12-4dd6-88f2-c51530810ddc.png',
-  humanoid: assetRoot + 'hf_20260922_200428_597e31e2-e842-4d6d-99fb-9759055df68d.png',
-  dock: assetRoot + 'hf_20260922_200456_60a2f7ce-7fc6-47dd-acf2-33c7cb3d10f4.png',
-  rover: assetRoot + 'hf_20260922_200242_24e51f89-a6a2-4a3d-817c-ea972debc06c.png',
-  sensors: assetRoot + 'hf_20260922_200256_95687c15-d5b4-44e9-b347-85c779cd7e0f.png',
-  cameras: assetRoot + 'hf_20260922_200300_a342388e-ee99-4f7a-aeca-c4b19ee78106.png',
+  facilityA: assetRoot + 'facilityA.webp',
+  facilityB: assetRoot + 'facilityB.webp',
+  quadruped: assetRoot + 'quadruped.webp',
+  drone: assetRoot + 'drone.webp',
+  humanoid: assetRoot + 'humanoid.webp',
+  dock: assetRoot + 'dock.webp',
+  rover: assetRoot + 'rover.webp',
+  sensors: assetRoot + 'sensors.webp',
+  cameras: assetRoot + 'cameras.webp',
 };
 
 // Keep the reference artwork where StudyPilot has no truthful visual equivalent.
@@ -341,7 +341,7 @@ function StudyPilotJourney() {
           <div className="spj-about-copy">
             <p aria-label={aboutWords.join('')}>{aboutWords.map((word, i) => <span className="spj-word" aria-hidden="true" key={i}>{word}</span>)}</p>
             <div className="spj-about-figures">
-              {[{ src: images.quadruped, alt: 'Quadruped inspection robot' }, { src: images.drone, alt: 'Autonomous inspection drone' }, { src: images.humanoid, alt: 'Humanoid field robot' }].map((image, i) => <figure className={'spj-float f' + (i + 1)} key={image.src}><img src={image.src} alt={image.alt} loading="eager" /></figure>)}
+              {[{ src: images.quadruped, alt: 'Quadruped inspection robot' }, { src: images.drone, alt: 'Autonomous inspection drone' }, { src: images.humanoid, alt: 'Humanoid field robot' }].map((image, i) => <figure className={'spj-float f' + (i + 1)} key={image.src}><img src={image.src} alt={image.alt} loading="lazy" decoding="async" /></figure>)}
             </div>
           </div>
         </div></div>
@@ -372,7 +372,7 @@ function StudyPilotJourney() {
             <h2 className="spj-engine-title">StudyPilot 学习结构</h2>
             <div className="spj-engine-arc" aria-label="七种设备的参考场景">
               {devices.map((device, i) => <div className={'spj-engine-node' + (i === 1 ? ' flying' : '')} style={{ '--l': device.l, '--t': device.t, '--w': device.w, '--z': device.z, '--d': (i * 0.08).toFixed(2) + 's' } as CSSProperties} key={device.image}>
-                <div className="spj-node-lift"><div className="spj-node-ped"><span className="spj-node-side" /><span className="spj-node-top" /><img className="spj-device" src={device.image} alt={device.alt} loading="eager" /></div></div>
+                <div className="spj-node-lift"><div className="spj-node-ped"><span className="spj-node-side" /><span className="spj-node-top" /><img className="spj-device" src={device.image} alt={device.alt} loading="lazy" decoding="async" /></div></div>
               </div>)}
             </div>
             <div className="spj-engine-dots" aria-hidden="true"><i /><i /><i /></div>

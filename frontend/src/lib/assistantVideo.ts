@@ -1,10 +1,10 @@
 import type { CharacterMode } from './assistantCharacter';
 
 export const CHARACTER_VIDEOS = {
-  main: '/assistant/ningning/master-main.mp4',
-  hover: '/assistant/ningning/master-hover.mp4',
-  chinExit: '/assistant/ningning/exit-chin-to-idle.mp4',
-  thinkingExit: '/assistant/ningning/exit-thinking-to-idle.mp4',
+  main: '/assistant/ningning/master-main.mp4?v=2',
+  hover: '/assistant/ningning/master-hover.mp4?v=2',
+  chinExit: '/assistant/ningning/exit-chin-to-idle.mp4?v=2',
+  thinkingExit: '/assistant/ningning/exit-thinking-to-idle.mp4?v=2',
 } as const;
 
 export type VideoPose = 'idle' | 'hover' | 'open' | 'thinking';

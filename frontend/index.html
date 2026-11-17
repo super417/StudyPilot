@@ -2,22 +2,34 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Assistant dock avatar: fetch immediately so the floating icon paints on first view. -->
+    <link
+      rel="preload"
+      as="image"
+      href="/assistant/companion-avatar-160.webp"
+      imagesrcset="/assistant/companion-avatar-160.webp 1x, /assistant/companion-avatar-320.webp 2x"
+      imagesizes="95px"
+      fetchpriority="high"
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Non-blocking: a slow webfont must never delay first paint. -->
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
-    <link
-      href="https://db.onlinewebfonts.com/c/5ac3fe7c6abd2f62067f266d89671492?family=HelveticaNowDisplay-Medium"
-      rel="stylesheet"
-    />
-    <link
-      href="https://db.onlinewebfonts.com/c/1aa3377e489837a26d019bba501e779d?family=HelveticaNowDisplayW01-Rg"
-      rel="stylesheet"
-    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@400;600;700;900&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      />
+    </noscript>
     <title>StudyPilot</title>
   </head>
   <body>

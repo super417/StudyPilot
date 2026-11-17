@@ -13,9 +13,9 @@ import { OVERVIEW_NAVIGATION_EVENT } from '@/lib/overviewNavigation';
 gsap.registerPlugin(ScrollTrigger);
 
 const postcards = [
-  ['01-hello.jpg', '你好'], ['02-roadmap.jpg', '星藤航图'], ['03-checkin.jpg', '打卡'],
-  ['04-mistakes.jpg', '错题'], ['05-weekly-review.jpg', '周复盘'], ['06-agent.jpg', 'Agent'],
-  ['07-focus.jpg', '专注'], ['08-encourage.jpg', '鼓励'], ['09-overview.jpg', '总览'],
+  ['01-hello.webp', '你好'], ['02-roadmap.webp', '星藤航图'], ['03-checkin.webp', '打卡'],
+  ['04-mistakes.webp', '错题'], ['05-weekly-review.webp', '周复盘'], ['06-agent.webp', 'Agent'],
+  ['07-focus.webp', '专注'], ['08-encourage.webp', '鼓励'], ['09-overview.webp', '总览'],
 ];
 interface DisplayPlan {
   name: string; monthly: string; annual: string; color: string; note: string; features: string[];
@@ -34,7 +34,7 @@ function BotMark() {
 function CardDeck({ className = '', decorative = false }: { className?: string; decorative?: boolean }) {
   return <div className={`spp-deck ${className}`} aria-label={decorative ? undefined : '九张水彩明信片'} aria-hidden={decorative || undefined}>
     {postcards.map(([file, title], index) => <figure key={file} className="spp-postcard" style={{ zIndex: postcards.length - index }}>
-      <div className="spp-postcard-face"><img src={`/postcards/${file}`} alt={decorative ? '' : `StudyPilot 水彩明信片：${title}`} width="864" height="1152" decoding="async" loading={decorative ? 'lazy' : 'eager'} /></div>
+      <div className="spp-postcard-face"><img src={`/postcards/${file}`} srcSet={`/postcards/${file.replace(/\.webp$/, '-432.webp')} 432w, /postcards/${file} 864w`} sizes="(max-width: 767px) 176px, 352px" alt={decorative ? '' : `StudyPilot 水彩明信片：${title}`} width="864" height="1152" decoding="async" loading={decorative || index > 2 ? 'lazy' : 'eager'} fetchPriority={index === 0 && !decorative ? 'high' : 'auto'} /></div>
     </figure>)}
   </div>;
 }
@@ -58,6 +58,10 @@ function StudyPilotPostcards({ overview, onAction, onRetry }: { overview: Postca
     let lastDirectionY = window.scrollY;
     let scrollingUp = false;
     let lastStickyTop = -1;
+    // Lenis 在初始化时缓存了可滚动上限。首屏图片/字体到位前文档高度会变，
+    // 若不重新 resize，滚轮会被已截断的上限卡住，表现为「滑不动」。
+    let lastDocHeight = 0;
+    let heightCheckFrame = 0;
     const lenis = reduced ? null : new Lenis({
       autoRaf: false, lerp: .1,
       virtualScroll: ({ event }) => event.target instanceof Node && root.contains(event.target),
@@ -109,6 +113,17 @@ function StudyPilotPostcards({ overview, onAction, onRetry }: { overview: Postca
         });
       });
 
+      // 每 20 帧比对一次文档高度：内容长高（图片、字体、懒加载区块）时
+      // 立刻刷新 Lenis 上限，避免用户在内容就绪前滑不动。
+      if (++heightCheckFrame >= 20) {
+        heightCheckFrame = 0;
+        const height = document.documentElement.scrollHeight;
+        if (height !== lastDocHeight) {
+          lastDocHeight = height;
+          lenis?.resize();
+        }
+      }
+
       const y = window.scrollY;
       if (Math.abs(y - lastDirectionY) > 5) { scrollingUp = y < lastDirectionY; lastDirectionY = y; }
       const bounds = root.getBoundingClientRect();
@@ -131,7 +146,7 @@ function StudyPilotPostcards({ overview, onAction, onRetry }: { overview: Postca
       });
     }, root);
     gsap.ticker.add(draw);
-    const refresh = () => ScrollTrigger.refresh();
+    const refresh = () => { ScrollTrigger.refresh(); lenis?.resize(); };
     const images = [...root.querySelectorAll('img')];
     images.forEach((image) => image.addEventListener('load', refresh));
     void document.fonts.ready.then(() => { if (root.isConnected) refresh(); });

@@ -22,6 +22,11 @@ interface ResumePayload {
 
 const EMPTY_RESUME: ResumePayload = { verified: [], learned: [], awaiting: [] };
 const EMPTY_PERSONAL_FACTS: PersonalResumeFacts = { name: '', school: '', major: '', certificates: [], professionalSkills: [] };
+
+/** 作品卡在 640 宽的视口里最多显示约 45vw，640w 缩略图足够，高清屏才取 960 原图。 */
+function projectSrcSet(url: string): string {
+  return `${url.replace(/\.webp$/, '-640.webp')} 640w, ${url} 960w`;
+}
 function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
   event.preventDefault();
   const id = event.currentTarget.getAttribute('href')?.slice(1);
@@ -63,7 +68,7 @@ function HeroSection({ nickname, intro }: { nickname: string; intro: string }) {
       <a href="#jack-learning" onClick={scrollToSection}>优势</a>
     </motion.nav>
     <div className="jack-hero-title-clip"><motion.h1 id="jack-hero-title" className="hero-heading" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .15, ease: [.25, .1, .25, 1] }}>Hi, i&apos;m {nickname || 'a learner'}</motion.h1></div>
-    <motion.div className="jack-portrait" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .6, ease: [.25, .1, .25, 1] }}><Magnet><img src={PORTRAIT_URL} alt="" /></Magnet></motion.div>
+    <motion.div className="jack-portrait" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .6, ease: [.25, .1, .25, 1] }}><Magnet><img src={PORTRAIT_URL} srcSet="/resume-portfolio/portrait-480.webp 480w, /resume-portfolio/portrait.webp 900w" sizes="(max-width: 640px) 70vw, 440px" alt="" width={900} height={974} fetchPriority="high" decoding="async" /></Magnet></motion.div>
     <div className="jack-hero-bottom">
       <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .35, ease: [.25, .1, .25, 1] }}>{intro}</motion.p>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7, delay: .5, ease: [.25, .1, .25, 1] }}><ContactButton /></motion.div>
@@ -89,7 +94,7 @@ function MarqueeSection() {
   const rowLeft = useTransform(offset, value => -(value - 200));
   return <section className="jack-marquee" ref={sectionRef} aria-label="视觉素材画廊">
     {[REFERENCE_GIFS.slice(0, 11), REFERENCE_GIFS.slice(11)].map((images, row) => <motion.div className="jack-marquee-row" key={row} style={{ x: row === 0 ? rowRight : rowLeft }}>
-      {[...images, ...images].map((url, index) => <img key={`${row}-${index}`} src={url} loading="lazy" decoding="async" alt="" />)}
+      {[...images, ...images].map((url, index) => <img key={`${row}-${index}`} src={url} width={480} height={349} loading="lazy" decoding="async" alt="" />)}
     </motion.div>)}
     <span className="jack-marquee-note">视觉素材展示 · 不代表本人作品</span>
   </section>;
@@ -113,7 +118,7 @@ function AnimatedText({ text }: { text: string }) {
 
 function AboutSection({ nickname, bio, direction, school, major, facts, verified, advantages, profileError, planError }: { nickname: string; bio: string; direction: string; school: string; major: string; facts: PersonalResumeFacts; verified: ResumeAbility[]; advantages: string[]; profileError: boolean; planError: boolean }) {
   return <section className="jack-about" id="jack-about" aria-labelledby="jack-about-title">
-    {ABOUT_IMAGES.map((url, index) => <FadeIn key={url} className={`jack-about-image jack-about-image-${index + 1}`} x={index < 2 ? -80 : 80} y={0} delay={[.1, .25, .15, .3][index]} duration={.9}><img src={url} alt="" loading="lazy" /></FadeIn>)}
+    {ABOUT_IMAGES.map((url, index) => <FadeIn key={url} className={`jack-about-image jack-about-image-${index + 1}`} x={index < 2 ? -80 : 80} y={0} delay={[.1, .25, .15, .3][index]} duration={.9}><img src={url} alt="" loading="lazy" decoding="async" /></FadeIn>)}
     <FadeIn y={40}><h2 className="hero-heading" id="jack-about-title">关于我</h2></FadeIn>
     {nickname && <p className="jack-about-profile">昵称：{nickname}</p>}
     <AnimatedText text={profileError && !facts.name && !facts.school && !facts.major && !facts.certificates.length && !facts.professionalSkills.length && !bio && !verified.length ? '个人资料暂时无法读取。' : buildAboutText({ nickname, bio, facts, verified, school, major })} />
@@ -164,7 +169,7 @@ function ProjectCard({ pair, index, total, loading, error }: { pair: Achievement
         </div>
         <a href="#jack-services" onClick={scrollToSection} className="jack-live-button">查看能力</a>
       </div>
-      <div className="jack-project-images" aria-label="装饰性视觉图片，不代表本人作品或作答证据"><div><img src={PROJECT_IMAGES[index][0]} alt="" loading="lazy" /><img src={PROJECT_IMAGES[index][1]} alt="" loading="lazy" /></div><img src={PROJECT_IMAGES[index][2]} alt="" loading="lazy" /></div>
+      <div className="jack-project-images" aria-label="装饰性视觉图片，不代表本人作品或作答证据"><div><img src={PROJECT_IMAGES[index][0]} srcSet={projectSrcSet(PROJECT_IMAGES[index][0])} sizes="(max-width: 640px) 100vw, 45vw" alt="" width={960} height={717} loading="lazy" decoding="async" /><img src={PROJECT_IMAGES[index][1]} srcSet={projectSrcSet(PROJECT_IMAGES[index][1])} sizes="(max-width: 640px) 100vw, 45vw" alt="" width={960} height={717} loading="lazy" decoding="async" /></div><img src={PROJECT_IMAGES[index][2]} srcSet={projectSrcSet(PROJECT_IMAGES[index][2])} sizes="(max-width: 640px) 100vw, 45vw" alt="" width={960} height={717} loading="lazy" decoding="async" /></div>
       <p className="jack-project-caption">图片为视觉素材，学习能力与证据以文字记录为准。</p>
     </motion.article>
   </div>;

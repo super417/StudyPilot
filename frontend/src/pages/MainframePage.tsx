@@ -23,9 +23,9 @@ import { isMainframeChatExpand } from '@/lib/mainframeRoute';
  * `<video>` 只会抛 error 并停在黑帧上，这就是「展开后一片黑」的根因。
  * 转码命令见 `scripts/transcode-mainframe-video.sh`。
  */
-const VIDEO_SRC = `${import.meta.env.BASE_URL}mainframe-bg.mp4`;
+const VIDEO_SRC = `${import.meta.env.BASE_URL}mainframe-bg.mp4?v=2`;
 /** 视频首帧静态海报，垫在视频下层：未就绪或解码失败时兜底，杜绝黑屏。 */
-const POSTER_SRC = `${import.meta.env.BASE_URL}mainframe-poster.jpg`;
+const POSTER_SRC = `${import.meta.env.BASE_URL}mainframe-poster.webp`;
 /**
  * 视线映射方向：**0s 时人物脸朝左，末帧脸朝右**，所以鼠标越靠右 → 进度越靠后。
  *
@@ -367,6 +367,10 @@ function MainframePage({ onBack, onNavigate }: MainframePageProps) {
         <img
           src={POSTER_SRC}
           alt=""
+          width={1600}
+          height={900}
+          fetchPriority="high"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
           style={{ objectPosition: '70% center' }}
         />

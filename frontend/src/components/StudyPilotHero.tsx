@@ -4,7 +4,7 @@ import './StudyPilotHero.css';
 import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
 const SKY_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260912_111243_26a0a351-0bff-4c24-9872-14c77a2726f6.mp4';
-const PROJECTOR = 'https://soft-zoom-63098134.figma.site/_assets/v11/83aecec75c5d8511dbb24e3a6369d7380e3f2278.png';
+const PROJECTOR = '/resume-hero/projector.webp';
 const MARQUEE_TEXT = 'STUDYPILOT·LEARN·GROW·'.repeat(5);
 let entrancePlayed = false;
 
@@ -140,7 +140,7 @@ function StudyPilotHero({ onNavigate, overlap }: StudyPilotHeroProps) {
       aria-label="StudyPilot 学习首屏"
     >
       <div className="sp-hero-sky">
-        <video ref={videoRef} aria-hidden="true" autoPlay muted loop playsInline preload="auto" disablePictureInPicture tabIndex={-1} />
+        <video ref={videoRef} aria-hidden="true" autoPlay muted loop playsInline preload="metadata" poster="/resume-hero/sky.webp" disablePictureInPicture tabIndex={-1} />
       </div>
       <div className="sp-hero-marquee" aria-hidden="true">
         <div className="sp-hero-marquee-track">
@@ -149,7 +149,7 @@ function StudyPilotHero({ onNavigate, overlap }: StudyPilotHeroProps) {
       </div>
       <div className="sp-hero-scene-assembly" aria-hidden="true">
         <div className="sp-hero-skirt" />
-        <img className="sp-hero-scene" src={PROJECTOR} alt="" draggable={false} />
+        <img className="sp-hero-scene" src={PROJECTOR} alt="" draggable={false} fetchPriority="high" decoding="async" />
       </div>
       <header className="sp-hero-intro">
         <p className="sp-hero-hi">Hi, 欢迎来到</p>
