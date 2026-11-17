@@ -20,10 +20,13 @@ function formatMinutes(minutes: number): string {
   return h > 0 ? `${h} 小时 ${m} 分` : `${m} 分钟`;
 }
 
-/** 学习进度：真实 metrics 阶段进度 + 今日三态 + 本周任务完成比。 */
+/** 学习进度：总体进度（周报任务完成率，与数据统计页同源）+ 今日三态 + 本周任务完成比。 */
 function StudyProgressCard({ onEnter }: StudyProgressCardProps) {
   const lastPlanId = usePlanSessionStore((s) => s.lastPlanId);
   const { data, loading, error } = useAsync(fetchStudyProgress, lastPlanId);
+
+  const overallPercent = data?.overallPercent ?? null;
+  const ringPercent = overallPercent ?? 0;
 
   const weeklyPercent =
     data && data.weeklyGoalMinutes > 0
@@ -55,7 +58,9 @@ function StudyProgressCard({ onEnter }: StudyProgressCardProps) {
             className="relative shrink-0"
             style={{ width: RING_SIZE, height: RING_SIZE }}
             role="img"
-            aria-label={`总体进度 ${data.overallPercent}%`}
+            aria-label={
+              overallPercent == null ? '总体进度暂无数据' : `总体进度 ${overallPercent}%`
+            }
           >
             <svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
               <circle
@@ -75,13 +80,13 @@ function StudyProgressCard({ onEnter }: StudyProgressCardProps) {
                 strokeWidth={RING_STROKE}
                 strokeLinecap="round"
                 strokeDasharray={RING_CIRC}
-                strokeDashoffset={RING_CIRC * (1 - data.overallPercent / 100)}
+                strokeDashoffset={RING_CIRC * (1 - ringPercent / 100)}
                 transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="font-display text-lg font-bold text-brandDark">
-                {data.overallPercent}%
+                {overallPercent == null ? '—' : `${overallPercent}%`}
               </span>
             </div>
           </div>

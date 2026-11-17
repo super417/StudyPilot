@@ -18,8 +18,12 @@ import { fetchCourseOverview } from '@/lib/coursesApi';
 
 /** 学习进度概览。 */
 export interface StudyProgressOverview {
-  /** 总体进度百分比 0-100（阶段完成比） */
-  overallPercent: number;
+  /**
+   * 总体进度百分比 0-100。
+   * 口径固定为周报「任务完成率」（`completionRate`），与数据统计页的
+   * 「任务完成率」同源同值；没有周报时为 null —— 不拿阶段完成比或 0 冒充。
+   */
+  overallPercent: number | null;
   /** 今日学习时长（分钟）；无单日时长接口时为 0 */
   todayMinutes: number;
   /** 今日三态（真实 metrics） */
@@ -97,18 +101,18 @@ export interface ActivityItem {
   at: string;
 }
 
-/** 阶段进度环 + 今日三态 + 本周任务完成比。 */
+/** 今日三态 + 本周任务完成比；总体进度取周报任务完成率（与数据统计页同源）。 */
 export async function fetchStudyProgress(): Promise<StudyProgressOverview> {
   const today = todayISO();
   const week = currentWeekDates();
-  const [overview, tasks] = await Promise.all([
+  const [overview, tasks, weekly] = await Promise.all([
     fetchOverviewMetrics(today),
     fetchDailyTasksForDates(week),
+    fetchLatestWeeklyReview(),
   ]);
 
-  const { completed, total } = overview.phaseProgress;
-  const overallPercent =
-    total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+  // 与 StatisticsPage / WeeklyMetrics 读同一个字段，两处数字不会漂移
+  const overallPercent = weekly.review?.completionRate ?? null;
 
   const weekDone = tasks.filter((t) => t.status === 'done').length;
   const weekTotal = tasks.length;
