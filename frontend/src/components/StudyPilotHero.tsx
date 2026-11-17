@@ -3,7 +3,7 @@ import type { TabKey } from '@/components/TabNav';
 import './StudyPilotHero.css';
 import { scrollToLearningOverview } from '@/lib/overviewNavigation';
 
-const SKY_VIDEO = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260912_111243_26a0a351-0bff-4c24-9872-14c77a2726f6.mp4';
+const SKY_VIDEO = '/resume-hero/sky.mp4';
 const PROJECTOR = '/resume-hero/projector.webp';
 const MARQUEE_TEXT = 'STUDYPILOT·LEARN·GROW·'.repeat(5);
 let entrancePlayed = false;
