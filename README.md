@@ -6,6 +6,8 @@
 
 本仓库首次公开发布是一次初始导入，此后的提交历史才是实际计入的开发记录。
 
+**线上演示**：<https://8.137.203.9> —— 阿里云 2 核 2G，Nginx 同域反代，HTTPS 用 Let's Encrypt 的 IP 证书（约 6 天有效期，自动续期）。评审账号与本地运行步骤见 [DEPLOY.md](DEPLOY.md)。
+
 ---
 
 ## 它解决什么问题
@@ -371,14 +373,14 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 
 ## 部署
 
-本次评委主路径为本地运行，见 [DEPLOY.md](DEPLOY.md)。公网部署另有一份可执行的上线手册（阿里云 Ubuntu 24.04 / 2 核 2G，含 Nginx、systemd、HTTPS 与备份命令），见 [deploy/README.md](deploy/README.md)。要点：
+本次评委主路径为本地运行，见 [DEPLOY.md](DEPLOY.md)。线上实例：<https://8.137.203.9>。公网部署另有一份可执行的上线手册（阿里云 Ubuntu 24.04 / 2 核 2G，含 Nginx、systemd、HTTPS 与备份命令），见 [deploy/README.md](deploy/README.md)。要点：
 
 - 推荐 **同域反向代理**（Nginx：`/` → `frontend/dist`，`/api` → 后端），避免跨域丢 Cookie；`deploy/nginx-studypilot.conf` 是可直接改用的完整配置，其中对 `/api` 关闭 `proxy_buffering` 以保持 AI 对话的 SSE 流式输出；
 - **前端在本地构建**，只上传 `frontend/dist`：`npx vite build`。2G 内存的服务器不适合跑 Node 构建；
 - 后端固定 **单 worker**：会话存在进程内与 `.sessions.json`，SQLite 也不适合多进程并发写（`deploy/studypilot.service` 已按此写好）；
 - 若前后端不同域，需额外配置 CORS 与 `SameSite=None; Secure`；
 - `frontend/public/resume-site/` 的内嵌简历编辑器按站点根路径取资源，静态托管时要把 `/zh`、`/en`、`/app/*`、`/assets/*`、`/fonts/*`、`/landing/*` 反代到 `/resume-site/`（`vite.config.ts` 的开发 / 预览插件已处理，nginx 写法见 `deploy/nginx-studypilot.conf`）；
-- 前端图片素材已本地化为 WebP（含 `srcSet` 多尺寸），不再走 CloudFront / figma.site / higgs.ai 等外部图床；字体改用 Inter + 系统中文字体栈，Google Fonts 改为非阻塞加载，取不到也不拖慢首屏；仅首屏天空背景视频仍直取上游 CDN，加载失败时以本地 `resume-hero/sky.webp` 海报兜底；
+- 前端图片素材已本地化为 WebP（含 `srcSet` 多尺寸），首屏天空视频也已本地化（`resume-hero/sky.mp4`，1920×1080 H.264、无音轨、约 6.7MB），全站不再依赖 CloudFront / figma.site / higgs.ai 等外部图床与视频源；字体改用 Inter + 系统中文字体栈，Google Fonts 改为非阻塞加载，取不到也不拖慢首屏；视频以 `resume-hero/sky.webp` 作 poster，加载失败时不出黑帧；
 - 语音依赖 `speech/.venv-edge` 与出网访问上游语音服务，部署机上要单独跑一次 `speech/setup.ps1`。
 
 ## 项目文档

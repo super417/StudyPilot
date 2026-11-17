@@ -6,6 +6,8 @@ Upload your lecture notes and your goal. The application reads the material, dra
 
 The first public push of this repository was a bulk import; the commit history after it is the real development record.
 
+**Live demo**: <https://8.137.203.9> — Alibaba Cloud, 2 vCPU / 2 GB, Nginx same-origin reverse proxy, HTTPS via a Let's Encrypt IP-address certificate (~6-day lifetime, auto-renewed). Reviewer credentials and local steps are in [DEPLOY.md](DEPLOY.md).
+
 ---
 
 ## What it solves
@@ -371,14 +373,14 @@ Backend property tests (Hypothesis) run at least 100 iterations per property; th
 
 ## Deployment
 
-See [DEPLOY.md](DEPLOY.md) for the local path. A runnable public-deployment runbook (Alibaba Cloud Ubuntu 24.04, 2 vCPU / 2 GB, with Nginx, systemd, HTTPS and backup commands) lives in [deploy/README.md](deploy/README.md). Key points:
+See [DEPLOY.md](DEPLOY.md) for the local path. Live instance: <https://8.137.203.9>. A runnable public-deployment runbook (Alibaba Cloud Ubuntu 24.04, 2 vCPU / 2 GB, with Nginx, systemd, HTTPS and backup commands) lives in [deploy/README.md](deploy/README.md). Key points:
 
 - A **same-origin reverse proxy** is recommended (Nginx: `/` → `frontend/dist`, `/api` → backend) to avoid losing cookies across origins; `deploy/nginx-studypilot.conf` is a complete config you can adapt, and it disables `proxy_buffering` on `/api` so AI chat keeps streaming over SSE.
 - **Build the frontend locally** and upload only `frontend/dist`: `npx vite build`. A 2 GB server should not run the Node build.
 - Run the backend with **exactly one worker**: sessions live in-process and in `.sessions.json`, and SQLite does not tolerate concurrent writers (`deploy/studypilot.service` already enforces this).
 - Cross-origin setups additionally need CORS and `SameSite=None; Secure`.
 - `frontend/public/resume-site/` serves assets from the site root, so static hosting must route `/zh`, `/en`, `/app/*`, `/assets/*`, `/fonts/*`, `/landing/*` to `/resume-site/` (the dev/preview plugin in `vite.config.ts` handles it locally; the nginx form is in `deploy/nginx-studypilot.conf`).
-- Frontend images are localised as WebP with multi-size `srcSet`, so they no longer come from external hosts such as CloudFront / figma.site / higgs.ai; the font stack is Inter plus system CJK fallbacks, and Google Fonts now loads non-blocking so a slow or unreachable fetch cannot delay first paint. Only the hero sky video still streams from the upstream CDN, and it falls back to the local `resume-hero/sky.webp` poster.
+- Frontend images are localised as WebP with multi-size `srcSet`, and the hero sky video is localised too (`resume-hero/sky.mp4`, 1920×1080 H.264, no audio track, ~6.7 MB), so the app no longer depends on external image or video hosts such as CloudFront / figma.site / higgs.ai; the font stack is Inter plus system CJK fallbacks, and Google Fonts now loads non-blocking so a slow or unreachable fetch cannot delay first paint. The video uses `resume-hero/sky.webp` as its poster, so a load failure never shows a black frame.
 - Speech needs `speech/.venv-edge` plus outbound access to the upstream voice service — run `speech/setup.ps1` once on the deploy host.
 
 ## Documentation
