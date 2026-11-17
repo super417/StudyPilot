@@ -146,13 +146,24 @@ function StudyPilotPostcards({ overview, onAction, onRetry }: { overview: Postca
       });
     }, root);
     gsap.ticker.add(draw);
-    const refresh = () => { ScrollTrigger.refresh(); lenis?.resize(); };
+    // 三组明信片共 27 张图，懒加载的会在滚动过程中依次到位。以前每张 load 都
+    // 直接跑一次全量 ScrollTrigger.refresh()，27 次重算叠在一起就是几秒的卡顿。
+    // 合并成一次尾沿刷新：等这一批图都落定再算一遍。
+    let refreshTimer = 0;
+    const refresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        ScrollTrigger.refresh();
+        lenis?.resize();
+      }, 150);
+    };
     const images = [...root.querySelectorAll('img')];
     images.forEach((image) => image.addEventListener('load', refresh));
     void document.fonts.ready.then(() => { if (root.isConnected) refresh(); });
     refresh();
     return () => {
       window.removeEventListener(OVERVIEW_NAVIGATION_EVENT, openOverview);
+      window.clearTimeout(refreshTimer);
       images.forEach((image) => image.removeEventListener('load', refresh));
       gsap.ticker.remove(draw);
       root.style.removeProperty('--spp-card-sticky-top');
