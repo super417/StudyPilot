@@ -233,6 +233,7 @@ study-pilot/
 ├── data/                # 方向、岗位与课程库元数据（JSON）
 ├── scripts/             # 素材处理、端口清理与诊断脚本
 ├── start-all.bat        # 一键起前后端
+├── deploy/              # 公网部署物料（nginx 站点配置 / systemd 单元 / 上线手册）
 └── DEPLOY.md            # 部署与演示清单
 ```
 
@@ -354,7 +355,9 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 
 **后端基线不是全绿。** 2026-10-29 于 `d49fab3` + 未提交计费批次实测：**2 failed，其余通过**。那 2 条固定是 `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable` 的两个参数化用例，依赖真实 bilibili DNS，非回归。通过数随功能增长，以实跑为准，别抄旧数字。
 
-2026-10-30 交付阶段已修正上述 19 条测试夹具与契约类型错误，完整 `cd frontend` 后执行 `npm run build`（`tsc -b && vite build`）通过。没有排除测试、关闭类型检查或削弱断言；档案整体保存测试使用七字段严格比对，包含非空学校与专业。该结论是本机构建结果，不代表全部测试或其他机器均已验证。后端本轮 15 个受影响文件定向回归为 147 passed、2 subtests passed；未据此宣称后端全量全绿。
+2026-10-30 交付阶段已修正当时那 19 条测试夹具与契约类型错误。没有排除测试、关闭类型检查或削弱断言；档案整体保存测试使用七字段严格比对，包含非空学校与专业。后端该批 15 个受影响文件定向回归为 147 passed、2 subtests passed；未据此宣称后端全量全绿。
+
+**2026-11-17 实测：`npm run build` 当前不通过。** `tsc -b` 在 `src/lib/__tests__/integration.test.ts:155` 报 1 条类型错误——打卡改成任务级后 `createCheckIn` 要求 `taskId`，该测试夹具仍按旧签名调用。产品源码没有类型错误，单独执行 `npx vite build` 通过。这是既有的夹具漂移，尚未修。
 
 必须用 `backend/.venv` 的 Python：系统 Python 的 `bcrypt` 与 `passlib` 不兼容，会得到上百条假失败。
 
@@ -362,19 +365,22 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 
 ## 部署
 
-本次评委主路径为本地运行，见 [DEPLOY.md](DEPLOY.md)。公网部署保留为可选方案。要点：
+本次评委主路径为本地运行，见 [DEPLOY.md](DEPLOY.md)。公网部署另有一份可执行的上线手册（阿里云 Ubuntu 24.04 / 2 核 2G，含 Nginx、systemd、HTTPS 与备份命令），见 [deploy/README.md](deploy/README.md)。要点：
 
-- 推荐 **同域反向代理**（Nginx / Caddy：`/` → `frontend/dist`，`/api` → 后端），避免跨域丢 Cookie；
-- 构建前端 `npm run build`，产物在 `frontend/dist`；
+- 推荐 **同域反向代理**（Nginx：`/` → `frontend/dist`，`/api` → 后端），避免跨域丢 Cookie；`deploy/nginx-studypilot.conf` 是可直接改用的完整配置，其中对 `/api` 关闭 `proxy_buffering` 以保持 AI 对话的 SSE 流式输出；
+- **前端在本地构建**，只上传 `frontend/dist`：`npx vite build`。2G 内存的服务器不适合跑 Node 构建；
+- 后端固定 **单 worker**：会话存在进程内与 `.sessions.json`，SQLite 也不适合多进程并发写（`deploy/studypilot.service` 已按此写好）；
 - 若前后端不同域，需额外配置 CORS 与 `SameSite=None; Secure`；
-- `frontend/public/resume-site/` 的内嵌简历编辑器按站点根路径取资源，静态托管时要把 `/zh`、`/en`、`/app/*`、`/assets/*`、`/fonts/*`、`/landing/*` 反代到 `/resume-site/`（`vite.config.ts` 的开发 / 预览插件已处理，`DEPLOY.md` 给了 nginx 片段）；
+- `frontend/public/resume-site/` 的内嵌简历编辑器按站点根路径取资源，静态托管时要把 `/zh`、`/en`、`/app/*`、`/assets/*`、`/fonts/*`、`/landing/*` 反代到 `/resume-site/`（`vite.config.ts` 的开发 / 预览插件已处理，nginx 写法见 `deploy/nginx-studypilot.conf`）；
+- 前端图片素材已本地化为 WebP（含 `srcSet` 多尺寸），不再走 CloudFront / figma.site / higgs.ai 等外部图床；字体改用 Inter + 系统中文字体栈，Google Fonts 改为非阻塞加载，取不到也不拖慢首屏；仅首屏天空背景视频仍直取上游 CDN，加载失败时以本地 `resume-hero/sky.webp` 海报兜底；
 - 语音依赖 `speech/.venv-edge` 与出网访问上游语音服务，部署机上要单独跑一次 `speech/setup.ps1`。
 
 ## 项目文档
 
 - `.kiro/specs/study-pilot/` —— 需求、设计与任务分解（Kiro spec）
 - [docs/platform-billing.md](docs/platform-billing.md) —— 平台余额：目录配置、计费精度、预留与结算、支付验签与失败边界
-- [DEPLOY.md](DEPLOY.md) —— 本地联调、公网部署、竞赛演示主路径与手动验收清单
+- [DEPLOY.md](DEPLOY.md) —— 本地联调、竞赛演示主路径与手动验收清单
+- [deploy/README.md](deploy/README.md) —— 公网上线手册：服务器初始化、打包上传、迁移与备份、Nginx 与 HTTPS 续期
 
 ## 说明
 

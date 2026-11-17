@@ -233,6 +233,7 @@ study-pilot/
 ├── data/                # direction, job and course-library metadata (JSON)
 ├── scripts/             # asset processing, port cleanup, diagnostics
 ├── start-all.bat        # one-click launcher
+├── deploy/              # public-deployment assets (nginx site config / systemd unit / runbook)
 └── DEPLOY.md            # deployment and demo checklist
 ```
 
@@ -354,7 +355,9 @@ npm run build         # tsc -b && vite build (type checking only runs here)
 
 **The backend baseline is not green.** Measured on 2026-10-29 at `d49fab3` plus the uncommitted billing batch: **2 failed, everything else passing**. Those 2 are the two parametrised cases in `tests/test_video_link.py::test_bilibili_metadata_can_be_read_when_local_dns_is_unavailable`, which need real Bilibili DNS — not regressions. The passed count grows with each batch; run it, don't copy old numbers.
 
-The 2026-10-30 delivery batch fixed those 19 test-fixture and contract type errors, so the full `npm run build` (`tsc -b && vite build`) now runs. This sync round independently re-ran `npx tsc -b` in `frontend` and it exited 0; the build itself is recorded as passing in that batch's report, not re-timed here. No test was excluded, no type check disabled and no assertion weakened; the archive round-trip test compares seven fields strictly, including non-empty school and major. The backend result for that batch was 147 passed / 2 subtests across 15 affected files — not a claim that the whole backend is green.
+The 2026-10-30 delivery batch fixed the 19 test-fixture and contract type errors that existed then. No test was excluded, no type check disabled and no assertion weakened; the archive round-trip test compares seven fields strictly, including non-empty school and major. The backend result for that batch was 147 passed / 2 subtests across 15 affected files — not a claim that the whole backend is green.
+
+**Measured on 2026-11-17: `npm run build` does not currently pass.** `tsc -b` reports one type error at `src/lib/__tests__/integration.test.ts:155` — since check-ins became task-scoped, `createCheckIn` requires a `taskId`, and that fixture still calls the old signature. Product source has no type errors and `npx vite build` alone succeeds. This is pre-existing fixture drift, not yet fixed.
 
 Always use `backend/.venv`'s Python: the system Python has an incompatible `bcrypt` / `passlib` pair and produces hundreds of phantom failures.
 
@@ -362,19 +365,22 @@ Backend property tests (Hypothesis) run at least 100 iterations per property; th
 
 ## Deployment
 
-See [DEPLOY.md](DEPLOY.md). Key points:
+See [DEPLOY.md](DEPLOY.md) for the local path. A runnable public-deployment runbook (Alibaba Cloud Ubuntu 24.04, 2 vCPU / 2 GB, with Nginx, systemd, HTTPS and backup commands) lives in [deploy/README.md](deploy/README.md). Key points:
 
-- A **same-origin reverse proxy** is recommended (Nginx / Caddy: `/` → `frontend/dist`, `/api` → backend) to avoid losing cookies across origins.
-- Build with `npm run build`; output lands in `frontend/dist`.
+- A **same-origin reverse proxy** is recommended (Nginx: `/` → `frontend/dist`, `/api` → backend) to avoid losing cookies across origins; `deploy/nginx-studypilot.conf` is a complete config you can adapt, and it disables `proxy_buffering` on `/api` so AI chat keeps streaming over SSE.
+- **Build the frontend locally** and upload only `frontend/dist`: `npx vite build`. A 2 GB server should not run the Node build.
+- Run the backend with **exactly one worker**: sessions live in-process and in `.sessions.json`, and SQLite does not tolerate concurrent writers (`deploy/studypilot.service` already enforces this).
 - Cross-origin setups additionally need CORS and `SameSite=None; Secure`.
-- `frontend/public/resume-site/` serves assets from the site root, so static hosting must route `/zh`, `/en`, `/app/*`, `/assets/*`, `/fonts/*`, `/landing/*` to `/resume-site/` (the dev/preview plugin in `vite.config.ts` handles it locally; `DEPLOY.md` has an nginx snippet).
+- `frontend/public/resume-site/` serves assets from the site root, so static hosting must route `/zh`, `/en`, `/app/*`, `/assets/*`, `/fonts/*`, `/landing/*` to `/resume-site/` (the dev/preview plugin in `vite.config.ts` handles it locally; the nginx form is in `deploy/nginx-studypilot.conf`).
+- Frontend images are localised as WebP with multi-size `srcSet`, so they no longer come from external hosts such as CloudFront / figma.site / higgs.ai; the font stack is Inter plus system CJK fallbacks, and Google Fonts now loads non-blocking so a slow or unreachable fetch cannot delay first paint. Only the hero sky video still streams from the upstream CDN, and it falls back to the local `resume-hero/sky.webp` poster.
 - Speech needs `speech/.venv-edge` plus outbound access to the upstream voice service — run `speech/setup.ps1` once on the deploy host.
 
 ## Documentation
 
 - `.kiro/specs/study-pilot/` — requirements, design and task breakdown (Kiro spec)
 - [docs/platform-billing.md](docs/platform-billing.md) — platform balance: catalog config, billing precision, reservation and settlement, payment signature checks and failure boundaries
-- [DEPLOY.md](DEPLOY.md) — local setup, public deployment, demo path and manual acceptance checklist
+- [DEPLOY.md](DEPLOY.md) — local setup, demo path and manual acceptance checklist
+- [deploy/README.md](deploy/README.md) — public-deployment runbook: server bootstrap, packaging and upload, migration and backup, Nginx and HTTPS renewal
 
 ## Note
 
