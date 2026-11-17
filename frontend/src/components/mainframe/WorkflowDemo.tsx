@@ -1,5 +1,5 @@
 /**
- * 「看看它怎么工作」的演示面板 —— Agent 工作流的过程态。
+ * 「看看它怎么工作」的演示面板 —— 四步学习流程的过程态。
  *
  * 演示目标：让评委看到一次学习复盘是**怎么被生成出来的**，而不是只看到一个结果。
  * 所以这里刻意展示中间过程：检索了什么、调用了哪个工具、入参出参是什么。
@@ -152,7 +152,7 @@ function WorkflowDemo({ snapshot, citations, onClose }: WorkflowDemoProps) {
                 aria-hidden="true"
               />
               <span className="text-[11px] tracking-[0.16em] text-white/50">
-                AGENT 工作流
+                四步学习流程
               </span>
             </div>
             <h2 className="mt-2 text-[19px] font-medium leading-snug text-white">
