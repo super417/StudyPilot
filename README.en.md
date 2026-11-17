@@ -390,6 +390,18 @@ See [DEPLOY.md](DEPLOY.md) for the local path. Live instance: <https://8.137.203
 - [DEPLOY.md](DEPLOY.md) — local setup, demo path and manual acceptance checklist
 - [deploy/README.md](deploy/README.md) — public-deployment runbook: server bootstrap, packaging and upload, migration and backup, Nginx and HTTPS renewal
 
+## Team
+
+| Item | Detail |
+|---|---|
+| Participant | Yang Lu (杨璐) |
+| Team size | Solo developer (1 person) |
+| Roles | Requirements analysis, product design, full-stack implementation, testing and deployment |
+| AI collaboration | Implemented with AI assistants (WorkBuddy / Cursor / Codex); requirement breakdown, trade-offs and code acceptance were done by the author |
+| Contact | GitHub [@super417](https://github.com/super417) |
+
+> School, major and supervisor are provided in the registration system and on the technical document cover. They are intentionally omitted here to avoid exposing personal information in a public repository.
+
 ## Note
 
 Course project / competition entry. For study and research use only.

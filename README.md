@@ -390,6 +390,18 @@ npm run build         # tsc -b && vite build（类型检查只在 build 阶段�
 - [DEPLOY.md](DEPLOY.md) —— 本地联调、竞赛演示主路径与手动验收清单
 - [deploy/README.md](deploy/README.md) —— 公网上线手册：服务器初始化、打包上传、迁移与备份、Nginx 与 HTTPS 续期
 
+## 团队信息
+
+| 项 | 内容 |
+|---|---|
+| 参赛者 | 杨璐 |
+| 团队规模 | 个人独立开发（1 人） |
+| 承担角色 | 需求分析、产品设计、前后端实现、测试与部署 |
+| AI 协作方式 | 使用 WorkBuddy / Cursor / Codex 辅助实现；需求拆解、方案取舍与代码验收由本人完成 |
+| 联系方式 | GitHub [@super417](https://github.com/super417) |
+
+> 学校 / 单位、专业年级与指导教师按赛事要求在报名系统与技术文档封面填写；为避免个人信息随 Public 仓库长期公开，此处不列出。
+
 ## 说明
 
 本项目为课程设计 / 竞赛作品，仅供学习与研究使用。
