@@ -61,7 +61,9 @@ def test_credit_migration_roundtrip_preserves_currency(tmp_path):
     engine=create_engine(url)
     before=set(inspect(engine).get_table_names())
     migrate('upgrade','head')
-    assert set(inspect(engine).get_table_names())==before|{'credit_lots','credit_calls','credit_ledger'}
+    after=set(inspect(engine).get_table_names())
+    assert {'credit_lots','credit_calls','credit_ledger'} <= after
+    assert before <= after
     migrate('downgrade','b2f9e8d7c6a5')
     assert set(inspect(engine).get_table_names())==before
     migrate('upgrade','head')

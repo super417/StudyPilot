@@ -19,6 +19,28 @@ def configured(db, monkeypatch):
     return session, user
 
 
+@pytest.fixture
+def log_records():
+    """Capture this module's logger directly, independent of global caplog state."""
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    previous_level = service.logger.level
+    previous_disabled = service.logger.disabled
+    previous_disable = logging.root.manager.disable
+    service.logger.addHandler(handler)
+    service.logger.setLevel(logging.DEBUG)
+    service.logger.disabled = False
+    logging.disable(logging.NOTSET)
+    try:
+        yield records
+    finally:
+        logging.disable(previous_disable)
+        service.logger.setLevel(previous_level)
+        service.logger.disabled = previous_disabled
+        service.logger.removeHandler(handler)
+
+
 @pytest.mark.parametrize('paid', [False, True])
 @pytest.mark.parametrize('failure,expected', [
     (401, '密钥或访问权限异常'), (403, '密钥或访问权限异常'),
@@ -26,7 +48,7 @@ def configured(db, monkeypatch):
     (503, '服务暂时异常'), ('timeout', '响应超时'),
     ('connect', '检查服务器网络'), ('invalid_json', '响应异常'),
 ])
-def test_failure_is_safe_and_releases_reservation(configured, caplog, paid, failure, expected):
+def test_failure_is_safe_and_releases_reservation(configured, log_records, paid, failure, expected):
     session, user = configured
     if paid:
         service.grant_test_qihang(session, user.id)
@@ -41,21 +63,21 @@ def test_failure_is_safe_and_releases_reservation(configured, caplog, paid, fail
             return httpx.Response(200, text=secret)
         return httpx.Response(failure, json={'error': {'message': secret}})
 
-    with caplog.at_level(logging.ERROR, logger=service.__name__):
-        with pytest.raises(service.BillingError) as raised:
-            asyncio.run(service.complete(session, user.id,
-                {'messages': [{'role': 'user', 'content': secret}]},
-                request_id='diagnostic-test-call', transport=httpx.MockTransport(handler), allow_free_chat=True))
+    with pytest.raises(service.BillingError) as raised:
+        asyncio.run(service.complete(session, user.id,
+            {'messages': [{'role': 'user', 'content': secret}]},
+            request_id='diagnostic-test-call', transport=httpx.MockTransport(handler), allow_free_chat=True))
+    log_text = '\n'.join(record.getMessage() for record in log_records)
     assert raised.value.code == 'PLATFORM_AI_FAILED'
     assert expected in str(raised.value) and '预留积分已释放' in str(raised.value)
-    assert secret not in caplog.text and 'secret-api-key' not in caplog.text
+    assert secret not in log_text and 'secret-api-key' not in log_text
     assert secret not in str(raised.value)
-    assert 'call_id=diagnostic-test-call' in caplog.text
-    assert 'model=deepseek-flash' in caplog.text and 'elapsed_seconds=' in caplog.text
+    assert 'call_id=diagnostic-test-call' in log_text
+    assert 'model=deepseek-flash' in log_text and 'elapsed_seconds=' in log_text
     if isinstance(failure, int):
-        assert f'http_status={failure}' in caplog.text
+        assert f'http_status={failure}' in log_text
     else:
-        assert f'error_type={ {"timeout": "ReadTimeout", "connect": "ConnectError", "invalid_json": "JSONDecodeError"}[failure]}' in caplog.text
+        assert f'error_type={ {"timeout": "ReadTimeout", "connect": "ConnectError", "invalid_json": "JSONDecodeError"}[failure]}' in log_text
     session.expire_all()
     call = session.get(CreditCall, 'diagnostic-test-call')
     assert call.state == 'released' and call.charged == 0
@@ -65,23 +87,22 @@ def test_failure_is_safe_and_releases_reservation(configured, caplog, paid, fail
         assert session.scalar(select(func.sum(CreditLot.remaining)).where(CreditLot.kind != 'free_chat')) == 4000 * service.MICRO
 
 
-def test_cancelled_call_releases_without_failure_log(configured, caplog):
+def test_cancelled_call_releases_without_failure_log(configured, log_records):
     session, user = configured
 
     def handler(request):
         raise asyncio.CancelledError()
 
-    with caplog.at_level(logging.ERROR, logger=service.__name__):
-        with pytest.raises(asyncio.CancelledError):
-            asyncio.run(service.complete(session, user.id, {'messages': []}, request_id='cancelled',
-                transport=httpx.MockTransport(handler), allow_free_chat=True))
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(service.complete(session, user.id, {'messages': []}, request_id='cancelled',
+            transport=httpx.MockTransport(handler), allow_free_chat=True))
     session.expire_all()
     assert session.get(CreditCall, 'cancelled').state == 'released'
     assert session.scalar(select(func.sum(CreditLot.reserved))) == 0
-    assert not caplog.records
+    assert not log_records
 
 
-def test_success_keeps_usage_settlement(configured, caplog):
+def test_success_keeps_usage_settlement(configured, log_records):
     session, user = configured
     service.grant_test_qihang(session, user.id)
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json={
@@ -94,4 +115,4 @@ def test_success_keeps_usage_settlement(configured, caplog):
     call = session.get(CreditCall, 'success')
     assert call.state == 'charged' and call.charged == 480
     assert session.scalar(select(func.sum(CreditLot.reserved))) == 0
-    assert not caplog.records
+    assert not log_records

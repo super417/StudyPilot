@@ -221,6 +221,9 @@ class StudyPropertyTests(unittest.TestCase):
         truncated, or defaulted.
         """
         self._reset_user_data()
+        plan = self._seed_plan()
+        phase = self._seed_phase(plan, phase_index=1)
+        task = self._seed_task(plan, phase)
 
         created = checkin_service.create_check_in(
             self.session,
@@ -230,6 +233,7 @@ class StudyPropertyTests(unittest.TestCase):
             payload["difficulty"],
             payload["energy"],
             payload["note"],
+            task.id,
         )
 
         self.session.expire_all()
@@ -295,25 +299,14 @@ class StudyPropertyTests(unittest.TestCase):
         """
         streak = metrics_service.compute_streak(dates, today)
 
-        if not dates:
+        if today not in dates:
+            # The streak is anchored on today: no check-in today means zero,
+            # even when earlier days form a run.
             self.assertEqual(streak, 0)
             return
 
-        past = {d for d in dates if d <= today}
-        if not past:
-            # Every check-in is in the future: nothing to walk back from.
-            self.assertEqual(streak, 0)
-            return
-
-        # Only days on or before ``today`` may contribute, and if today itself
-        # is not a check-in day the window must end at the latest past day.
-        self.assertLessEqual(streak, len(past))
-        expected_start = today if today in dates else max(past)
-
-        # Property: streak == the number of consecutive days ending at
-        # expected_start; the day before that window is NOT checked in.
         expected = 0
-        cursor = expected_start
+        cursor = today
         while cursor in dates:
             expected += 1
             cursor -= timedelta(days=1)
@@ -358,9 +351,13 @@ class StudyPropertyTests(unittest.TestCase):
                 plan, phase_index=index + 1, completed=index < completed
             )
 
+        # Check-in tasks go on an extra, deliberately incomplete phase, so they
+        # never turn one of the phases under test into a completed one.
+        checkin_phase = self._seed_phase(plan, phase_index=phase_count + 1)
         for duration in durations:
+            task = self._seed_task(plan, checkin_phase)
             checkin_service.create_check_in(
-                self.session, self.user.id, today, duration, 3, 3
+                self.session, self.user.id, today, duration, 3, 3, task_id=task.id
             )
 
         metrics = metrics_service.compute_overview(self.session, self.user.id, today)
@@ -440,19 +437,22 @@ class StudyPropertyTests(unittest.TestCase):
         """
         self._reset_user_data()
 
-        if has_task:
+        # A check-in now always belongs to a task; a check-in without a task is
+        # no longer a reachable product state.
+        db_has_task = has_task or has_checkin
+        if db_has_task:
             plan = self._seed_plan(phase_count=2)
             phase = self._seed_phase(plan, phase_index=1)
-            self._seed_task(plan, phase)
+            task = self._seed_task(plan, phase)
 
         if has_checkin:
             checkin_service.create_check_in(
-                self.session, self.user.id, _TODAY, 45, 3, 3
+                self.session, self.user.id, _TODAY, 45, 3, 3, task_id=task.id
             )
 
         # The pure classifier and the DB-backed path must agree.
         self.assertEqual(
-            metrics_service.classify_today(has_task, has_checkin),
+            metrics_service.classify_today(db_has_task, has_checkin),
             metrics_service.compute_overview(
                 self.session, self.user.id, _TODAY
             ).today_status,
@@ -460,10 +460,9 @@ class StudyPropertyTests(unittest.TestCase):
 
         expected = {
             (False, False): metrics_service.TODAY_STATUS_NO_TASK,
-            (False, True): metrics_service.TODAY_STATUS_NO_TASK,
-            (True, False): metrics_service.TODAY_STATUS_SCHEDULED,
             (True, True): metrics_service.TODAY_STATUS_COMPLETED,
-        }[(has_task, has_checkin)]
+            (True, False): metrics_service.TODAY_STATUS_SCHEDULED,
+        }[(db_has_task, has_checkin)]
         self.assertEqual(
             metrics_service.compute_overview(
                 self.session, self.user.id, _TODAY

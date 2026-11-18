@@ -33,6 +33,6 @@ describe('Roadmap adjustment refresh wiring', () => {
     );
     expect(source).toContain('resolvePlanTargetId');
     expect(source).toContain('targetPlanId');
-    expect(source).toContain('streamPlanRegenerate(\n              targetPlanId');
+    expect(source).toMatch(/streamPlanRegenerate\(\s*targetPlanId/);
   });
 });

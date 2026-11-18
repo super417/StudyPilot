@@ -6,6 +6,8 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session
 
@@ -14,7 +16,15 @@ from app.models.billing import BillingAccount, BillingLedger, PaymentOrder
 from app.routers.billing import read_account
 
 
-HEAD = "c3a1b2c3d4e5"
+def _current_head() -> str:
+    """Read the Alembic head instead of pinning a revision that later migrates past."""
+    backend = Path(__file__).resolve().parents[1]
+    config = Config(str(backend / "alembic.ini"))
+    config.set_main_option("script_location", str(backend / "alembic"))
+    return ScriptDirectory.from_config(config).get_current_head()
+
+
+HEAD = _current_head()
 
 
 def migration_runner(tmp_path, name):

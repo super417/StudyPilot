@@ -153,6 +153,7 @@ describe('Feature: study-pilot — frontend integration (task 22.4)', () => {
     expect(before.todayStatus).toBe('未反馈');
 
     await createCheckIn({
+      taskId: 'task-1',
       checkDate: '2026-10-01',
       durationMinutes: 90,
       difficulty: 3,

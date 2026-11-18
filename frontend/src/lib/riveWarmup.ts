@@ -23,6 +23,6 @@ export function warmRiveAssets(): void {
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(run, { timeout: 2500 });
   } else {
-    window.setTimeout(run, 1200);
+    setTimeout(run, 1200);
   }
 }

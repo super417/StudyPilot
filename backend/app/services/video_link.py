@@ -371,8 +371,18 @@ def part_url(bvid: str, page: int) -> str:
     return f"https://www.bilibili.com/video/{bvid}?p={page}"
 
 
-def public_http_url(value: str) -> str | None:
-    """http(s) URL whose host does not resolve to a local or private address."""
+def _official_bilibili(host: str) -> bool:
+    """True only for bilibili.com itself or a real subdomain, not evilbilibili.com."""
+    return host == "bilibili.com" or host.endswith(".bilibili.com")
+
+
+def public_http_url(value: str, *, allow_unresolved: bool = False) -> str | None:
+    """http(s) URL whose host does not resolve to a local or private address.
+
+    ``allow_unresolved`` is for a fixed, code-owned destination such as the
+    Bilibili view API: a local DNS failure must not disable that route, and the
+    caller never lets the user choose the host.
+    """
     text = (value or "").strip()
     if not text or len(text) > 500 or any(char.isspace() for char in text):
         return None
@@ -386,7 +396,7 @@ def public_http_url(value: str) -> str | None:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror as error:
         _logger.warning("Study link DNS lookup failed: host=%s error=%s", host, error)
-        return None
+        return text if allow_unresolved else None
     for info in infos:
         try:
             ip = ipaddress.ip_address(info[4][0])
@@ -522,16 +532,19 @@ def material_from_html(url: str, html: str) -> dict:
 
 
 async def fetch_link(url: str) -> dict | None:
-    safe = public_http_url(url)
+    bvid = extract_bvid(url)
+    host = (urlsplit(url).hostname or "").lower()
+    official = bvid is not None and _official_bilibili(host)
+    # The fixed view API is code-owned, so local DNS failure must not reject it.
+    safe = public_http_url(url, allow_unresolved=official)
     if not safe:
         return None
-    bvid = extract_bvid(safe)
     host = (urlsplit(safe).hostname or "").lower()
     referer = safe if safe.isascii() else "https://www.bilibili.com/"
     headers = {"User-Agent": "StudyPilot", "Referer": referer}
     try:
         async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
-            if bvid and host.endswith("bilibili.com"):
+            if bvid and _official_bilibili(host):
                 response = await client.get(_VIEW.format(bvid=bvid), headers=headers)
                 if response.status_code >= 400:
                     _logger.warning(
